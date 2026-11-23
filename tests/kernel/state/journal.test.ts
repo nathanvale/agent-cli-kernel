@@ -21,6 +21,7 @@ import {
   at,
   caseTest,
   closeArgs,
+  completionAppendFault,
   eventsPath,
   expectCompleted,
   expectRefusedUnchanged,
@@ -206,6 +207,37 @@ supportingTest(
   }),
   90_000,
   true,
+);
+
+supportingTest(
+  "J02.b supporting: a completion record whose flush fails is reported unknown, never completed, though the record landed and pending is empty",
+  plain(async (world) => {
+    const run = await world.run(
+      apply("a"),
+      completionAppendFault("completion-flush-fails"),
+    );
+    expect(run.stderr).toBe("");
+    expect(run.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");
+    expect(run.result.outcome).toBe("failed");
+    expect(run.result.transactionState).toBe("unknown");
+    expect(run.result.retryable).toBe(false);
+    expect(at(run.result.raw, "effects")).toEqual({
+      completed: ["note.write"],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: false,
+    });
+    const [operation, ...rest] = world.operations();
+    if (!operation) throw new Error("No operation.");
+    expect(rest).toEqual([]);
+    expect(eventKinds(world, operation.id)).toEqual([
+      "effect-started",
+      "effect-confirmed",
+      "completion",
+    ]);
+    expect(await world.pendingIds()).toEqual([]);
+    await expectHistory(world, operation.id, "completed");
+  }),
 );
 
 supportingTest(

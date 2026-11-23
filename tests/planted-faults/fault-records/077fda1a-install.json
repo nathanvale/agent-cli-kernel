@@ -1,0 +1,7 @@
+{
+  "id": "077fda1a-install",
+  "patch": "tests/planted-faults/patches/077fda1a-install.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^(J02\\.b|T02\\.a) supporting: a (completion|not-applied) record",
+  "source": "077fda1a fix(state): never report a settled run when its settling record failed"
+}
