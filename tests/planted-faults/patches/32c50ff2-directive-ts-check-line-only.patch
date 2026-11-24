@@ -1,0 +1,12 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -22,7 +22,7 @@ const fallowDirective = new RegExp(
+ function isDirectiveComment(comment) {
+   if (lineBreak.test(comment.value)) return false;
+   const text = comment.value.trim();
+-  if (comment.type === "Line" && tsLineOnlyDirective.test(text)) return true;
++  if (tsLineOnlyDirective.test(text)) return true;
+   if (
+     tsCommentDirective.test(text) ||
+     biomeDirective.test(text) ||

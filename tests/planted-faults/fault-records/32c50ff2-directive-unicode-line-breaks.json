@@ -1,0 +1,7 @@
+{
+  "id": "32c50ff2-directive-unicode-line-breaks",
+  "patch": "tests/planted-faults/patches/32c50ff2-directive-unicode-line-breaks.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^no-comments refuses directive-lookalike prose and trailing lines in template files",
+  "source": "32c50ff2 fix(lint): admit each tool's directive only in the exact syntax that tool reads"
+}
