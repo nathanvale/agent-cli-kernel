@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+index d255bc5d..2831e9fb 100644
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -126,7 +126,7 @@ function readSuppressions(text: string) {
+       const n = new Map(
+         plainObjectEntries(entry, `${suppressionsFile}: ${file} ${rule}`),
+       ).get("count");
+-      if (typeof n !== "number" || !Number.isInteger(n) || n < 0)
++      if (typeof n !== "number")
+         throw new Error(
+           `${suppressionsFile}: ${file} ${rule} needs a non-negative integer count.`,
+         );

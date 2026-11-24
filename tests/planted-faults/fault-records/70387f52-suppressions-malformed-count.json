@@ -1,0 +1,7 @@
+{
+  "id": "70387f52-suppressions-malformed-count",
+  "patch": "tests/planted-faults/patches/70387f52-suppressions-malformed-count.patch",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
+  "title": "^--against exits 2 on a malformed eslint-suppressions\\.json$",
+  "source": "70387f52 fix(names-check): admit suppression growth only for a repository rule the base does not define"
+}

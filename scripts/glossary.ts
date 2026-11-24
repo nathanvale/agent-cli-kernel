@@ -349,6 +349,22 @@ export function textAt(root: string, revision: string, path: string): string {
   return shown.stdout.toString();
 }
 
+export function optionalTextAt(root: string, revision: string, path: string) {
+  const listed = git(root, [
+    "ls-tree",
+    "-z",
+    "--name-only",
+    revision,
+    "--",
+    path,
+  ]);
+  if (listed.exitCode !== 0)
+    throw new Error(`git ls-tree failed: ${listed.stderr.toString().trim()}`);
+  return listed.stdout.toString() === ""
+    ? undefined
+    : textAt(root, revision, path);
+}
+
 export function namesOnPaths(paths: readonly string[]): string[] {
   const names = new Set<string>();
   for (const path of paths) {

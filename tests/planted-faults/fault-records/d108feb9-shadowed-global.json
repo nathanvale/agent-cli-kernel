@@ -1,0 +1,7 @@
+{
+  "id": "d108feb9-shadowed-global",
+  "patch": "tests/planted-faults/patches/d108feb9-shadowed-global.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^state-no-fs-import shadowed global ",
+  "source": "d108feb9 fix(lint): close the round 2 gaps in the state add-on Bun reach rule"
+}

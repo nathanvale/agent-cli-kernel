@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+index d255bc5d..babcb766 100644
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -233,7 +233,7 @@ async function isNewRule(
+   read: (path: string) => string,
+   rule: string,
+ ) {
+-  if (!rule.startsWith(repositoryRulePrefix)) return false;
++  if (!rule.startsWith(repositoryRulePrefix)) return true;
+   const { default: parser } = await import("typescript");
+   const name = rule.slice(repositoryRulePrefix.length);
+   const before = definedRules(parser, (f) => optionalTextAt(root, base, f));

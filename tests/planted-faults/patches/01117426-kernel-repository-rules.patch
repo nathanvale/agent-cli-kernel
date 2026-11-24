@@ -1,0 +1,13 @@
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
+index 58d1d369..eeb77343 100644
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
+@@ -258,7 +258,7 @@ export default {
+         };
+         const checkGlobal = (node, name) => {
+           const member = staticMemberName(node);
+-          if (name === "Bun") {
++          if (name === "") {
+             if (member === undefined) report(node, "dynamicBunReach");
+             else if (!allowedBunMembers.has(member))
+               report(node.parent, "bunReach", member);
