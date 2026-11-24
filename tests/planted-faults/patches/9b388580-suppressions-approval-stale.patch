@@ -1,0 +1,15 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -151,10 +151,7 @@ function suppressionGrowthProblems(
+       const beforeEntry = before.byFile.get(file)?.get(rule);
+       const beforeCount = beforeEntry?.count ?? 0;
+       if (afterCount <= beforeCount) return [];
+-      if (
+-        afterEntry?.approved !== undefined &&
+-        afterEntry.approved !== beforeEntry?.approved
+-      )
++      if (afterEntry?.approved !== undefined)
+         return [];
+       return [
+         `${suppressionsFile} records ${afterCount} ${afterCount === 1 ? "hit" : "hits"} for ${file} ${rule}, more than ${revision} records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.`,

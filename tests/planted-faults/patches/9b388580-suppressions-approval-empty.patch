@@ -1,0 +1,14 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -57,9 +57,7 @@ function identityOf(
+ 
+ function approvalOf(own: ReadonlyMap<string, unknown>): string | undefined {
+   const approved = own.get("approved");
+-  return typeof approved === "string" && approved.trim() !== ""
+-    ? approved.trim()
+-    : undefined;
++  return typeof approved === "string" ? approved : undefined;
+ }
+ 
+ function plainObjectEntries(

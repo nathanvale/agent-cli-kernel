@@ -1,0 +1,7 @@
+{
+  "id": "9b388580-optional-text-at-ls-tree-failed",
+  "patch": "tests/planted-faults/patches/9b388580-optional-text-at-ls-tree-failed.patch",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
+  "title": "^optionalTextAt refuses when git ls-tree fails$",
+  "source": "9b388580 fix(names-check): admit suppression growth only with a reviewed approval, never by guessing a rule is new"
+}
