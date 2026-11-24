@@ -1,0 +1,14 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+index 0e5574e8..0efab804 100644
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -157,8 +157,8 @@ function rulesObjectOf(ts: TypeScript, source: ts.SourceFile) {
+     const name = keyOf(ts, prop.name);
+     if (name === undefined) return undefined;
+     if (name !== "rules") continue;
++    if (rules !== undefined) continue;
+     if (
+-      rules !== undefined ||
+       !ts.isPropertyAssignment(prop) ||
+       !ts.isObjectLiteralExpression(prop.initializer)
+     )

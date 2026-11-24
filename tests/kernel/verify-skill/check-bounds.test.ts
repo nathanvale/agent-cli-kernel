@@ -23,6 +23,12 @@ import {
 
 afterAll(releaseWorlds);
 
+// Platform: a pipe holds 65,536 bytes on macOS and on Linux (pipe(7)), so a
+// check that exits before its write drains leaves at most this much behind.
+const pipeCapacity = 65_536;
+const readAfterCheckWaitsOrExits =
+  'mkfifo "$4" && "$0" --preload "$3" "$1" findings "$2" --json 3>"$4" | { read -r _ <"$4"; cat; }';
+
 describe("the check's own bounds", () => {
   test(
     "an envelope over 64 KiB reaches a slow reader whole",
@@ -32,14 +38,21 @@ describe("the check's own bounds", () => {
         [
           "sh",
           "-c",
-          '"$0" "$1" findings "$2" --json | (sleep 0.5; cat)',
+          readAfterCheckWaitsOrExits,
           process.execPath,
           checkEntry,
           fixture(at, "loud-cli.ts"),
+          fixture(at, "stdout-wait-preload.ts"),
+          join(at.folder, "check-waiting"),
         ],
-        { cwd: at.repo, env: at.env, boundMilliseconds: checkBound },
+        {
+          cwd: at.repo,
+          env: at.env,
+          boundMilliseconds: checkBound,
+          processGroup: true,
+        },
       );
-      expect(ran.stdout.length).toBeGreaterThan(65_536);
+      expect(ran.stdout.length).toBeGreaterThan(pipeCapacity);
       const findings = field(parsed(ran.stdout), "result", "data", "findings");
       expect(Array.isArray(findings) ? findings.length : 0).toBeGreaterThan(0);
     },

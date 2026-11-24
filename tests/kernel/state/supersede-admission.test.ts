@@ -1,4 +1,4 @@
-import { afterEach, expect } from "bun:test";
+import { afterEach, expect, jest } from "bun:test";
 import {
   chmodSync,
   existsSync,
@@ -53,7 +53,7 @@ import {
 import { testFolder } from "../../support/test-folder.ts";
 import { supportingTest } from "./harness.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
-import { deferred } from "../lifecycle/recording-host.ts";
+import { deferred, turns } from "../lifecycle/recording-host.ts";
 
 const causes = {
   DOMAIN_SU_LOCK_HELD: refusedHandoff,
@@ -1667,6 +1667,37 @@ async function assertCleanRecovery(
   expect(retry.state.report()).toEqual({ ok: true, unfinished: [] });
 }
 
+async function answerAtStop<T>(
+  start: () => Promise<T>,
+  parked: Promise<void>,
+  label: string,
+): Promise<T> {
+  const turnBound = 1_000;
+  jest.useFakeTimers();
+  try {
+    const pending = start();
+    const outcome = { answered: false };
+    const answered = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    void answered.then(() => {
+      outcome.answered = true;
+    });
+    await Promise.race([parked, answered]);
+    for (let turn = 0; !outcome.answered && turn < turnBound; turn += 1) {
+      await turns(1);
+      if (!outcome.answered && jest.getTimerCount() > 0)
+        jest.advanceTimersToNextTimer();
+    }
+    if (!outcome.answered)
+      throw new Error(`${label} did not answer in ${turnBound} turns.`);
+    return await pending;
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
 async function runOneDeadlineStop(
   base: Extract<CoordinationRoute, { readonly available: true }>,
   stop: AdmissionStop,
@@ -1674,8 +1705,13 @@ async function runOneDeadlineStop(
   const root = stateRoot();
   const seeded = await seedTwoUnresolved(root);
   const counter = countingRoute(base);
+  const parked = deferred();
   const gate = deferred();
   const settled = deferred();
+  const park = () => {
+    parked.resolve();
+    return gate.promise;
+  };
   let seen = 0;
   const state = stateAddonWithTestSeams(
     { root, report: "su.pending" },
@@ -1684,7 +1720,7 @@ async function runOneDeadlineStop(
       phase: async (name) => {
         if (stop.kind === "phase" && name === stop.phase) {
           seen += 1;
-          if (seen === stop.nth) await gate.promise;
+          if (seen === stop.nth) await park();
         }
       },
     },
@@ -1694,7 +1730,7 @@ async function runOneDeadlineStop(
       boundary,
       seeded.scopeBoth,
       async () => {
-        if (stop.kind === "approval") await gate.promise;
+        if (stop.kind === "approval") await park();
       },
     );
     return state
@@ -1710,9 +1746,14 @@ async function runOneDeadlineStop(
   });
   let ran: Awaited<ReturnType<ReturnType<typeof runInProcess>>>;
   try {
-    ran = await runInProcess(contract, {
-      emergencyRecord: state.emergencyRecord,
-    })(["open", "--deadline-ms", "20"]);
+    ran = await answerAtStop(
+      () =>
+        runInProcess(contract, {
+          emergencyRecord: state.emergencyRecord,
+        })(["open", "--deadline-ms", "20"]),
+      parked.promise,
+      stop.label,
+    );
     if (ran.kind !== "envelope")
       throw new Error(`Expected envelope for ${stop.label}, got ${ran.kind}.`);
     const reported = ran.envelope.result.superseded ?? [];
@@ -1802,9 +1843,8 @@ supportingTest(
   async () => {
     const base = resolveCoordination();
     if (!base.available) throw new Error("Coordination expected.");
-    await Promise.all(
-      deadlineAdmissionStops.map((stop) => runOneDeadlineStop(base, stop)),
-    );
+    for (const stop of deadlineAdmissionStops)
+      await runOneDeadlineStop(base, stop);
     await runEarlyReturnCase(base);
   },
   30_000,

@@ -43,17 +43,25 @@ function placementProblems(tree: string, names: readonly string[]): string[] {
   if (!existsSync(join(tree, "repository.json"))) return [];
   const { testAreas } = readRepository(tree);
   const places = testFilePlaces(testAreas).join(", ");
-  return names
-    .filter(
-      (name) =>
-        name.startsWith("tests/") &&
-        name.endsWith(".test.ts") &&
-        !testAreas.some((area) => holdsTestFile(area, name)),
-    )
-    .map(
-      (name) =>
+  const bunTestFile = /[._](?:test|spec)\.(?:[jt]sx?|[cm][jt]s)$/i;
+  const namedTestTs = /(?:^|\/)[^/.][^/]*\.test\.ts$/;
+  return names.flatMap((name) => {
+    if (!bunTestFile.test(name)) return [];
+    const validForm = namedTestTs.test(name);
+    const inArea = testAreas.some((area) => holdsTestFile(area, name));
+    if (validForm && inArea) return [];
+    if (validForm)
+      return [
         `${name} is a test file outside the folders repository.json gives test files. Repair: move it into one of ${places}, or add its folder to testAreas. Done when bun run check:names ${name} passes.`,
-    );
+      ];
+    if (inArea)
+      return [
+        `${name} is a test file Bun runs that is not a .test.ts file, so test lints, typecheck or timings skip it. Repair: rename it to <name>.test.ts in one of ${places}. Done when bun run check:names passes on the new path.`,
+      ];
+    return [
+      `${name} is a test file Bun runs that is not a .test.ts file and sits outside the folders repository.json gives test files. Repair: rename it to <name>.test.ts and move it into one of ${places}, or add its folder to testAreas. Done when bun run check:names passes on the new path.`,
+    ];
+  });
 }
 
 async function problemsIn(
@@ -216,9 +224,9 @@ async function problemsFor(
     if (revision === undefined || revision.startsWith("--") || extra.length > 0)
       throw new UsageError("--against takes one revision.");
     return [
-      ...recordedAdditionProblems(environment.root, revision, (path) =>
+      ...(await recordedAdditionProblems(environment.root, revision, (path) =>
         readFileSync(join(environment.root, path), "utf8"),
-      ),
+      )),
       ...(await publicNameProblems(environment.root, false, undefined, true)),
     ];
   }

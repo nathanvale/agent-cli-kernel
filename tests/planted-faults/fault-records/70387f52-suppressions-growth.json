@@ -1,0 +1,7 @@
+{
+  "id": "70387f52-suppressions-growth",
+  "patch": "tests/planted-faults/patches/70387f52-suppressions-growth.patch",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
+  "title": "^recorded-hit growth class check refuses eslint-suppressions\\.json growing an existing rule",
+  "source": "70387f52 fix(names-check): admit suppression growth only for a repository rule the base does not define"
+}

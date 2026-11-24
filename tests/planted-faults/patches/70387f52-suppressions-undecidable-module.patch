@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+index d255bc5d..25eee52a 100644
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -221,7 +221,7 @@ function definedRules(
+     const text = read(file);
+     if (text === undefined) continue;
+     const found = exportedRuleNames(ts, file, text);
+-    if (!found) return undefined;
++    if (!found) continue;
+     for (const name of found) names.add(name);
+   }
+   return names;

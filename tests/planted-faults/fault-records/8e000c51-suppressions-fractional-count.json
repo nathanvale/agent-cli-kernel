@@ -1,0 +1,7 @@
+{
+  "id": "8e000c51-suppressions-fractional-count",
+  "patch": "tests/planted-faults/patches/8e000c51-suppressions-fractional-count.patch",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
+  "title": "^--against exits 2 on a malformed eslint-suppressions\\.json with a fractional count$",
+  "source": "8e000c51 fix(names-check): treat a rule module as decidable only when its rules object is one plain literal"
+}
