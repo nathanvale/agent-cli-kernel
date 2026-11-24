@@ -31,7 +31,7 @@ index 269440e9..798009ca 100644
  
  function constantText(context, node, depth = 0) {
    if (!node || depth > 8) return undefined;
-@@ -243,9 +258,254 @@ function admitted(owner, key, route) {
+@@ -243,9 +258,254 @@ function isAllowedRuntimeMember(owner, key, route) {
      (route !== "import" && owner === "Bun" && bunStartMembers.has(key))
    );
  }

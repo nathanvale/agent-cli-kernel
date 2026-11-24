@@ -92,7 +92,7 @@ the kernel. They are plugin rules, so a host block that sets its own
   `f822a0ca-no-domain-output` drops the destructured, `Bun` and `"bun"`
   matchers.
 - Lint `repository/no-process-reach` works from an allowlist,
-  `runtimeMembers` in `kernel/config/kernel/eslint-rules.mjs`:
+  `allowedRuntimeMembers` in `kernel/config/kernel/eslint-rules.mjs`:
   - A member that source reads or destructures from `Bun` or `process`
     passes when the list names it, or when another rule judges it: the
     stream names (`no-domain-output`) and `Bun.spawn`, `Bun.spawnSync`

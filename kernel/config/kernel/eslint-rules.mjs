@@ -208,7 +208,7 @@ const runtimeGlobals = {
 };
 const globalHolders = new Set(["globalThis", "global", "self"]);
 const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
-const runtimeMembers = {
+const allowedRuntimeMembers = {
   Bun: new Set(
     "version revision main env argv which file write stdin sleep sleepSync nanoseconds hash CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth escapeHTML randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color TOML isMainThread".split(
       " ",
@@ -223,7 +223,10 @@ const runtimeMembers = {
   child_process: new Set(),
 };
 const runtimeModules = new Map(
-  Object.keys(runtimeMembers).map((owner) => [owner.toLowerCase(), owner]),
+  Object.keys(allowedRuntimeMembers).map((owner) => [
+    owner.toLowerCase(),
+    owner,
+  ]),
 );
 
 function staticKey(node, computed = true) {
@@ -234,8 +237,8 @@ function staticKey(node, computed = true) {
   return undefined;
 }
 
-function admitted(owner, key, route) {
-  if (runtimeMembers[owner].has(key)) return true;
+function isAllowedRuntimeMember(owner, key, route) {
+  if (allowedRuntimeMembers[owner].has(key)) return true;
   if (route === "export") return false;
   if (owner === "console") return route === "member";
   return (
@@ -498,7 +501,7 @@ export default {
           return (
             typeOnly(specifier) ||
             (["ImportSpecifier", "ExportSpecifier"].includes(specifier.type) &&
-              admitted(owner, name.name ?? name.value, route))
+              isAllowedRuntimeMember(owner, name.name ?? name.value, route))
           );
         };
         const specifiersUse = (node, route) => {
@@ -524,7 +527,7 @@ export default {
         const refused = (name, key, route) =>
           globalHolders.has(name)
             ? Object.hasOwn(runtimeGlobals, key)
-            : !admitted(name, key, route);
+            : !isAllowedRuntimeMember(name, key, route);
         const memberUse = (member, name) => {
           const key = staticKey(member.property, member.computed);
           if (key === undefined || refused(name, key, "member"))
