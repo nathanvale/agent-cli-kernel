@@ -1,0 +1,7 @@
+{
+  "id": "2635414a-ci",
+  "patch": "tests/planted-faults/patches/2635414a-ci.patch",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
+  "title": "^recorded-hit growth class check enforces --fail-on-baseline-growth",
+  "source": "2635414a fix(ci): fail the hosted Fallow step when the health record grows against the base"
+}
