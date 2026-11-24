@@ -1261,6 +1261,8 @@ const output = `repository/no-process-reach: ${streamMessage}`;
 const domainOutput = `repository/no-domain-output: ${streamMessage}`;
 const restricted = (name: string) =>
   `no-restricted-properties: '${name}' is restricted from being used.`;
+const moduleStarRestriction =
+  "no-restricted-imports: * import is invalid because 'createRequire' from 'node:module' is restricted. Code outside the kernel and the state add-on imports them through their public index only, by a literal specifier: no computed or template-literal import(), require, createRequire or import.meta.require.";
 const consoleCall = "no-console: Unexpected console statement.";
 const runtimeSpellings = [
   ['import { spawnSync } from "bun"; export const run = spawnSync;', program],
@@ -1348,6 +1350,128 @@ const runtimeSpellings = [
   ['export const out = import.meta.require("node:process");', output],
   ['export const out = () => process.emitWarning("x");', output],
   ['export const out = () => process._rawDebug("x");', output],
+  [
+    'export const out = () => process.on("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.once("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.off("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.addListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.removeListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.removeAllListeners("x").stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.prependListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.prependOnceListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.setMaxListeners(10).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = (stop: () => void) => process.on("SIGINT", stop);',
+    output,
+  ],
+  [
+    'export const out = () => process.on?.("exit", () => {})?.stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = (stop: () => void) => process[`on`]("SIGINT", stop);',
+    output,
+  ],
+  ["export const out = process.on;", output],
+  ["const { on } = process; export const out = on;", output],
+  [
+    'import { removeAllListeners } from "node:process"; export const out = () => removeAllListeners("x").stdout.write("x");',
+    output,
+  ],
+  ['import { on } from "node:process"; export const out = on;', output],
+  [
+    'declare const process: typeof globalThis.process; const p = process; export const out = () => p.stdout.write("x");',
+    output,
+  ],
+  [
+    'declare const Bun: typeof globalThis.Bun; const b = Bun; export const run = () => b.spawnSync(["true"]);',
+    program,
+  ],
+  [
+    'declare const console: typeof globalThis.console; const c = console; export const out = () => c.log("x");',
+    output,
+  ],
+  [
+    'declare const console: typeof globalThis.console; export const out = () => console.log("x");',
+    output,
+  ],
+  [
+    "interface process { ok?: boolean } declare const process: typeof globalThis.process; const p = process; export const out = p;",
+    output,
+  ],
+  [
+    "declare function require(id: string): unknown; const load = require; export const run = load;",
+    program,
+  ],
+  ["export const run = globalThis.require;", program],
+  ['import "bun";', program],
+  ['import { stdout } from "node:module"; export const out = stdout;', program],
+  ['const load = require; export const run = () => load("bun");', program],
+  [
+    "const load: (id: string) => unknown = require; export const run = load;",
+    program,
+  ],
+  ['export const run = () => (0, require)("bun");', program],
+  [
+    'const load = import.meta.require; export const run = () => load("node:child_process");',
+    program,
+  ],
+  ['export const run = (k: "require") => import.meta[k]("bun");', program],
+  ['export const run = () => import.meta["require"]("bun");', program],
+  ['export const run = () => import.meta[`require`]("bun");', program],
+  ["const { require: load } = import.meta; export const run = load;", program],
+  [
+    'const { "require": load } = import.meta; export const run = load;',
+    program,
+  ],
+  ["const { ...meta } = import.meta; export const run = meta;", program],
+  ["const meta = import.meta; export const run = meta;", program],
+  ["export const run = () => require(0);", program],
+  [
+    'import mod from "node:module"; export const run = () => mod.createRequire(import.meta.url)("node:child_process");',
+    program,
+  ],
+  ['import { Module } from "node:module"; export const run = Module;', program],
+  ['import { Module } from "module"; export const run = Module;', program],
+  [
+    'import * as mod from "node:module"; export const run = mod;',
+    [program, moduleStarRestriction],
+  ],
+  ['import "node:module";', program],
+  ['export { Module } from "node:module";', program],
+  ['export * from "node:module";', [program, moduleStarRestriction]],
+  ['export type { NodeModule } from "node:module";', program],
+  ['export const run = async () => import("node:module");', program],
+  ['export const run = async () => import("module");', program],
+  ['export const run = () => require("node:module");', program],
+  ['export const run = () => import.meta.require("node:module");', program],
+  ["for (Bun; false; ) { break; }", program],
 ] as const;
 const honestRuntime = [
   'import type { Subprocess } from "bun"; export type Child = Subprocess;',
@@ -1367,6 +1491,16 @@ const honestRuntime = [
   'import { file } from "bun"; export const read = file;',
   'import { env } from "node:process"; export const read = env;',
   'export const path = () => import("node:path");',
+  'export const listen = (stop: () => void) => { process.on("SIGINT", stop); };',
+  'export const listenOpt = (stop: () => void) => { process.on?.("SIGINT", stop); };',
+  'export const listenVoid = (stop: () => void) => void process.on("SIGINT", stop);',
+  'export const unlisten = (stop: () => void) => { process.off("SIGWINCH", stop); };',
+  "export const metaUrl = import.meta.url;",
+  "const { url } = import.meta; export const metaUrlDestructured = url;",
+  "export const localRequire = () => { const require = (ok: boolean) => ok; return require(true); };",
+  'import type { NodeModule } from "node:module"; export type Mod = NodeModule;',
+  'import { type NodeModule } from "module"; export type Mod = NodeModule;',
+  "export const shadowed = (process: { env: string }) => process;",
 ];
 
 async function runtimeHits(filePath: string, code: string) {
@@ -1381,7 +1515,12 @@ for (const filePath of installedSource)
     const found = [];
     for (const [code] of runtimeSpellings)
       found.push([code, await runtimeHits(filePath, code)]);
-    expect(found).toEqual(runtimeSpellings.map(([code, hit]) => [code, [hit]]));
+    expect(found).toEqual(
+      runtimeSpellings.map(([code, hit]) => [
+        code,
+        typeof hit === "string" ? [hit] : [...hit],
+      ]),
+    );
     for (const code of honestRuntime)
       expect(await runtimeHits(filePath, code)).toEqual([]);
   });

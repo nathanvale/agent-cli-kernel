@@ -182,6 +182,32 @@ describe("kernelLint in a host layout", () => {
           "",
         ].join("\n"),
       );
+      await writeFile(
+        join(tree, "src/app/require-alias.ts"),
+        'const load: (id: string) => unknown = require;\nexport const run = (): unknown => load("bun");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/indirect-require.ts"),
+        'export const run = (): unknown => (0, require)("bun");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/meta-alias.ts"),
+        'const load = import.meta.require;\nexport const run = (): unknown => load("node:child_process");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/meta-key.ts"),
+        'export const run = (k: "require"): unknown => import.meta[k]("bun");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/module-import.ts"),
+        'import mod from "node:module";\nexport const run = (): unknown => mod.createRequire(import.meta.url)("node:child_process");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/honest-meta.ts"),
+        'export const dir = import.meta.dirname;\nexport const listen = (stop: () => void): void => {\n  process.on("SIGINT", stop);\n};\n',
+      );
+      const startHit =
+        "repository/no-process-reach: Contract 3 source starts programs only through the programs add-on.";
       const results = await new ESLint({
         cwd: tree,
         overrideConfigFile: "host.config.mjs",
@@ -189,16 +215,33 @@ describe("kernelLint in a host layout", () => {
         "src/app/alias.ts",
         "src/app/child.ts",
         "src/app/script.mjs",
+        "src/app/require-alias.ts",
+        "src/app/indirect-require.ts",
+        "src/app/meta-alias.ts",
+        "src/app/meta-key.ts",
+        "src/app/module-import.ts",
+        "src/app/honest-meta.ts",
       ]);
       expect(
         results.map((result) => [
           relative(tree, result.filePath),
-          result.messages.map(({ ruleId }) => ruleId),
+          result.messages.map(({ ruleId, message }) => `${ruleId}: ${message}`),
         ]),
       ).toEqual([
-        ["src/app/alias.ts", ["repository/no-process-reach"]],
-        ["src/app/child.ts", ["repository/no-process-reach"]],
-        ["src/app/script.mjs", ["repository/typescript-source"]],
+        ["src/app/alias.ts", [startHit]],
+        ["src/app/child.ts", [startHit]],
+        [
+          "src/app/script.mjs",
+          [
+            "repository/typescript-source: Source is TypeScript (.ts, .mts or .cts). Repair: write this file as .ts, .mts or .cts.",
+          ],
+        ],
+        ["src/app/require-alias.ts", [startHit]],
+        ["src/app/indirect-require.ts", [startHit]],
+        ["src/app/meta-alias.ts", [startHit]],
+        ["src/app/meta-key.ts", [startHit]],
+        ["src/app/module-import.ts", [startHit]],
+        ["src/app/honest-meta.ts", []],
       ]);
     },
     lintBound,
