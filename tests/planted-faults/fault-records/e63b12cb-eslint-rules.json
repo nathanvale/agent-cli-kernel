@@ -1,0 +1,7 @@
+{
+  "id": "e63b12cb-eslint-rules",
+  "patch": "tests/planted-faults/patches/e63b12cb-eslint-rules.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^the kernel lint refuses each spelling of a program start or a process stream once in",
+  "source": "e63b12cb fix(lint): refuse chained process methods, ambient runtime globals, escaping loaders and node:module in src"
+}
