@@ -1,0 +1,7 @@
+{
+  "id": "8c8137f4-kernel-repository-rules",
+  "patch": "tests/planted-faults/patches/8c8137f4-kernel-repository-rules.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^state-no-fs-import Bun reach",
+  "source": "8c8137f4 fix(lint): admit the Bun object in the state add-on only through allowlisted members"
+}
