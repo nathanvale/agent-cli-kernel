@@ -51,9 +51,9 @@ import {
   unchanged,
 } from "../kernel-repair/shapes.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { supportingTest } from "./harness.ts";
+import { answerAtStop, supportingTest } from "./harness.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
-import { deferred, turns } from "../lifecycle/recording-host.ts";
+import { deferred } from "../lifecycle/recording-host.ts";
 
 const causes = {
   DOMAIN_SU_LOCK_HELD: refusedHandoff,
@@ -88,6 +88,7 @@ const defaultEffects: readonly [Effects, ...Effects[]] = [
 const roots: string[] = [];
 const restoreModes: string[] = [];
 afterEach(() => {
+  jest.useRealTimers();
   for (const path of restoreModes.splice(0)) {
     try {
       chmodSync(path, 0o700);
@@ -1665,37 +1666,6 @@ async function assertCleanRecovery(
   });
   expect(retry.outcome?.kind).toBe("ran");
   expect(retry.state.report()).toEqual({ ok: true, unfinished: [] });
-}
-
-async function answerAtStop<T>(
-  start: () => Promise<T>,
-  parked: Promise<void>,
-  label: string,
-): Promise<T> {
-  const turnBound = 1_000;
-  jest.useFakeTimers();
-  try {
-    const pending = start();
-    const outcome = { answered: false };
-    const answered = pending.then(
-      () => undefined,
-      () => undefined,
-    );
-    void answered.then(() => {
-      outcome.answered = true;
-    });
-    await Promise.race([parked, answered]);
-    for (let turn = 0; !outcome.answered && turn < turnBound; turn += 1) {
-      await turns(1);
-      if (!outcome.answered && jest.getTimerCount() > 0)
-        jest.advanceTimersToNextTimer();
-    }
-    if (!outcome.answered)
-      throw new Error(`${label} did not answer in ${turnBound} turns.`);
-    return await pending;
-  } finally {
-    jest.useRealTimers();
-  }
 }
 
 async function runOneDeadlineStop(
