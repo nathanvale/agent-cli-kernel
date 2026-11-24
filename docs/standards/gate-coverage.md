@@ -247,9 +247,11 @@ file extensions in those directories.
   Run `bunx eslint . --prune-suppressions` after fixing a recorded hit.
 - `bun run check:names --against <base>` (the hosted `Recorded lists` step)
   refuses growth of `eslint-suppressions.json` by total count per lint rule
-  against the merge base, unless that rule is a `repository/...` rule whose
-  definition newly landed in the same change. File renames and suite splits
-  that keep the rule's total unchanged pass.
+  against the merge base, including for a newly landed rule, unless each
+  growing entry carries a new non-empty `approved` field naming the ticket or
+  pull request that agreed it and its reason. ESLint ignores extra fields in
+  `eslint-suppressions.json` and keeps them during `--prune-suppressions`.
+  File renames and suite splits that keep the rule's total unchanged pass.
 - Review replacements within a file, or moves across files, that keep a lint
   rule's total count unchanged and pass lint.
 - Both hosted `quality:fallow` steps in `.github/workflows/ci.yml` pass

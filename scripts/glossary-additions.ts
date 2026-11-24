@@ -1,5 +1,3 @@
-import { posix } from "node:path";
-import type ts from "typescript";
 import {
   mergeBaseOf,
   optionalTextAt,
@@ -11,14 +9,6 @@ import {
 import { isAbsentError } from "./read-file.ts";
 
 const suppressionsFile = "eslint-suppressions.json";
-const repositoryRulePrefix = "repository/";
-const repositoryRuleModules = [
-  "config/template-rules.mjs",
-  "config/platform-rules.mjs",
-  "config/payload-rules.mjs",
-  "config/kernel-repository-rules.mjs",
-  "kernel/config/kernel/eslint-rules.mjs",
-];
 
 type Recorded = {
   readonly file: string;
@@ -28,6 +18,11 @@ type Recorded = {
   readonly gate?: string;
   readonly repair?: string;
   readonly describe: (own: ReadonlyMap<string, unknown>) => string;
+};
+
+type SuppressionEntry = {
+  readonly count: number;
+  readonly approved: string | undefined;
 };
 
 const recordedLists: readonly Recorded[] = [
@@ -63,9 +58,11 @@ function identityOf(
   return JSON.stringify(keys.map((key) => own.get(key)));
 }
 
-function isApproved(own: ReadonlyMap<string, unknown>): boolean {
+function approvalOf(own: ReadonlyMap<string, unknown>): string | undefined {
   const approved = own.get("approved");
-  return typeof approved === "string" && approved.trim() !== "";
+  return typeof approved === "string" && approved.trim() !== ""
+    ? approved.trim()
+    : undefined;
 }
 
 function plainObjectEntries(
@@ -103,7 +100,7 @@ function additionProblems(
     recordedEntries(file, base, list).map((own) => identityOf(own, identity)),
   );
   return recordedEntries(file, current, list).flatMap((own) =>
-    before.has(identityOf(own, identity)) || isApproved(own)
+    before.has(identityOf(own, identity)) || approvalOf(own) !== undefined
       ? []
       : [
           `${file} adds ${describe(own)}, which ${revision} does not record, so this change widens what ${gate} admits. Repair: ${repair}; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.`,
@@ -112,177 +109,71 @@ function additionProblems(
 }
 
 function readSuppressions(text: string) {
-  const byFile = new Map<string, Map<string, number>>();
+  const byFile = new Map<string, Map<string, SuppressionEntry>>();
   const byRule = new Map<string, number>();
   for (const [file, raw] of plainObjectEntries(
     JSON.parse(text),
     suppressionsFile,
   )) {
-    const counts = new Map<string, number>();
+    const entries = new Map<string, SuppressionEntry>();
     for (const [rule, entry] of plainObjectEntries(
       raw,
       `${suppressionsFile}: ${file}`,
     )) {
-      const n = new Map(
+      const fields = new Map(
         plainObjectEntries(entry, `${suppressionsFile}: ${file} ${rule}`),
-      ).get("count");
+      );
+      const n = fields.get("count");
       if (typeof n !== "number" || !Number.isInteger(n) || n < 0)
         throw new Error(
           `${suppressionsFile}: ${file} ${rule} needs a non-negative integer count.`,
         );
-      counts.set(rule, n);
+      entries.set(rule, { count: n, approved: approvalOf(fields) });
       byRule.set(rule, (byRule.get(rule) ?? 0) + n);
     }
-    byFile.set(file, counts);
+    byFile.set(file, entries);
   }
   return { byFile, byRule };
 }
 
-type TypeScript = typeof ts;
-
-function keyOf(ts: TypeScript, name: ts.PropertyName): string | undefined {
-  return ts.isIdentifier(name) || ts.isStringLiteral(name)
-    ? name.text
-    : undefined;
-}
-
-function rulesObjectOf(ts: TypeScript, source: ts.SourceFile) {
-  const exports = source.statements.filter(ts.isExportAssignment);
-  const def = exports.length === 1 ? exports[0] : undefined;
-  const obj = def && !def.isExportEquals ? def.expression : undefined;
-  if (!obj || !ts.isObjectLiteralExpression(obj)) return undefined;
-  let rules: ts.ObjectLiteralExpression | undefined;
-  for (const prop of obj.properties) {
-    if (ts.isSpreadAssignment(prop)) return undefined;
-    const name = keyOf(ts, prop.name);
-    if (name === undefined) return undefined;
-    if (name !== "rules") continue;
-    if (
-      rules !== undefined ||
-      !ts.isPropertyAssignment(prop) ||
-      !ts.isObjectLiteralExpression(prop.initializer)
-    )
-      return undefined;
-    rules = prop.initializer;
-  }
-  return rules;
-}
-
-function ruleNameOf(
-  ts: TypeScript,
-  prop: ts.ObjectLiteralElementLike,
-  imports: ReadonlySet<string>,
-): string | null | undefined {
-  if (ts.isSpreadAssignment(prop)) {
-    const e = prop.expression;
-    return ts.isPropertyAccessExpression(e) &&
-      e.name.text === "rules" &&
-      ts.isIdentifier(e.expression) &&
-      imports.has(e.expression.text)
-      ? null
-      : undefined;
-  }
-  return ts.isPropertyAssignment(prop) ||
-    ts.isMethodDeclaration(prop) ||
-    ts.isShorthandPropertyAssignment(prop)
-    ? keyOf(ts, prop.name)
-    : undefined;
-}
-
-function exportedRuleNames(ts: TypeScript, path: string, text: string) {
-  const opts = { reportDiagnostics: true, compilerOptions: { allowJs: true } };
-  if (ts.transpileModule(text, opts).diagnostics?.length) return undefined;
-  const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest);
-  const rules = rulesObjectOf(ts, source);
-  if (!rules) return undefined;
-  const dir = posix.dirname(path);
-  const imports = new Set(
-    source.statements.flatMap((s) =>
-      ts.isImportDeclaration(s) &&
-      s.importClause?.name &&
-      ts.isStringLiteral(s.moduleSpecifier) &&
-      repositoryRuleModules.includes(
-        posix.normalize(posix.join(dir, s.moduleSpecifier.text)),
-      )
-        ? [s.importClause.name.text]
-        : [],
-    ),
-  );
-  const names = new Set<string>();
-  for (const prop of rules.properties) {
-    const name = ruleNameOf(ts, prop, imports);
-    if (name === undefined) return undefined;
-    if (name !== null) names.add(name);
-  }
-  return names;
-}
-
-function definedRules(
-  ts: TypeScript,
-  read: (path: string) => string | undefined,
-) {
-  const names = new Set<string>();
-  for (const file of repositoryRuleModules) {
-    const text = read(file);
-    if (text === undefined) continue;
-    const found = exportedRuleNames(ts, file, text);
-    if (!found) return undefined;
-    for (const name of found) names.add(name);
-  }
-  return names;
-}
-
-async function isNewRule(
-  root: string,
-  base: string,
-  read: (path: string) => string,
-  rule: string,
-) {
-  if (!rule.startsWith(repositoryRulePrefix)) return false;
-  const { default: parser } = await import("typescript");
-  const name = rule.slice(repositoryRulePrefix.length);
-  const before = definedRules(parser, (f) => optionalTextAt(root, base, f));
-  const after = definedRules(parser, (f) => optionalCurrent(read, f));
-  return Boolean(before && after && !before.has(name) && after.has(name));
-}
-
-async function suppressionGrowthProblems(
+function suppressionGrowthProblems(
   root: string,
   base: string,
   read: (path: string) => string,
   revision: string,
-): Promise<string[]> {
+): string[] {
   const current = optionalCurrent(read, suppressionsFile);
   if (current === undefined) return [];
   const before = readSuppressions(
     optionalTextAt(root, base, suppressionsFile) ?? "{}",
   );
   const after = readSuppressions(current);
-  const groups = await Promise.all(
-    [...after.byRule].map(async ([rule, afterTotal]) => {
-      const beforeTotal = before.byRule.get(rule) ?? 0;
-      if (afterTotal <= beforeTotal) return [];
-      if (beforeTotal === 0 && (await isNewRule(root, base, read, rule)))
+  return [...after.byRule].flatMap(([rule, afterTotal]) => {
+    const beforeTotal = before.byRule.get(rule) ?? 0;
+    if (afterTotal <= beforeTotal) return [];
+    return [...after.byFile].flatMap(([file, rules]) => {
+      const afterEntry = rules.get(rule);
+      const afterCount = afterEntry?.count ?? 0;
+      const beforeEntry = before.byFile.get(file)?.get(rule);
+      const beforeCount = beforeEntry?.count ?? 0;
+      if (afterCount <= beforeCount) return [];
+      if (
+        afterEntry?.approved !== undefined &&
+        afterEntry.approved !== beforeEntry?.approved
+      )
         return [];
-      return [...after.byFile].flatMap(([file, rules]) => {
-        const afterCount = rules.get(rule) ?? 0;
-        const beforeCount = before.byFile.get(file)?.get(rule) ?? 0;
-        return afterCount > beforeCount
-          ? [
-              `${suppressionsFile} records ${afterCount} ${afterCount === 1 ? "hit" : "hits"} for ${file} ${rule}, more than ${revision} records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.`,
-            ]
-          : [];
-      });
-    }),
-  );
-  return groups.flat();
+      return [
+        `${suppressionsFile} records ${afterCount} ${afterCount === 1 ? "hit" : "hits"} for ${file} ${rule}, more than ${revision} records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.`,
+      ];
+    });
+  });
 }
 
-export async function recordedAdditionProblems(
+export function recordedAdditionProblems(
   root: string,
   revision: string,
   currentText: (path: string) => string,
-): Promise<string[]> {
+): string[] {
   const base = mergeBaseOf(root, revision);
   return [
     ...recordedLists.flatMap((recorded) => {
@@ -300,6 +191,6 @@ export async function recordedAdditionProblems(
         JSON.stringify({ [recorded.list]: [] });
       return additionProblems(recorded, before, current, revision);
     }),
-    ...(await suppressionGrowthProblems(root, base, currentText, revision)),
+    ...suppressionGrowthProblems(root, base, currentText, revision),
   ];
 }

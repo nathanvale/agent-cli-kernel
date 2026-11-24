@@ -1,7 +1,0 @@
-{
-  "id": "8e000c51-suppressions-base-membership",
-  "patch": "tests/planted-faults/patches/8e000c51-suppressions-base-membership.patch",
-  "testFile": "tests/template/names-check/names-check-growth.test.ts",
-  "title": "^recorded-hit growth class check refuses eslint-suppressions\\.json growing an existing zero-hit repository rule with its full message$",
-  "source": "8e000c51 fix(names-check): treat a rule module as decidable only when its rules object is one plain literal"
-}
