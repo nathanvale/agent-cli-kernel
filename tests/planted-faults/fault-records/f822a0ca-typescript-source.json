@@ -1,0 +1,7 @@
+{
+  "id": "f822a0ca-typescript-source",
+  "patch": "tests/planted-faults/patches/f822a0ca-typescript-source.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "the kernel lint refuses source beside .* that is not TypeScript, and admits \\.ts$",
+  "source": "f822a0ca fix(lint): refuse every spelling of a program start or stream, and non-TypeScript source, in src"
+}
