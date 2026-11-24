@@ -64,7 +64,10 @@ function isApproved(own: ReadonlyMap<string, unknown>): boolean {
   return typeof approved === "string" && approved.trim() !== "";
 }
 
-function entries(value: unknown, where: string): [string, unknown][] {
+function plainObjectEntries(
+  value: unknown,
+  where: string,
+): [string, unknown][] {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new Error(`${where} must be a JSON object.`);
   return Object.entries(value);
@@ -107,11 +110,17 @@ function additionProblems(
 function readSuppressions(text: string) {
   const byFile = new Map<string, Map<string, number>>();
   const byRule = new Map<string, number>();
-  for (const [file, raw] of entries(JSON.parse(text), suppressionsFile)) {
+  for (const [file, raw] of plainObjectEntries(
+    JSON.parse(text),
+    suppressionsFile,
+  )) {
     const counts = new Map<string, number>();
-    for (const [rule, entry] of entries(raw, `${suppressionsFile}: ${file}`)) {
+    for (const [rule, entry] of plainObjectEntries(
+      raw,
+      `${suppressionsFile}: ${file}`,
+    )) {
       const n = new Map(
-        entries(entry, `${suppressionsFile}: ${file} ${rule}`),
+        plainObjectEntries(entry, `${suppressionsFile}: ${file} ${rule}`),
       ).get("count");
       if (typeof n !== "number" || !Number.isInteger(n) || n < 0)
         throw new Error(
