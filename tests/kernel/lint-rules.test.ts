@@ -8,14 +8,11 @@ const eslint = new ESLint({ cwd: root });
 
 async function messages(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath });
-  return (result?.messages ?? []).map(
-    ({ ruleId, line, message, messageId }) => ({
-      ruleId,
-      line,
-      message,
-      messageId,
-    }),
-  );
+  return (result?.messages ?? []).map(({ ruleId, line, message }) => ({
+    ruleId,
+    line,
+    message,
+  }));
 }
 
 async function hits(rule: string, filePath: string, code: string) {
@@ -1250,71 +1247,102 @@ for (const [filePath, code, lines] of stateFsCases)
   });
 
 const framingFile = "kernel/src/addons/state/framing.ts";
-const member = (line: number) => [line, "bunReach"] as const;
-const use = (line: number) => [line, "dynamicBunReach"] as const;
+const stateFiles =
+  "Files in kernel/src/addons/state outside store.ts and coordination.ts";
+const member = (line: number, name: string) =>
+  [
+    line,
+    `${stateFiles} must not use Bun.${name}: only Bun members that touch no path are allowed here. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.`,
+  ] as const;
+const use = (line: number) =>
+  [
+    line,
+    `${stateFiles} may use the Bun object only as Bun.<member> with a plain member name, read from Bun, globalThis.Bun, global.Bun or self.Bun, or as a named import from "bun". An alias, destructuring, spread, computed key, whole-module load of "bun", or bare globalThis, global or self hides which member is used. Repair: write Bun.<member> in place, or route filesystem access through store.ts or coordination.ts.`,
+  ] as const;
+const filesystemImport = (line: number, specifier: string) =>
+  [
+    line,
+    `${stateFiles} must not import filesystem module "${specifier}". Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.`,
+  ] as const;
 const aliasChain = Array.from(
   { length: 10 },
   (_, index) => `const b${index + 1} = ${index === 0 ? "Bun" : `b${index}`};`,
 ).join(" ");
 const stateBunFileReachCases = [
-  [framingFile, "export const a = (p: string) => Bun.file(p);", [member(1)]],
+  [
+    framingFile,
+    "export const a = (p: string) => Bun.file(p);",
+    [member(1, "file")],
+  ],
   [
     framingFile,
     'export const a = (p: string) => Bun.write(p, "x");',
-    [member(1)],
+    [member(1, "write")],
   ],
-  [framingFile, "export const a = (p: string) => Bun.mmap(p);", [member(1)]],
-  [framingFile, 'export const a = new Bun.Glob("*");', [member(1)]],
-  [framingFile, "export const a = Bun.Archive;", [member(1)]],
-  [framingFile, "export const a = Bun.build;", [member(1)]],
-  [framingFile, "export const a = Bun.FileSystemRouter;", [member(1)]],
-  [framingFile, "export const a = [Bun.SQL, Bun.sql];", [member(1), member(1)]],
+  [
+    framingFile,
+    "export const a = (p: string) => Bun.mmap(p);",
+    [member(1, "mmap")],
+  ],
+  [framingFile, 'export const a = new Bun.Glob("*");', [member(1, "Glob")]],
+  [framingFile, "export const a = Bun.Archive;", [member(1, "Archive")]],
+  [framingFile, "export const a = Bun.build;", [member(1, "build")]],
+  [
+    framingFile,
+    "export const a = Bun.FileSystemRouter;",
+    [member(1, "FileSystemRouter")],
+  ],
+  [
+    framingFile,
+    "export const a = [Bun.SQL, Bun.sql];",
+    [member(1, "SQL"), member(1, "sql")],
+  ],
   [
     framingFile,
     "export const a = [Bun.Image, Bun.postgres];",
-    [member(1), member(1)],
+    [member(1, "Image"), member(1, "postgres")],
   ],
   [
     framingFile,
     "export const a = [Bun.ModuleGraph, Bun.serve];",
-    [member(1), member(1)],
+    [member(1, "ModuleGraph"), member(1, "serve")],
   ],
   [
     framingFile,
     "export const a = (p: string) => globalThis.Bun.file(p);",
-    [member(1)],
+    [member(1, "file")],
   ],
   [
     framingFile,
     "export const a = (p: string) => global.Bun.file(p);",
-    [member(1)],
+    [member(1, "file")],
   ],
   [
     framingFile,
     "export const a = (p: string) => self.Bun.file(p);",
-    [member(1)],
+    [member(1, "file")],
   ],
   [
     framingFile,
     "export const a = globalThis.globalThis.Bun.file;",
-    [member(1)],
+    [member(1, "file")],
   ],
   [
     framingFile,
     'import { write } from "bun"; export const a = write;',
-    [member(1)],
+    [member(1, "write")],
   ],
-  [framingFile, 'export { file } from "bun";', [member(1)]],
-  [framingFile, 'export const a = require("bun").file;', [member(1)]],
+  [framingFile, 'export { file } from "bun";', [member(1, "file")]],
+  [framingFile, 'export const a = require("bun").file;', [member(1, "file")]],
   [
     framingFile,
     'export const a = import.meta.require("bun").file;',
-    [member(1)],
+    [member(1, "file")],
   ],
   [
     framingFile,
     'export const a = process.getBuiltinModule("bun").write;',
-    [member(1)],
+    [member(1, "write")],
   ],
   [framingFile, 'export const a = (p: string) => Bun["file"](p);', [use(1)]],
   [
@@ -1349,6 +1377,11 @@ const stateBunFileReachCases = [
     [use(1)],
   ],
   [framingFile, "let b; b = Bun; export const a = b;", [use(1)]],
+  [
+    framingFile,
+    "let b = globalThis; b = Bun; export const a = b.file;",
+    [use(1), use(1)],
+  ],
   [
     framingFile,
     "let b; if (Date.now()) b = Bun; export const a = b;",
@@ -1391,12 +1424,12 @@ const stateBunFileReachCases = [
   [
     framingFile,
     "export async function writeFrame(path: string, text: string) {\n  await Bun.write(path, text);\n  return Bun.file(path).text();\n}",
-    [member(2), member(3)],
+    [member(2, "write"), member(3, "file")],
   ],
   [
     framingFile,
     'import fs = require("node:fs"); export const a = fs.readFileSync;',
-    [[1, "fsImport"]],
+    [filesystemImport(1, "node:fs")],
   ],
   [
     framingFile,
@@ -1442,7 +1475,7 @@ for (const [filePath, code, expected] of stateBunFileReachCases)
     const found = (await messages(filePath, code)).filter(
       ({ ruleId }) => ruleId === "repository/state-no-fs-import",
     );
-    expect(found.map(({ line, messageId }) => [line, messageId])).toEqual(
-      expected.map(([line, messageId]) => [line, messageId]),
+    expect(found.map(({ line, message }) => [line, message])).toEqual(
+      expected.map(([line, message]) => [line, message]),
     );
   });
