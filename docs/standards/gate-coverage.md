@@ -76,6 +76,57 @@ gates and their witnesses.
   teardown release order, process-group `SIGKILL`, and calls reached through
   dynamic keys or helper wrappers passed as parameters.
 
+## Kernel source lint
+
+`kernelLint` runs these rules on the source folder of the kernel
+repository, of `skills/verify-cli/`, and of every repository that installs
+the kernel. They are plugin rules, so a host block that sets its own
+`no-restricted-syntax` options after `kernelLint` cannot replace them.
+
+- Lint `repository/typescript-source` refuses a `.js`, `.mjs`, `.cjs`,
+  `.jsx` or `.tsx` file in the source folder. Fault
+  `f822a0ca-typescript-source` turns it off.
+- Lint `repository/no-domain-output` refuses `process.stdout`,
+  `process.stderr`, `Bun.stdout` and `Bun.stderr` by name or by a fixed
+  key (string or template literal), destructured, or imported by value
+  from `node:process` or `"bun"`. A type-only import passes. Fault
+  `f822a0ca-no-domain-output` drops the destructured, `Bun` and `"bun"`
+  matchers.
+- Lint `repository/no-process-reach` works from an allowlist,
+  `allowedRuntimeMembers` in `kernel/config/kernel/eslint-rules.mjs`:
+  - A member that source reads or destructures from `Bun` or `process`
+    passes when the list names it, or when another rule judges it: the
+    stream names (`no-domain-output`) and `Bun.spawn`, `Bun.spawnSync`
+    and `Bun.$` (`no-restricted-properties`). Chainable `process` listener
+    methods (`on`, `once`, `off`, `addListener`, `removeListener`,
+    `removeAllListeners`, `prependListener`, `prependOnceListener`,
+    `setMaxListeners`) pass only as a call on `process` whose result is
+    discarded (an expression statement or under `void`); importing or
+    destructuring them is refused. A `console` member read passes to
+    `no-console`. Every other member, a destructured `console` name, a
+    rest element and a key that is not fixed are refused.
+  - An import from `"bun"`, `process` or `console`, with or without
+    `node:`, passes when it is type-only or names a listed member.
+    `"node:module"` and `"module"` admit only type-only imports; every
+    value import, re-export and side-effect import of them is refused.
+    Default, namespace, `default`-named and side-effect imports,
+    `export *`, and a re-export of an unlisted member are refused.
+    `no-restricted-imports` refuses static `node:child_process` imports.
+  - `import()`, unbound `require()` and `import.meta.require()` are
+    refused when the module is one of those five, or when the argument is
+    not a static string. Every other value reference to unbound `require`
+    or `import.meta.require`, every computed key on `import.meta`,
+    destructuring `require` or rest from `import.meta`, and using
+    `import.meta` as a value are refused.
+  - `Bun`, `process`, `console` and `require` read through `globalThis`,
+    `global` or `self`, and any other use of those names or of
+    `globalThis` as a value, are refused; a reference whose only
+    definitions are ambient (`declare`) is judged as the runtime global.
+    `typeof` and type positions pass.
+  - Fault `f822a0ca-no-process-reach` turns the rule off.
+- Review only: `Bun.file` or `Bun.write` given the stream descriptors 1
+  or 2, and `eval` or `new Function` text that names a runtime global.
+
 ## Timer lint
 
 - Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and

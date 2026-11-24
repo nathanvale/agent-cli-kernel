@@ -224,10 +224,25 @@ Where your repository uses it, it checks every file in `src/`, including
 `src/kernel/` and `src/addons/`, and the test folders you name, and it
 ignores inline `eslint-disable` comments. In `src/` it refuses:
 
+- A file that is not TypeScript: `.js`, `.mjs`, `.cjs`, `.jsx` or `.tsx`.
+  Write source as `.ts`, `.mts` or `.cts`.
 - `console`, `process.stdout` and `process.stderr`. Return `data` and let
   the kernel write it.
 - `Bun.spawn`, `Bun.spawnSync`, `Bun.$` and `node:child_process`. Starting a
   program belongs to the programs add-on.
+- The same streams and program starts by another route. From `Bun` and
+  `process`, read or import only common members such as `Bun.file(path)`,
+  `Bun.which`, `process.env`, `process.argv` and `process.exit`, and call
+  chainable `process` listener methods such as `process.on` only when
+  discarding the result; the lint refuses others, such as `Bun.stdout` or
+  `process.emitWarning`. It also refuses a default, namespace or
+  side-effect import of `"bun"`, `node:process` or `node:console`, any
+  non-type import or re-export of `node:module`, `globalThis.process`,
+  `stdout` destructured from `process`, a dynamic `import()`, `require()`
+  or `import.meta.require()` of those modules or of `node:child_process`,
+  aliasing `require` or `import.meta.require`, computed keys on
+  `import.meta`, and `Bun`, `process` or `console` passed on as a value.
+  Type-only imports from `"bun"`, `node:process` and `node:module` pass.
 - The `in` operator on a key the type does not declare, such as
   `"code" in error` in a `catch`. Read the value with `Object.hasOwn` and
   `Reflect.get`.

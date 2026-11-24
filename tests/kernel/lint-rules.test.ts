@@ -1246,6 +1246,313 @@ for (const [filePath, code, lines] of stateFsCases)
     expect(found.map(({ line }) => line)).toEqual([...lines]);
   });
 
+const runtimeGates = new Set([
+  "no-console",
+  "no-restricted-imports",
+  "no-restricted-properties",
+  "repository/no-domain-output",
+  "repository/no-process-reach",
+]);
+const installedSource = [
+  "kernel/src/addons/menu/index.ts",
+  "skills/verify-cli/helper/place.ts",
+];
+const startMessage =
+  "Contract 3 source starts programs only through the programs add-on.";
+const streamMessage =
+  "Return domain data to the CLI output owner instead of accessing process streams.";
+const program = `repository/no-process-reach: ${startMessage}`;
+const output = `repository/no-process-reach: ${streamMessage}`;
+const domainOutput = `repository/no-domain-output: ${streamMessage}`;
+const restricted = (name: string) =>
+  `no-restricted-properties: '${name}' is restricted from being used.`;
+const moduleStarRestriction =
+  "no-restricted-imports: * import is invalid because 'createRequire' from 'node:module' is restricted. Code outside the kernel and the state add-on imports them through their public index only, by a literal specifier: no computed or template-literal import(), require, createRequire or import.meta.require.";
+const consoleCall = "no-console: Unexpected console statement.";
+const runtimeSpellings = [
+  ['import { spawnSync } from "bun"; export const run = spawnSync;', program],
+  ['import { $ } from "bun"; export const run = $;', program],
+  ['import * as bun from "bun"; export const run = bun.spawn;', program],
+  ['import bun from "bun"; export const run = bun;', program],
+  ['export const run = () => import("bun");', program],
+  ["export const run = () => import(`bun`);", program],
+  ["export const run = globalThis.Bun.spawnSync;", program],
+  ['export const run = globalThis["Bun"];', program],
+  ["export const run = global.Bun;", program],
+  ["const runtime = Bun; export const run = runtime.spawnSync;", program],
+  ["export const run = [Bun];", program],
+  ['export const run = (key: "spawn") => Bun[key];', program],
+  ['export const run = Bun["spawn"];', restricted("Bun.spawn")],
+  ["const { $ } = Bun; export const run = $;", restricted("Bun.$")],
+  ["export const run = Bun.spawn;", restricted("Bun.spawn")],
+  ['import { default as bun } from "bun"; export const run = bun;', program],
+  ['export { spawnSync } from "bun";', program],
+  ['export { $ } from "bun";', program],
+  ['export { default as bun } from "bun";', program],
+  ['export * from "bun";', program],
+  ['export const run = () => import("node:child_process");', program],
+  ['export const run = () => import("child_process");', program],
+  ["export const run = (name: string) => import(name);", program],
+  ['export const run = () => import("b" + "un");', program],
+  ['export const run = import.meta.require("bun");', program],
+  ['export const run = import.meta.require("node:child_process");', program],
+  ['export const run = require("bun");', program],
+  ["export const run = Bun.openInEditor;", program],
+  [
+    'export const run = process.getBuiltinModule("node:child_process");',
+    output,
+  ],
+  ['export const out = () => Bun.write(Bun.stdout, "x");', domainOutput],
+  ["const { stderr } = Bun; export const out = stderr;", domainOutput],
+  ['import { stdout } from "bun"; export const out = stdout;', domainOutput],
+  ["const { stdout } = process; export const out = stdout;", domainOutput],
+  [
+    "let out: unknown; ({ stdout: out } = process); export { out };",
+    domainOutput,
+  ],
+  ["const { ...all } = process; export const out = all;", output],
+  ['import proc from "node:process"; export const out = proc.stdout;', output],
+  ['import * as proc from "process"; export const out = proc;', output],
+  ['export const out = () => import("node:process");', output],
+  [
+    'import { stdout } from "node:process"; export const out = stdout;',
+    domainOutput,
+  ],
+  ['export const out = process.getBuiltinModule("node:process");', output],
+  ['export const out = () => globalThis.console.log("x");', output],
+  ['export const out = () => globalThis.process.stderr.write("x");', output],
+  ["const { process: host } = globalThis; export const out = host;", output],
+  ["const scope = globalThis; export const out = scope;", output],
+  ['export const out = () => process[`stdout`].write("x");', domainOutput],
+  ['export const out = () => process["stderr"].write("x");', domainOutput],
+  ['export const out = (key: "stdout") => process[key];', output],
+  ['export const out = () => process.stdout.write("x");', domainOutput],
+  ["const printer = console; export const out = printer;", output],
+  ['export const out = () => console.log("x");', consoleCall],
+  ["const { log } = console; export const out = log;", output],
+  ["let log: unknown; ({ log } = console); export { log };", output],
+  ["export const out = ({ log } = console) => log;", output],
+  [
+    'import { "default" as proc } from "node:process"; export const out = proc;',
+    output,
+  ],
+  [
+    'import { default as proc } from "process"; export const out = proc;',
+    output,
+  ],
+  [
+    'import { getBuiltinModule } from "node:process"; export const out = getBuiltinModule;',
+    output,
+  ],
+  [
+    "const { getBuiltinModule } = process; export const out = getBuiltinModule;",
+    output,
+  ],
+  ['import c from "node:console"; export const out = c;', output],
+  ['import { log } from "console"; export const out = log;', output],
+  ['export { stdout } from "node:process";', output],
+  ['export * as proc from "node:process";', output],
+  ['export const out = import.meta.require("node:process");', output],
+  ['export const out = () => process.emitWarning("x");', output],
+  ['export const out = () => process._rawDebug("x");', output],
+  [
+    'export const out = () => process.on("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.once("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.off("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.addListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.removeListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.removeAllListeners("x").stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.prependListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.prependOnceListener("exit", () => {}).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = () => process.setMaxListeners(10).stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = (stop: () => void) => process.on("SIGINT", stop);',
+    output,
+  ],
+  [
+    'export const out = () => process.on?.("exit", () => {})?.stdout.write("x");',
+    output,
+  ],
+  [
+    'export const out = (stop: () => void) => process[`on`]("SIGINT", stop);',
+    output,
+  ],
+  ["export const out = process.on;", output],
+  ["const { on } = process; export const out = on;", output],
+  [
+    'import { removeAllListeners } from "node:process"; export const out = () => removeAllListeners("x").stdout.write("x");',
+    output,
+  ],
+  ['import { on } from "node:process"; export const out = on;', output],
+  [
+    'declare const process: typeof globalThis.process; const p = process; export const out = () => p.stdout.write("x");',
+    output,
+  ],
+  [
+    'declare const Bun: typeof globalThis.Bun; const b = Bun; export const run = () => b.spawnSync(["true"]);',
+    program,
+  ],
+  [
+    'declare const console: typeof globalThis.console; const c = console; export const out = () => c.log("x");',
+    output,
+  ],
+  [
+    'declare const console: typeof globalThis.console; export const out = () => console.log("x");',
+    output,
+  ],
+  [
+    "interface process { ok?: boolean } declare const process: typeof globalThis.process; const p = process; export const out = p;",
+    output,
+  ],
+  [
+    "declare function require(id: string): unknown; const load = require; export const run = load;",
+    program,
+  ],
+  ["export const run = globalThis.require;", program],
+  ['import "bun";', program],
+  ['import { stdout } from "node:module"; export const out = stdout;', program],
+  ['const load = require; export const run = () => load("bun");', program],
+  [
+    "const load: (id: string) => unknown = require; export const run = load;",
+    program,
+  ],
+  ['export const run = () => (0, require)("bun");', program],
+  [
+    'const load = import.meta.require; export const run = () => load("node:child_process");',
+    program,
+  ],
+  ['export const run = (k: "require") => import.meta[k]("bun");', program],
+  ['export const run = () => import.meta["require"]("bun");', program],
+  ['export const run = () => import.meta[`require`]("bun");', program],
+  ["const { require: load } = import.meta; export const run = load;", program],
+  [
+    'const { "require": load } = import.meta; export const run = load;',
+    program,
+  ],
+  ["const { ...meta } = import.meta; export const run = meta;", program],
+  ["const meta = import.meta; export const run = meta;", program],
+  ["export const run = () => require(0);", program],
+  [
+    'import mod from "node:module"; export const run = () => mod.createRequire(import.meta.url)("node:child_process");',
+    program,
+  ],
+  ['import { Module } from "node:module"; export const run = Module;', program],
+  ['import { Module } from "module"; export const run = Module;', program],
+  [
+    'import * as mod from "node:module"; export const run = mod;',
+    [program, moduleStarRestriction],
+  ],
+  ['import "node:module";', program],
+  ['export { Module } from "node:module";', program],
+  ['export * from "node:module";', [program, moduleStarRestriction]],
+  ['export type { NodeModule } from "node:module";', program],
+  ['export const run = async () => import("node:module");', program],
+  ['export const run = async () => import("module");', program],
+  ['export const run = () => require("node:module");', program],
+  ['export const run = () => import.meta.require("node:module");', program],
+  ["for (Bun; false; ) { break; }", program],
+] as const;
+const honestRuntime = [
+  'import type { Subprocess } from "bun"; export type Child = Subprocess;',
+  'import { type Subprocess } from "bun"; export type Child = Subprocess;',
+  "export const read = (path: string) => Bun.file(path).text();",
+  'export const home = () => process.env["HOME"];',
+  "const { argv } = process; export const args = argv;",
+  "export const tag = { process: 1, Bun: 2, console: 3 };",
+  "export type Spawn = typeof Bun.spawn;",
+  "export const kind = typeof process;",
+  "export const later = globalThis.setTimeout;",
+  'import type { stdout } from "bun"; export type Out = typeof stdout;',
+  'import { type stdout } from "node:process"; export type Out = typeof stdout;',
+  "export const flag = () => process.env.X;",
+  "export const args = () => process.argv;",
+  'export const read = () => Bun.file("x");',
+  'import { file } from "bun"; export const read = file;',
+  'import { env } from "node:process"; export const read = env;',
+  'export const path = () => import("node:path");',
+  'export const listen = (stop: () => void) => { process.on("SIGINT", stop); };',
+  'export const listenOpt = (stop: () => void) => { process.on?.("SIGINT", stop); };',
+  'export const listenVoid = (stop: () => void) => void process.on("SIGINT", stop);',
+  'export const unlisten = (stop: () => void) => { process.off("SIGWINCH", stop); };',
+  "export const metaUrl = import.meta.url;",
+  "const { url } = import.meta; export const metaUrlDestructured = url;",
+  "export const localRequire = () => { const require = (ok: boolean) => ok; return require(true); };",
+  'import type { NodeModule } from "node:module"; export type Mod = NodeModule;',
+  'import { type NodeModule } from "module"; export type Mod = NodeModule;',
+  "export const shadowed = (process: { env: string }) => process;",
+];
+
+async function runtimeHits(filePath: string, code: string) {
+  const [result] = await eslint.lintText(code, { filePath });
+  return (result?.messages ?? [])
+    .filter(({ ruleId }) => runtimeGates.has(String(ruleId)))
+    .map(({ ruleId, message }) => `${ruleId}: ${message}`);
+}
+
+for (const filePath of installedSource)
+  test(`the kernel lint refuses each spelling of a program start or a process stream once in ${filePath}, and admits honest runtime use`, async () => {
+    const found = [];
+    for (const [code] of runtimeSpellings)
+      found.push([code, await runtimeHits(filePath, code)]);
+    expect(found).toEqual(
+      runtimeSpellings.map(([code, hit]) => [
+        code,
+        typeof hit === "string" ? [hit] : [...hit],
+      ]),
+    );
+    for (const code of honestRuntime)
+      expect(await runtimeHits(filePath, code)).toEqual([]);
+  });
+
+const scriptForms = ["js", "mjs", "cjs", "jsx", "tsx"];
+
+for (const typed of installedSource)
+  test(`the kernel lint refuses source beside ${typed} that is not TypeScript, and admits .ts`, async () => {
+    const folder = typed.slice(0, typed.lastIndexOf("/"));
+    const code = 'export const word = "menu";';
+    const refused = [];
+    for (const form of scriptForms)
+      refused.push(
+        await hits("typescript-source", `${folder}/word.${form}`, code),
+      );
+    expect(refused).toEqual(
+      scriptForms.map(() => [
+        {
+          line: 1,
+          message:
+            "Source is TypeScript (.ts, .mts or .cts). Repair: write this file as .ts, .mts or .cts.",
+        },
+      ]),
+    );
+    expect(await hits("typescript-source", typed, code)).toEqual([]);
+  });
+
 const framingFile = "kernel/src/addons/state/framing.ts";
 const stateFiles =
   "Files in kernel/src/addons/state outside store.ts and coordination.ts";

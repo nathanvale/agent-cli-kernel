@@ -192,6 +192,64 @@ function ownerImport(context, file, root, installed) {
 const causeShape =
   /^(?:SUCCESS|USAGE|SCHEMA|DOMAIN|TRANSIENT|INTERNAL)_[A-Z0-9_]+$/;
 const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
+const programStartMessage =
+  "Contract 3 source starts programs only through the programs add-on.";
+const outputMessage =
+  "Return domain data to the CLI output owner instead of accessing process streams.";
+const streams = new Set(["stdout", "stderr"]);
+const streamOwners = new Set(["process", "Bun"]);
+const runtimeGlobals = {
+  Bun: "program",
+  process: "output",
+  console: "output",
+  globalThis: "output",
+  global: "output",
+  self: "output",
+  require: "program",
+};
+const globalHolders = new Set(["globalThis", "global", "self"]);
+const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
+const allowedRuntimeMembers = {
+  Bun: new Set(
+    "version revision main env argv which file write stdin sleep sleepSync nanoseconds hash CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth escapeHTML randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color TOML isMainThread".split(
+      " ",
+    ),
+  ),
+  process: new Set(
+    "env argv argv0 execArgv execPath exit exitCode pid ppid platform arch version versions release cwd uptime hrtime memoryUsage cpuUsage resourceUsage listeners listenerCount nextTick kill getuid geteuid getgid getegid getgroups umask title stdin features isBun revision".split(
+      " ",
+    ),
+  ),
+  console: new Set(),
+  child_process: new Set(),
+  module: new Set(),
+};
+const runtimeModules = new Map(
+  Object.keys(allowedRuntimeMembers).map((owner) => [
+    owner.toLowerCase(),
+    owner,
+  ]),
+);
+
+function staticKey(node, computed = true) {
+  if (!node) return undefined;
+  if (!computed && node.type === "Identifier") return node.name;
+  if (node.type === "Literal")
+    return typeof node.value === "string" ? node.value : undefined;
+  if (node.type === "TemplateLiteral" && node.expressions.length === 0)
+    return node.quasis[0].value.cooked;
+  return undefined;
+}
+
+function isAllowedRuntimeMember(owner, key, route) {
+  if (allowedRuntimeMembers[owner].has(key)) return true;
+  if (route === "export") return false;
+  if (owner === "console") return route === "member";
+  return (
+    (streamOwners.has(owner) && streams.has(key)) ||
+    (route !== "import" && owner === "Bun" && bunStartMembers.has(key))
+  );
+}
 
 export default {
   rules: {
@@ -388,33 +446,227 @@ export default {
       meta: {
         type: "problem",
         schema: [],
+        messages: { output: outputMessage },
+      },
+      create(context) {
+        const report = (node) => context.report({ node, messageId: "output" });
+        const owned = (owner, key) =>
+          streamOwners.has(owner?.name) && streams.has(key);
+        return {
+          ImportSpecifier(node) {
+            if (node.importKind === "type" || node.parent.importKind === "type")
+              return;
+            const source = node.parent.source.value;
+            if (
+              ["node:process", "process", "bun"].includes(source) &&
+              streams.has(node.imported.name ?? node.imported.value)
+            )
+              report(node);
+          },
+          MemberExpression(node) {
+            if (owned(node.object, staticKey(node.property, node.computed)))
+              report(node);
+          },
+          "ObjectPattern > Property"(node) {
+            const { parent } = node.parent;
+            if (
+              owned(
+                parent.init ?? parent.right,
+                staticKey(node.key, node.computed),
+              )
+            )
+              report(node);
+          },
+        };
+      },
+    },
+    "no-process-reach": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: { program: programStartMessage, output: outputMessage },
+      },
+      create(context) {
+        const chainableProcess = new Set(
+          "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
+            " ",
+          ),
+        );
+        const report = (node, owner) =>
+          context.report({
+            node,
+            messageId: (owner && runtimeGlobals[owner]) || "program",
+          });
+        const ownerOf = (source) => {
+          const name = source && staticKey(source);
+          return typeof name === "string"
+            ? runtimeModules.get(name.replace(/^node:/, ""))
+            : undefined;
+        };
+        const typeOnly = (node) =>
+          node.importKind === "type" || node.exportKind === "type";
+        const specifierAdmitted = (specifier, owner, route) => {
+          const name = specifier.imported ?? specifier.local;
+          return (
+            typeOnly(specifier) ||
+            (["ImportSpecifier", "ExportSpecifier"].includes(specifier.type) &&
+              isAllowedRuntimeMember(owner, name.name ?? name.value, route))
+          );
+        };
+        const specifiersUse = (node, route) => {
+          const owner = ownerOf(node.source);
+          if (!owner || owner === "child_process") return;
+          if (typeOnly(node) && (owner !== "module" || route === "import"))
+            return;
+          if (
+            (owner === "module" && route === "export") ||
+            !node.specifiers?.length
+          )
+            return report(node, owner);
+          for (const specifier of node.specifiers)
+            if (!specifierAdmitted(specifier, owner, route))
+              report(specifier, owner);
+        };
+        const load = (node, source) => {
+          const owner = ownerOf(source);
+          if (owner || !source || staticKey(source) === undefined)
+            report(node, owner);
+        };
+        const pattern = (parent, identifier) =>
+          parent?.type === "VariableDeclarator" &&
+          parent.init === identifier &&
+          parent.id.type === "ObjectPattern"
+            ? parent.id
+            : ["AssignmentExpression", "AssignmentPattern"].includes(
+                  parent?.type,
+                ) &&
+                parent.right === identifier &&
+                parent.left.type === "ObjectPattern"
+              ? parent.left
+              : undefined;
+        const discardedCall = (member) => {
+          const call = member.parent;
+          const outer =
+            call?.parent?.type === "ChainExpression" ? call.parent : call;
+          return (
+            call?.type === "CallExpression" &&
+            call.callee === member &&
+            (outer.parent?.type === "ExpressionStatement" ||
+              outer.parent?.operator === "void")
+          );
+        };
+        const refused = (name, key, route) =>
+          globalHolders.has(name)
+            ? Object.hasOwn(runtimeGlobals, key)
+            : !isAllowedRuntimeMember(name, key, route);
+        const memberUse = (member, name, ambient) => {
+          const key = staticKey(member.property, member.computed);
+          if (name === "process" && chainableProcess.has(key)) {
+            if (!discardedCall(member)) report(member, name);
+            return;
+          }
+          if (
+            key === undefined ||
+            (ambient && name === "console") ||
+            refused(name, key, "member")
+          )
+            report(member, globalHolders.has(name) && key ? key : name);
+        };
+        const patternUse = (properties, name) => {
+          for (const property of properties) {
+            const key =
+              property.key && staticKey(property.key, property.computed);
+            if (
+              property.type === "RestElement" ||
+              key === undefined ||
+              (name === "import.meta"
+                ? property.computed || key === "require"
+                : refused(name, key, "pattern"))
+            )
+              report(property, globalHolders.has(name) && key ? key : name);
+          }
+        };
+        const typeUse = (parent) =>
+          Boolean(parent) &&
+          (["TSTypeQuery", "TSQualifiedName"].includes(parent.type) ||
+            parent.operator === "typeof");
+        const directLoad = (callee) => {
+          const call = callee.parent;
+          if (call?.type === "CallExpression" && call.callee === callee)
+            load(call, call.arguments[0]);
+          else if (!typeUse(call)) report(callee, "require");
+        };
+        const isAmbient = (def) => {
+          if (def.type === "Type" || def.type === "TypeParameter") return true;
+          for (let node = def.node; node; node = node.parent)
+            if (node.declare || typeOnly(node)) return true;
+          return false;
+        };
+        const judge = (identifier, name, ambient) => {
+          const { parent } = identifier;
+          if (name === "require") return directLoad(identifier);
+          const destructured = pattern(parent, identifier);
+          if (
+            parent?.type === "MemberExpression" &&
+            parent.object === identifier
+          )
+            memberUse(parent, name, ambient);
+          else if (destructured) patternUse(destructured.properties, name);
+          else if (!typeUse(parent)) report(identifier, name);
+        };
+        return {
+          ImportDeclaration: (node) => specifiersUse(node, "import"),
+          ExportNamedDeclaration: (node) =>
+            node.source && specifiersUse(node, "export"),
+          ExportAllDeclaration: (node) => specifiersUse(node, "export"),
+          ImportExpression: (node) => load(node, node.source),
+          MetaProperty(node) {
+            if (node.meta.name !== "import") return;
+            const { parent } = node;
+            const destructured = pattern(parent, node);
+            if (parent?.type === "MemberExpression" && parent.object === node) {
+              if (parent.computed) report(parent, "require");
+              else if (parent.property.name === "require") directLoad(parent);
+            } else if (destructured)
+              patternUse(destructured.properties, "import.meta");
+            else if (!typeUse(parent)) report(node, "require");
+          },
+          "Program:exit"(program) {
+            const refs = context.sourceCode
+              .getScope(program)
+              .through.filter((ref) =>
+                Object.hasOwn(runtimeGlobals, ref.identifier.name),
+              );
+            for (const scope of context.sourceCode.scopeManager.scopes)
+              for (const name of Object.keys(runtimeGlobals)) {
+                const variable = scope.set.get(name);
+                if (variable?.defs.every(isAmbient))
+                  refs.push(...variable.references);
+              }
+            for (const ref of new Set(refs))
+              if (!ref.isTypeReference || ref.isValueReference)
+                judge(
+                  ref.identifier,
+                  ref.identifier.name,
+                  Boolean(ref.resolved?.defs.length),
+                );
+          },
+        };
+      },
+    },
+    "typescript-source": {
+      meta: {
+        type: "problem",
+        schema: [],
         messages: {
-          output:
-            "Return domain data to the CLI output owner instead of accessing process streams.",
+          source:
+            "Source is TypeScript (.ts, .mts or .cts). Repair: write this file as .ts, .mts or .cts.",
         },
       },
       create(context) {
         return {
-          ImportSpecifier(node) {
-            if (!["node:process", "process"].includes(node.parent.source.value))
-              return;
-            if (
-              ["stdout", "stderr"].includes(
-                node.imported.name ?? node.imported.value,
-              )
-            )
-              context.report({ node, messageId: "output" });
-          },
-          MemberExpression(node) {
-            const property = node.computed
-              ? node.property.value
-              : node.property.name;
-            if (
-              node.object.name === "process" &&
-              ["stdout", "stderr"].includes(property)
-            ) {
-              context.report({ node, messageId: "output" });
-            }
+          Program(node) {
+            context.report({ node, messageId: "source" });
           },
         };
       },

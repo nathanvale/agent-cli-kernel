@@ -8,13 +8,6 @@ const stateFactoryProperty = {
   property: "stateAddon",
   message: "Only the state add-on folder may author the state add-on factory.",
 };
-// Platform: ESLint no-restricted-imports checks static imports only, not dynamic import().
-const childProcessImport = {
-  selector:
-    "ImportExpression:matches([source.value=/^(node:)?child_process$/], [source.quasis.0.value.cooked=/^(node:)?child_process$/])",
-  message:
-    "Contract 3 source starts programs only through the programs add-on.",
-};
 const loggingImports = {
   group: [
     "@logtape/*",
@@ -120,7 +113,6 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
   return {
     "no-restricted-syntax": [
       ...rules["no-restricted-syntax"],
-      childProcessImport,
       ...(banFfi ? [ffiImport] : []),
       ...reachability,
       {
@@ -235,6 +227,16 @@ export function kernelLint(options) {
   const when = (name, block) => (selected(name) ? [block] : []);
   return tseslint.config(
     {
+      files: [`${srcDir}/**/*.{js,mjs,cjs,jsx,tsx}`],
+      linterOptions: { noInlineConfig: true },
+      languageOptions: {
+        parser: tseslint.parser,
+        parserOptions: { tsconfigRootDir: rootDir },
+      },
+      plugins: { repository },
+      rules: { "repository/typescript-source": "error" },
+    },
+    {
       files: [source, ...testDirs.map((dir) => `${dir}/${ts}`)],
       linterOptions: { noInlineConfig: true },
       extends: [
@@ -255,12 +257,9 @@ export function kernelLint(options) {
       plugins: { repository },
       rules: {
         "repository/no-domain-output": "error",
+        "repository/no-process-reach": "error",
         "repository/no-locale-compare": "error",
-        "no-restricted-syntax": [
-          ...rules["no-restricted-syntax"],
-          childProcessImport,
-          ffiImport,
-        ],
+        "no-restricted-syntax": [...rules["no-restricted-syntax"], ffiImport],
         "no-restricted-imports": [
           "error",
           {
@@ -296,7 +295,6 @@ export function kernelLint(options) {
         "no-restricted-properties": ["error", ...programProperties],
         "no-restricted-syntax": [
           ...rules["no-restricted-syntax"],
-          childProcessImport,
           ffiImport,
           {
             selector:
@@ -334,7 +332,6 @@ export function kernelLint(options) {
               "CallExpression[callee.object.name='Object']:matches([callee.property.name='assign'], [callee.computed=true][callee.property.value='assign'])",
             message: "Object.assign is forbidden.",
           },
-          childProcessImport,
           ffiImport,
         ],
       },

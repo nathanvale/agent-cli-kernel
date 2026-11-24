@@ -1,0 +1,7 @@
+{
+  "id": "f822a0ca-no-process-reach",
+  "patch": "tests/planted-faults/patches/f822a0ca-no-process-reach.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "the kernel lint refuses each spelling of a program start or a process stream once in",
+  "source": "f822a0ca fix(lint): refuse every spelling of a program start or stream, and non-TypeScript source, in src"
+}

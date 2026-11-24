@@ -577,12 +577,14 @@ const kernelPathFindings = [
   },
   { file: "src/kernel/in.ts", ruleId: "repository/no-in-operator" },
   { file: "src/kernel/index.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/kernel/index.ts", ruleId: "repository/no-process-reach" },
   {
     file: "src/kernel/process-host.ts",
     ruleId: "repository/no-domain-output",
   },
   { file: "src/kernel/runtime.ts", ruleId: "no-restricted-imports" },
   { file: "src/kernel/runtime.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/kernel/runtime.ts", ruleId: "repository/no-process-reach" },
   {
     file: "src/kernel/validation/brand.ts",
     ruleId: "no-restricted-syntax",

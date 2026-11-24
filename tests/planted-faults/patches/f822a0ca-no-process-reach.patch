@@ -1,0 +1,12 @@
+diff --git a/kernel/config/kernel/eslint.mjs b/kernel/config/kernel/eslint.mjs
+index c7cc6d4a..8166e866 100644
+--- a/kernel/config/kernel/eslint.mjs
++++ b/kernel/config/kernel/eslint.mjs
+@@ -267,7 +267,6 @@ export function kernelLint(options) {
+       plugins: { repository },
+       rules: {
+         "repository/no-domain-output": "error",
+-        "repository/no-process-reach": "error",
+         "repository/no-locale-compare": "error",
+         "no-restricted-syntax": [
+           ...rules["no-restricted-syntax"],

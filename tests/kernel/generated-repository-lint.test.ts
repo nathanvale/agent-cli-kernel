@@ -14,6 +14,9 @@ afterAll(async () => {
 });
 
 const planted = {
+  "src/app/alias.ts":
+    "const runtime = Bun;\nexport const run = runtime.spawnSync;",
+  "src/app/script.mjs": 'export const word = "app";',
   "src/app/cause.ts":
     'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
   "src/app/in.ts": 'export const has = (o: object) => "a" in o;',
@@ -33,8 +36,9 @@ const planted = {
 };
 
 const plantedFindings = [
+  { file: "src/app/alias.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
-  { file: "src/app/child.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/app/child.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/ffi.ts", ruleId: "no-restricted-imports" },
   { file: "src/app/in.ts", ruleId: "repository/no-in-operator" },
   { file: "src/app/kernel-deep.ts", ruleId: "no-restricted-imports" },
@@ -42,6 +46,7 @@ const plantedFindings = [
   { file: "src/app/logging.ts", ruleId: "no-restricted-imports" },
   { file: "src/app/output.ts", ruleId: "repository/no-domain-output" },
   { file: "src/app/predicate.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/app/script.mjs", ruleId: "repository/typescript-source" },
   { file: "src/app/spawn.ts", ruleId: "no-restricted-properties" },
   {
     file: "src/kernel/validation/planted.ts",
@@ -158,6 +163,86 @@ describe("kernelLint in a host layout", () => {
             file !== "src/kernel/validation/planted.ts",
         ),
       ).toEqual([]);
+    },
+    lintBound,
+  );
+
+  test(
+    "a host block after kernelLint that sets no-restricted-syntax, as the generated repository's does, keeps the runtime and TypeScript-source refusals",
+    async () => {
+      const tree = await hostTree([], []);
+      await writeFile(
+        join(tree, "host.config.mjs"),
+        [
+          'import { kernelLint } from "./config/kernel/eslint.mjs";',
+          "export default [",
+          '  ...kernelLint({ rootDir: import.meta.dirname, srcDir: "src", testDirs: [], addons: [] }),',
+          '  { files: ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"], rules: { "no-restricted-syntax": ["error", { selector: "TSAsExpression > TSAsExpression", message: "No chained assertion." }] } },',
+          "];",
+          "",
+        ].join("\n"),
+      );
+      await writeFile(
+        join(tree, "src/app/require-alias.ts"),
+        'const load: (id: string) => unknown = require;\nexport const run = (): unknown => load("bun");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/indirect-require.ts"),
+        'export const run = (): unknown => (0, require)("bun");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/meta-alias.ts"),
+        'const load = import.meta.require;\nexport const run = (): unknown => load("node:child_process");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/meta-key.ts"),
+        'export const run = (k: "require"): unknown => import.meta[k]("bun");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/module-import.ts"),
+        'import mod from "node:module";\nexport const run = (): unknown => mod.createRequire(import.meta.url)("node:child_process");\n',
+      );
+      await writeFile(
+        join(tree, "src/app/honest-meta.ts"),
+        'export const dir = import.meta.dirname;\nexport const listen = (stop: () => void): void => {\n  process.on("SIGINT", stop);\n};\n',
+      );
+      const startHit =
+        "repository/no-process-reach: Contract 3 source starts programs only through the programs add-on.";
+      const results = await new ESLint({
+        cwd: tree,
+        overrideConfigFile: "host.config.mjs",
+      }).lintFiles([
+        "src/app/alias.ts",
+        "src/app/child.ts",
+        "src/app/script.mjs",
+        "src/app/require-alias.ts",
+        "src/app/indirect-require.ts",
+        "src/app/meta-alias.ts",
+        "src/app/meta-key.ts",
+        "src/app/module-import.ts",
+        "src/app/honest-meta.ts",
+      ]);
+      expect(
+        results.map((result) => [
+          relative(tree, result.filePath),
+          result.messages.map(({ ruleId, message }) => `${ruleId}: ${message}`),
+        ]),
+      ).toEqual([
+        ["src/app/alias.ts", [startHit]],
+        ["src/app/child.ts", [startHit]],
+        [
+          "src/app/script.mjs",
+          [
+            "repository/typescript-source: Source is TypeScript (.ts, .mts or .cts). Repair: write this file as .ts, .mts or .cts.",
+          ],
+        ],
+        ["src/app/require-alias.ts", [startHit]],
+        ["src/app/indirect-require.ts", [startHit]],
+        ["src/app/meta-alias.ts", [startHit]],
+        ["src/app/meta-key.ts", [startHit]],
+        ["src/app/module-import.ts", [startHit]],
+        ["src/app/honest-meta.ts", []],
+      ]);
     },
     lintBound,
   );
