@@ -11,8 +11,8 @@ index 32412a92..5cf93bba 100644
 -  origin,
 -  propertyName,
 -  staticString,
--} from "./origin-trace.mjs";
-+import { bare, origin, propertyName, staticString } from "./origin-trace.mjs";
+-} from "./value-trace.mjs";
++import { bare, origin, propertyName, staticString } from "./value-trace.mjs";
  
  const commentDirective =
    /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
@@ -20,7 +20,7 @@ index 32412a92..5cf93bba 100644
      node.callee.object.type === "Identifier" &&
      node.callee.object.name === "process" &&
      propertyName(node.callee) === "getBuiltinModule");
--const bunFileMembers = new Set([
+-const bunFilesystemMembers = new Set([
 -  "file",
 -  "write",
 -  "mmap",
@@ -39,7 +39,7 @@ index 32412a92..5cf93bba 100644
 -    : property.computed
 -      ? staticString(context, property.key)
 -      : (property.key.name ?? property.key.value);
--const patternSource = (context, pattern) => {
+-const patternOrigin = (context, pattern) => {
 -  const { parent } = pattern;
 -  if (parent.type === "VariableDeclarator" && parent.id === pattern)
 -    return origin(context, parent.init);
@@ -51,7 +51,7 @@ index 32412a92..5cf93bba 100644
 -    return origin(context, parent.right);
 -  if (parent.type === "Property" && parent.parent.type === "ObjectPattern") {
 -    const key = keyName(context, parent);
--    const base = patternSource(context, parent.parent);
+-    const base = patternOrigin(context, parent.parent);
 -    return key === undefined || !base ? undefined : memberOf(base, key);
 -  }
 -};
@@ -72,7 +72,7 @@ index 32412a92..5cf93bba 100644
 -        const checkBunMember = (node, name) => {
 -          if (name === undefined)
 -            context.report({ node, messageId: "dynamicBunReach" });
--          else if (bunFileMembers.has(name))
+-          else if (bunFilesystemMembers.has(name))
 -            context.report({
 -              node,
 -              messageId: "bunReach",
@@ -107,7 +107,7 @@ index 32412a92..5cf93bba 100644
 -              checkBunMember(node, propertyName(node, context));
 -          },
 -          ObjectPattern(node) {
--            if (isBunObject(patternSource(context, node)))
+-            if (isBunObject(patternOrigin(context, node)))
 -              for (const property of node.properties)
 -                checkBunMember(property, keyName(context, property));
 -          },

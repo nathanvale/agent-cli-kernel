@@ -6,7 +6,7 @@ import {
   origin,
   propertyName,
   staticString,
-} from "./origin-trace.mjs";
+} from "./value-trace.mjs";
 
 const commentDirective =
   /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
@@ -178,7 +178,7 @@ const isRequireCall = (node) =>
     node.callee.object.type === "Identifier" &&
     node.callee.object.name === "process" &&
     propertyName(node.callee) === "getBuiltinModule");
-const bunFileMembers = new Set([
+const bunFilesystemMembers = new Set([
   "file",
   "write",
   "mmap",
@@ -197,7 +197,7 @@ const keyName = (context, property) =>
     : property.computed
       ? staticString(context, property.key)
       : (property.key.name ?? property.key.value);
-const patternSource = (context, pattern) => {
+const patternOrigin = (context, pattern) => {
   const { parent } = pattern;
   if (parent.type === "VariableDeclarator" && parent.id === pattern)
     return origin(context, parent.init);
@@ -209,7 +209,7 @@ const patternSource = (context, pattern) => {
     return origin(context, parent.right);
   if (parent.type === "Property" && parent.parent.type === "ObjectPattern") {
     const key = keyName(context, parent);
-    const base = patternSource(context, parent.parent);
+    const base = patternOrigin(context, parent.parent);
     return key === undefined || !base ? undefined : memberOf(base, key);
   }
 };
@@ -235,7 +235,7 @@ export default {
         const checkBunMember = (node, name) => {
           if (name === undefined)
             context.report({ node, messageId: "dynamicBunReach" });
-          else if (bunFileMembers.has(name))
+          else if (bunFilesystemMembers.has(name))
             context.report({
               node,
               messageId: "bunReach",
@@ -280,7 +280,7 @@ export default {
               checkBunMember(node, propertyName(node, context));
           },
           ObjectPattern(node) {
-            if (isBunObject(patternSource(context, node)))
+            if (isBunObject(patternOrigin(context, node)))
               for (const property of node.properties)
                 checkBunMember(property, keyName(context, property));
           },
