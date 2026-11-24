@@ -29,6 +29,7 @@ function withChainedTypeAssertions(config) {
 }
 
 export default defineConfig(
+  { linterOptions: { noInlineConfig: true } },
   {
     ignores: [
       "node_modules/**",
