@@ -172,7 +172,7 @@ const isRequireCall = (node) =>
     node.callee.object.type === "Identifier" &&
     node.callee.object.name === "process" &&
     propertyName(node.callee) === "getBuiltinModule");
-const bunPathFreeMembers = new Set([
+const allowedBunMembers = new Set([
   "$",
   "spawn",
   "spawnSync",
@@ -233,7 +233,7 @@ export default {
         const checkBunUse = (node) => {
           const member = staticMemberName(node);
           if (member === undefined) report(node, "dynamicBunReach");
-          else if (!bunPathFreeMembers.has(member))
+          else if (!allowedBunMembers.has(member))
             report(node.parent, "bunReach", member);
         };
         const checkHolder = (node) => {
@@ -254,7 +254,7 @@ export default {
               specifier.type === "ImportNamespaceSpecifier"
             )
               report(specifier, "dynamicBunReach");
-            else if (!bunPathFreeMembers.has(name))
+            else if (!allowedBunMembers.has(name))
               report(specifier, "bunReach", name);
           }
         };
