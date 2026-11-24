@@ -1,13 +1,12 @@
 diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
-index d255bc5d..ecb6dae6 100644
 --- a/scripts/glossary-additions.ts
 +++ b/scripts/glossary-additions.ts
-@@ -256,7 +256,7 @@ async function suppressionGrowthProblems(
-   const groups = await Promise.all(
-     [...after.byRule].map(async ([rule, afterTotal]) => {
-       const beforeTotal = before.byRule.get(rule) ?? 0;
--      if (afterTotal <= beforeTotal) return [];
-+      if (afterTotal >= 0) return [];
-       if (beforeTotal === 0 && (await isNewRule(root, base, read, rule)))
-         return [];
-       return [...after.byFile].flatMap(([file, rules]) => {
+@@ -155,7 +155,7 @@ function suppressionGrowthProblems(
+   const after = readSuppressions(current);
+   return [...after.byRule].flatMap(([rule, afterTotal]) => {
+     const beforeTotal = before.byRule.get(rule) ?? 0;
+-    if (afterTotal <= beforeTotal) return [];
++    if (afterTotal >= 0) return [];
+     const baseApprovals = before.approvalsByRule.get(rule);
+     return [...after.byFile].flatMap(([file, rules]) => {
+       const afterEntry = rules.get(rule);

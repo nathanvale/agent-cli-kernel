@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
-import { join } from "node:path";
+import { realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { delimiter, join } from "node:path";
 import {
   nameProblems,
+  optionalTextAt,
   readGlossary,
   recordedUnusedTermsFile,
   recordedHitsFile,
@@ -25,6 +26,7 @@ const {
   configWith,
   coverageGapsFile,
   coverageRefusal,
+  earlierAreaRepository,
   emptyRepository,
   eslintConfig,
   expectPass,
@@ -34,6 +36,7 @@ const {
   fallowFlagsFrom,
   fallowRepository,
   fallowWorkflowSteps,
+  folder,
   namesRepository,
   putJson,
   recordedFilesRepository,
@@ -51,141 +54,160 @@ function widen(root: string, extra: Record<string, unknown> = {}) {
   });
 }
 
-function earlierAreaRepository(duplicate: boolean = false) {
-  const root = recordedRepository();
-  const folder = "tests/template/recorded-checks";
-  mkdirSync(join(root, folder), { recursive: true });
-  const moved = [recordedHitsFile, recordedUnusedTermsFile].map((file) => ({
-    current: file,
-    earlier: `${folder}/${file.split("/").at(-1)}`,
-  }));
-  for (const { current, earlier } of moved)
-    git(root, "mv", "--", current, earlier);
-  const unrelated = "tests/template/glossary/recorded-hits.json";
-  putJson(root, unrelated, { hits: [{ file: "docs/term.md" }] });
-  git(root, "add", "--", unrelated);
-  if (duplicate) {
-    const other = "tests/template/other/recorded-hits.json";
-    const otherTerms = "tests/template/other/recorded-unused-terms.json";
-    putJson(root, other, { hits: [hostHit] });
-    putJson(root, otherTerms, { terms: [unusedTerm] });
-    git(root, "add", "--", other, otherTerms);
-  }
-  git(root, "commit", "--quiet", "-m", "earlier test area");
-  for (const { current, earlier } of moved)
-    git(root, "mv", "--", earlier, current);
-  return root;
+function commitApproved(root: string, rule: string, approved: string) {
+  putJson(root, suppressionsFile, {
+    "src/a.ts": { [rule]: { count: 2, approved } },
+  });
+  commitFiles(root, "approved suppression", suppressionsFile);
 }
 
-test("--against follows a moved recorded list and still refuses an unapproved addition", async () => {
-  const root = earlierAreaRepository();
-  await expectPass(root);
-  widen(root);
-  const refused = await check(root, ["--against", "HEAD"]);
-  expect(refused.code).toBe(1);
-  expect(refused.stderr).toStartWith(
-    `${recordedHitsFile} adds a recorded hit for "host" in docs/proof.md`,
-  );
-});
+test(
+  "--against follows a moved recorded list and still refuses an unapproved addition",
+  async () => {
+    const root = earlierAreaRepository();
+    await expectPass(root);
+    widen(root);
+    const refused = await check(root, ["--against", "HEAD"]);
+    expect(refused.code).toBe(1);
+    expect(refused.stderr).toStartWith(
+      `${recordedHitsFile} adds a recorded hit for "host" in docs/proof.md`,
+    );
+  },
+  processWatchdog(12),
+);
 
-test("--against refuses to guess between two earlier locations for a recorded list", async () => {
-  const root = earlierAreaRepository(true);
-  const refused = await check(root, ["--against", "HEAD"]);
-  expect(refused.code).toBe(2);
-  expect(refused.stderr).toContain(`git has no ${recordedHitsFile} at`);
-});
+test(
+  "--against refuses to guess between two earlier locations for a recorded list",
+  async () => {
+    const root = earlierAreaRepository(true);
+    const refused = await check(root, ["--against", "HEAD"]);
+    expect(refused.code).toBe(2);
+    expect(refused.stderr).toContain(`git has no ${recordedHitsFile} at`);
+  },
+  processWatchdog(8),
+);
 
-test("a tracked symlink that points nowhere is a name the full-tree check judges", () => {
-  const root = namesRepository();
-  symlinkSync("nowhere", join(root, "mutation-link.md"));
-  git(root, "add", "--", "mutation-link.md");
-  expect(trackedNames(root)).toContain("mutation-link.md");
-  expect(nameProblems(trackedNames(root), readGlossary(glossary), [])).toEqual([
-    'mutation-link.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Repair: rename it with the glossary word.',
-  ]);
-});
+test(
+  "a tracked symlink that points nowhere is a name the full-tree check judges",
+  () => {
+    const root = namesRepository();
+    symlinkSync("nowhere", join(root, "mutation-link.md"));
+    git(root, "add", "--", "mutation-link.md");
+    expect(trackedNames(root)).toContain("mutation-link.md");
+    expect(
+      nameProblems(trackedNames(root), readGlossary(glossary), []),
+    ).toEqual([
+      'mutation-link.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Repair: rename it with the glossary word.',
+    ]);
+  },
+  processWatchdog(3),
+);
 
-test("--against passes lists that match the base revision, and ones that only shrank", async () => {
-  const root = recordedRepository();
-  await expectPass(root);
-  putJson(root, recordedHitsFile, { hits: [] });
-  putJson(root, recordedUnusedTermsFile, { terms: [] });
-  await expectPass(root);
-});
+test(
+  "--against passes lists that match the base revision, and ones that only shrank",
+  async () => {
+    const root = recordedRepository();
+    await expectPass(root);
+    putJson(root, recordedHitsFile, { hits: [] });
+    putJson(root, recordedUnusedTermsFile, { terms: [] });
+    await expectPass(root);
+  },
+  processWatchdog(8),
+);
 
-test("--against refuses a recorded hit the base revision does not list, and names the repair", async () => {
-  const root = recordedRepository();
-  widen(root);
-  expect(await check(root, ["--against", "HEAD"])).toEqual({
-    stderr: `${recordedHitsFile} adds a recorded hit for "host" in docs/proof.md, which HEAD does not record, so this change widens what the names check admits. Repair: remove it (rename the path, or use or remove the term); or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`,
-    code: 1,
-  });
-});
+test(
+  "--against refuses a recorded hit the base revision does not list, and names the repair",
+  async () => {
+    const root = recordedRepository();
+    widen(root);
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: `${recordedHitsFile} adds a recorded hit for "host" in docs/proof.md, which HEAD does not record, so this change widens what the names check admits. Repair: remove it (rename the path, or use or remove the term); or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`,
+      code: 1,
+    });
+  },
+  processWatchdog(5),
+);
 
-test("--against refuses a recorded unused term the base revision does not list", async () => {
-  const root = recordedRepository();
-  putJson(root, recordedUnusedTermsFile, {
-    terms: [unusedTerm, { ...unusedTerm, term: "Another term" }],
-  });
-  const { stderr, code } = await check(root, ["--against", "HEAD"]);
-  expect(code).toBe(1);
-  expect(stderr).toStartWith(
-    `${recordedUnusedTermsFile} adds a recorded unused term "Another term", which HEAD does not record`,
-  );
-});
+test(
+  "--against refuses a recorded unused term the base revision does not list",
+  async () => {
+    const root = recordedRepository();
+    putJson(root, recordedUnusedTermsFile, {
+      terms: [unusedTerm, { ...unusedTerm, term: "Another term" }],
+    });
+    const { stderr, code } = await check(root, ["--against", "HEAD"]);
+    expect(code).toBe(1);
+    expect(stderr).toStartWith(
+      `${recordedUnusedTermsFile} adds a recorded unused term "Another term", which HEAD does not record`,
+    );
+  },
+  processWatchdog(5),
+);
 
-test("--against admits an addition that carries an approval, and a rewritten reason is no addition", async () => {
-  const root = recordedRepository();
-  widen(root, { approved: "MAG-1" });
-  putJson(root, recordedUnusedTermsFile, {
-    terms: [{ ...unusedTerm, reason: "Reworded." }],
-  });
-  await expectPass(root);
-  widen(root, { approved: "  " });
-  expect((await check(root, ["--against", "HEAD"])).code).toBe(1);
-});
+test(
+  "--against admits an addition that carries an approval, and a rewritten reason is no addition",
+  async () => {
+    const root = recordedRepository();
+    widen(root, { approved: "MAG-1" });
+    putJson(root, recordedUnusedTermsFile, {
+      terms: [{ ...unusedTerm, reason: "Reworded." }],
+    });
+    await expectPass(root);
+    widen(root, { approved: "  " });
+    expect((await check(root, ["--against", "HEAD"])).code).toBe(1);
+  },
+  processWatchdog(8),
+);
 
-test("--against exits 2 when the base revision does not hold a recorded file, and when it is not given one revision", async () => {
-  const root = namesRepository();
-  const missing = await check(root, ["--against", "HEAD"]);
-  expect(missing.code).toBe(2);
-  expect(missing.stderr).toContain(
-    "git has no tests/template/names-check/recorded-unused-terms.json at",
-  );
-  for (const args of [["--against"], ["--against", "a", "b"]])
-    expect(await check(root, args)).toEqual({
-      stderr:
-        "Usage: bun run check:names <path> [path ...] | --staged | --tool-call | --against <revision>. --against takes one revision.\n",
+test(
+  "--against exits 2 when the base revision does not hold a recorded file, and when it is not given one revision",
+  async () => {
+    const root = namesRepository();
+    const missing = await check(root, ["--against", "HEAD"]);
+    expect(missing.code).toBe(2);
+    expect(missing.stderr).toContain(
+      "git has no tests/template/names-check/recorded-unused-terms.json at",
+    );
+    for (const args of [["--against"], ["--against", "a", "b"]])
+      expect(await check(root, args)).toEqual({
+        stderr:
+          "Usage: bun run check:names <path> [path ...] | --staged | --tool-call | --against <revision>. --against takes one revision.\n",
+        code: 2,
+      });
+  },
+  processWatchdog(3),
+);
+
+test(
+  "--tool-call in this repository with no GLOSSARY.md exits 2, and in a repository with no names check exits 0",
+  async () => {
+    const broken = namesRepository();
+    git(broken, "rm", "--quiet", "--", "GLOSSARY.md");
+    const foreign = emptyRepository();
+    const call = (file: string) => () =>
+      Promise.resolve(
+        JSON.stringify({ tool_name: "Write", tool_input: { file_path: file } }),
+      );
+    expect(
+      await check(
+        broken,
+        ["--tool-call"],
+        call(join(broken, "docs/mutation-notes.md")),
+      ),
+    ).toEqual({
+      stderr: `names check: ${broken} has no GLOSSARY.md or no ${recordedHitsFile}, so it cannot judge the names this call creates. Repair: restore both with git restore GLOSSARY.md ${recordedHitsFile}.\n`,
       code: 2,
     });
-});
-
-test("--tool-call in this repository with no GLOSSARY.md exits 2, and in a repository with no names check exits 0", async () => {
-  const broken = namesRepository();
-  git(broken, "rm", "--quiet", "--", "GLOSSARY.md");
-  const foreign = emptyRepository();
-  const call = (file: string) => () =>
-    Promise.resolve(
-      JSON.stringify({ tool_name: "Write", tool_input: { file_path: file } }),
-    );
-  expect(
-    await check(
-      broken,
-      ["--tool-call"],
-      call(join(broken, "docs/mutation-notes.md")),
-    ),
-  ).toEqual({
-    stderr: `names check: ${broken} has no GLOSSARY.md or no ${recordedHitsFile}, so it cannot judge the names this call creates. Repair: restore both with git restore GLOSSARY.md ${recordedHitsFile}.\n`,
-    code: 2,
-  });
-  expect(
-    await check(
-      broken,
-      ["--tool-call"],
-      call(join(foreign, "docs/mutation-notes.md")),
-    ),
-  ).toEqual({ stderr: "", code: 0 });
-});
+    expect(
+      await check(
+        broken,
+        ["--tool-call"],
+        call(join(foreign, "docs/mutation-notes.md")),
+      ),
+    ).toEqual({ stderr: "", code: 0 });
+  },
+  processWatchdog(2),
+);
 
 test.each([
   [
@@ -255,63 +277,65 @@ test.each([
     suppressionRefusal("repository/no-locale-compare"),
   ],
   [
-    "eslint-suppressions.json growing a rule from an unlisted plugin module",
+    "eslint-suppressions.json growing a rule from an unlisted plugin provider",
     (r: string) => {
-      put(r, "config/anti-slop-rules.mjs", ruleModule('"new-rule": {}'));
-      addSuppression(r, "anti-slop/new-rule");
-    },
-    suppressionRefusal("anti-slop/new-rule"),
-  ],
-  [
-    "eslint-suppressions.json growing a repository rule when a base rule module cannot be decided",
-    (r: string) => {
-      put(r, "config/platform-rules.mjs", ruleModule("...unknownRules"));
-      commitFiles(r, "undecidable base", "config/platform-rules.mjs");
-      put(r, templateRules, ruleModule('"new-rule": {}'));
-      put(r, eslintConfig, configWith('"repository/new-rule": "error"'));
-      addSuppression(r, "repository/new-rule");
-    },
-    suppressionRefusal("repository/new-rule"),
-  ],
-  [
-    "eslint-suppressions.json growing a repository rule when a base rule module has a computed outer property",
-    (r: string) => {
+      put(r, "config/other-rules.mjs", ruleModule('"old-rule": {}'));
       put(
         r,
-        "config/platform-rules.mjs",
-        'const key = "rules";\nexport default { rules: {}, [key]: { "existing-rule": {} } };\n',
+        eslintConfig,
+        'import other from "./config/other-rules.mjs";\nexport default [{ plugins: { repository: other }, rules: { "repository/old-rule": "error" } }];\n',
       );
-      commitFiles(r, "computed outer base", "config/platform-rules.mjs");
-      put(r, "config/platform-rules.mjs", ruleModule('"existing-rule": {}'));
-      addSuppression(r, "repository/existing-rule");
-    },
-    suppressionRefusal("repository/existing-rule"),
-  ],
-  [
-    "eslint-suppressions.json growing a repository rule when a base rule module repeats rules",
-    (r: string) => {
+      commitFiles(
+        r,
+        "unlisted provider",
+        "config/other-rules.mjs",
+        eslintConfig,
+      );
       put(
         r,
-        "config/platform-rules.mjs",
-        'export default { rules: {}, rules: { "existing-rule": {} } };\n',
+        templateRules,
+        ruleModule('"no-locale-compare": {}, "old-rule": {}'),
       );
-      commitFiles(r, "duplicate rules base", "config/platform-rules.mjs");
-      put(r, "config/platform-rules.mjs", ruleModule('"existing-rule": {}'));
-      addSuppression(r, "repository/existing-rule");
+      addSuppression(r, "repository/old-rule");
     },
-    suppressionRefusal("repository/existing-rule"),
+    suppressionRefusal("repository/old-rule"),
   ],
   [
-    "eslint-suppressions.json growing a repository rule when a head rule module cannot be decided",
+    "eslint-suppressions.json growing a repository rule defined beside spread rules",
     (r: string) => {
       put(
         r,
         templateRules,
-        'const key = "rules";\nexport default { rules: { "new-rule": {} }, [key]: {} };\n',
+        'import payload from "./payload-rules.mjs";\nexport default { rules: { ...payload.rules, "spread-rule": {} } };\n',
       );
-      addSuppression(r, "repository/new-rule");
+      addSuppression(r, "repository/spread-rule");
     },
-    suppressionRefusal("repository/new-rule"),
+    suppressionRefusal("repository/spread-rule"),
+  ],
+  [
+    "eslint-suppressions.json growing a newly landed repository rule without an approval",
+    (r: string) => {
+      put(
+        r,
+        templateRules,
+        ruleModule('"no-locale-compare": {}, "new-rule": {}'),
+      );
+      put(r, eslintConfig, configWith('"repository/new-rule": "error"'));
+      addSuppression(r, "repository/new-rule", 2);
+    },
+    suppressionRefusal("repository/new-rule", 2),
+  ],
+  [
+    "eslint-suppressions.json growing a moved entry with a stale approval",
+    (r: string) => {
+      commitApproved(r, "repository/no-in-operator", "#123 reason");
+      putJson(r, suppressionsFile, {
+        "src/b.ts": {
+          "repository/no-in-operator": { count: 3, approved: "#123 reason" },
+        },
+      });
+    },
+    suppressionRefusal("repository/no-in-operator", 3, "src/b.ts", 3, 2),
   ],
   [
     "coverage-gaps-recorded-hits.json adding an unapproved file gap",
@@ -382,15 +406,111 @@ test(
 );
 
 test(
-  "recorded-hit growth class check admits a new repository rule landing with recorded hits",
+  "recorded-hit growth class check refuses empty or whitespace suppression approvals",
   async () => {
     const root = recordedFilesRepository();
-    put(root, templateRules, ruleModule('"new-rule": {}'));
+    for (const approved of ["", "   "]) {
+      addSuppression(root, "repository/new-rule", 2, "src/a.ts", { approved });
+      expect(await check(root, ["--against", "HEAD"])).toEqual({
+        stderr: suppressionRefusal("repository/new-rule", 2),
+        code: 1,
+      });
+    }
+  },
+  processWatchdog(9),
+);
+
+test(
+  "recorded-hit growth class check admits a new rule with an approval",
+  async () => {
+    const root = recordedFilesRepository();
+    put(
+      root,
+      templateRules,
+      ruleModule('"no-locale-compare": {}, "new-rule": {}'),
+    );
     put(root, eslintConfig, configWith('"repository/new-rule": "error"'));
-    addSuppression(root, "repository/new-rule", 2);
+    addSuppression(root, "repository/new-rule", 2, "src/a.ts", {
+      approved: "PR #117 — new rule landing with existing hits",
+    });
     await expectPass(root);
   },
-  processWatchdog(10),
+  processWatchdog(5),
+);
+
+test(
+  "recorded-hit growth class check refuses a same-path stale approval and admits a renewed one",
+  async () => {
+    const root = recordedFilesRepository();
+    commitApproved(
+      root,
+      "repository/new-rule",
+      "PR #117 — new rule landing with existing hits",
+    );
+
+    putJson(root, suppressionsFile, {
+      "src/a.ts": {
+        "repository/new-rule": {
+          count: 3,
+          approved: "PR #117 — new rule landing with existing hits",
+        },
+      },
+    });
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: suppressionRefusal("repository/new-rule", 3, "src/a.ts", 3, 2, 2),
+      code: 1,
+    });
+
+    putJson(root, suppressionsFile, {
+      "src/a.ts": {
+        "repository/new-rule": {
+          count: 3,
+          approved: "PR #118 — additional approved hit",
+        },
+      },
+    });
+    await expectPass(root);
+  },
+  processWatchdog(9),
+);
+
+test(
+  "recorded-hit growth class check admits an honest move of an approved suppression",
+  async () => {
+    const root = recordedFilesRepository();
+    commitApproved(root, "repository/no-in-operator", "#123 reason");
+    putJson(root, suppressionsFile, {
+      "src/b.ts": {
+        "repository/no-in-operator": { count: 2, approved: "#123 reason" },
+      },
+    });
+    await expectPass(root);
+  },
+  processWatchdog(6),
+);
+
+test(
+  "optionalTextAt refuses when git ls-tree fails",
+  () => {
+    const root = folder();
+    const bin = folder();
+    writeFileSync(
+      join(bin, "git"),
+      '#!/bin/sh\necho "probe unreadable tree" >&2\nexit 1\n',
+      { mode: 0o755 },
+    );
+    const chosen = process.env.PATH;
+    process.env.PATH = `${bin}${delimiter}${chosen ?? ""}`;
+    try {
+      expect(() => optionalTextAt(root, "HEAD", suppressionsFile)).toThrow(
+        "git ls-tree failed: probe unreadable tree",
+      );
+    } finally {
+      if (chosen === undefined) delete process.env.PATH;
+      else process.env.PATH = chosen;
+    }
+  },
+  processWatchdog(1),
 );
 
 test(

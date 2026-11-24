@@ -110,12 +110,13 @@ function addSuppression(
   rule: string,
   count: number = 1,
   file: string = "src/a.ts",
+  extra: Record<string, unknown> = {},
 ) {
   putJson(root, suppressionsFile, {
     ...baseSuppressions,
     [file]: {
       ...(file === "src/a.ts" ? baseSuppressions["src/a.ts"] : {}),
-      [rule]: { count },
+      [rule]: { count, ...extra },
     },
   });
 }
@@ -126,8 +127,9 @@ function suppressionRefusal(
   file: string = "src/a.ts",
   afterTotal: number = count,
   beforeTotal: number = 0,
+  beforeCount: number = 0,
 ) {
-  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (0; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`;
+  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`;
 }
 
 function coverageRefusal(target: string) {
@@ -237,6 +239,32 @@ export function namesCheckFixture() {
     return root;
   }
 
+  function earlierAreaRepository(duplicate: boolean = false): string {
+    const root = recordedRepository();
+    const area = "tests/template/recorded-checks";
+    mkdirSync(join(root, area), { recursive: true });
+    const moved = [recordedHitsFile, recordedUnusedTermsFile].map((file) => ({
+      current: file,
+      earlier: `${area}/${file.split("/").at(-1)}`,
+    }));
+    for (const { current, earlier } of moved)
+      git(root, "mv", "--", current, earlier);
+    const unrelated = "tests/template/glossary/recorded-hits.json";
+    putJson(root, unrelated, { hits: [{ file: "docs/term.md" }] });
+    git(root, "add", "--", unrelated);
+    if (duplicate) {
+      const other = "tests/template/other/recorded-hits.json";
+      const otherTerms = "tests/template/other/recorded-unused-terms.json";
+      putJson(root, other, { hits: [hostHit] });
+      putJson(root, otherTerms, { terms: [unusedTerm] });
+      git(root, "add", "--", other, otherTerms);
+    }
+    git(root, "commit", "--quiet", "-m", "earlier test area");
+    for (const { current, earlier } of moved)
+      git(root, "mv", "--", earlier, current);
+    return root;
+  }
+
   function recordedFilesRepository(): string {
     const root = recordedRepository();
     put(root, eslintConfig, configWith());
@@ -295,6 +323,7 @@ export function namesCheckFixture() {
     configWith,
     coverageGapsFile,
     coverageRefusal,
+    earlierAreaRepository,
     emptyRepository,
     eslintConfig,
     expectPass,

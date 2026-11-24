@@ -1,0 +1,7 @@
+{
+  "id": "69c82fa7-suppressions-approval-moved-stale",
+  "patch": "tests/planted-faults/patches/69c82fa7-suppressions-approval-moved-stale.patch",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
+  "title": "^recorded-hit growth class check refuses eslint-suppressions\\.json growing a moved entry with a stale approval with its full message$",
+  "source": "69c82fa7 fix(names-check): treat an approval already in the base for a rule as stale, wherever its entry moves"
+}
