@@ -163,15 +163,6 @@ function isAdmitted(source, block, placed) {
 const fsModulePattern = /^(?:node:)?fs(?:\/promises)?$/;
 const isFsSpecifier = (value) =>
   typeof value === "string" && fsModulePattern.test(value);
-const isRequireCall = (node) =>
-  (node.callee.type === "Identifier" && node.callee.name === "require") ||
-  (node.callee.type === "MemberExpression" &&
-    node.callee.object.type === "MetaProperty" &&
-    propertyName(node.callee) === "require") ||
-  (node.callee.type === "MemberExpression" &&
-    node.callee.object.type === "Identifier" &&
-    node.callee.object.name === "process" &&
-    propertyName(node.callee) === "getBuiltinModule");
 const allowedBunMembers = new Set([
   "$",
   "spawn",
@@ -189,26 +180,42 @@ const allowedBunMembers = new Set([
   "inspect",
 ]);
 const globalHolders = new Set(["globalThis", "global", "self"]);
+const loaderModules = new Set([
+  "module",
+  "node:module",
+  "process",
+  "node:process",
+]);
+const loaderNames = new Set(["require", "createRequire", "getBuiltinModule"]);
+const checkedGlobals = new Set([
+  ...globalHolders,
+  "Bun",
+  "process",
+  "require",
+  "module",
+]);
 const staticMemberName = (node) =>
   node.parent.type === "MemberExpression" &&
   node.parent.object === node &&
   !node.parent.computed
     ? node.parent.property.name
     : undefined;
-const isTypePosition = ({ isValueReference, identifier }) =>
-  isValueReference === false ||
-  identifier.parent.type === "TSTypeQuery" ||
-  identifier.parent.type === "TSQualifiedName";
-const globalReferences = ({ through, variables }) => [
-  ...through,
-  ...variables
-    .filter(({ defs }) => defs.length === 0)
-    .flatMap(({ references }) => references),
-];
+const qualifiedRoot = (node) =>
+  node.parent.type === "TSQualifiedName" ? qualifiedRoot(node.parent) : node;
+const isTypePosition = ({ isValueReference, identifier }) => {
+  const root = qualifiedRoot(identifier);
+  return root.parent.type === "TSImportEqualsDeclaration"
+    ? root.parent.importKind === "type"
+    : isValueReference === false ||
+        root !== identifier ||
+        identifier.parent.type === "TSTypeQuery";
+};
 const isTypeOnly = (node) =>
   node.importKind === "type" || node.exportKind === "type";
-const specifierName = ({ imported, local }) =>
-  (imported ?? local).name ?? (imported ?? local).value;
+const specifierName = ({ type, imported, local }) =>
+  type === "ImportDefaultSpecifier" || type === "ImportNamespaceSpecifier"
+    ? undefined
+    : ((imported ?? local).name ?? (imported ?? local).value);
 
 export default {
   rules: {
@@ -225,49 +232,68 @@ export default {
             "Files in kernel/src/addons/state outside store.ts and coordination.ts must not use Bun.{{member}}: only Bun members that touch no path are allowed here. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.",
           dynamicBunReach:
             'Files in kernel/src/addons/state outside store.ts and coordination.ts may use the Bun object only as Bun.<member> with a plain member name, read from Bun, globalThis.Bun, global.Bun or self.Bun, or as a named import from "bun". An alias, destructuring, spread, computed key, whole-module load of "bun", or bare globalThis, global or self hides which member is used. Repair: write Bun.<member> in place, or route filesystem access through store.ts or coordination.ts.',
+          loaderReach:
+            'Files in kernel/src/addons/state outside store.ts and coordination.ts may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
         },
       },
       create(context) {
         const report = (node, messageId, member) =>
           context.report({ node, messageId, data: { member } });
-        const checkBunUse = (node) => {
-          const member = staticMemberName(node);
-          if (member === undefined) report(node, "dynamicBunReach");
-          else if (!allowedBunMembers.has(member))
-            report(node.parent, "bunReach", member);
-        };
-        const checkHolder = (node) => {
-          const member = staticMemberName(node);
-          if (member === undefined) report(node, "dynamicBunReach");
-          else if (member === "Bun") checkBunUse(node.parent);
-          else if (globalHolders.has(member)) checkHolder(node.parent);
-        };
-        const checkBunImport = (node) => {
-          if (isTypeOnly(node)) return;
-          if (node.type === "ExportAllDeclaration")
-            return report(node, "dynamicBunReach");
-          for (const specifier of node.specifiers) {
-            const name = specifierName(specifier);
-            if (isTypeOnly(specifier)) continue;
-            if (
-              specifier.type === "ImportDefaultSpecifier" ||
-              specifier.type === "ImportNamespaceSpecifier"
-            )
-              report(specifier, "dynamicBunReach");
-            else if (!allowedBunMembers.has(name))
-              report(specifier, "bunReach", name);
-          }
-        };
-        const checkSource = (node, source) => {
-          if (!source) return;
-          const value = staticString(context, source);
-          if (value === "bun") checkBunImport(node);
-          if (isFsSpecifier(value))
+        const judgeLoad = (node, value) => {
+          if (value === undefined) report(node, "dynamicImport");
+          else if (value === "bun") report(node, "dynamicBunReach");
+          else if (loaderModules.has(value)) report(node, "loaderReach");
+          else if (isFsSpecifier(value))
             context.report({
               node,
               messageId: "fsImport",
               data: { specifier: JSON.stringify(value) },
             });
+        };
+        const checkLoad = (node) => {
+          const call = node.parent;
+          if (call.type !== "CallExpression" || call.callee !== node)
+            report(node, "loaderReach");
+          else judgeLoad(call, staticString(context, call.arguments[0]));
+        };
+        const checkGlobal = (node, name) => {
+          const member = staticMemberName(node);
+          if (name === "Bun") {
+            if (member === undefined) report(node, "dynamicBunReach");
+            else if (!allowedBunMembers.has(member))
+              report(node.parent, "bunReach", member);
+          } else if (globalHolders.has(name)) {
+            if (member === undefined) report(node, "dynamicBunReach");
+            else checkGlobal(node.parent, member);
+          } else if (name === "process" || name === "import.meta") {
+            if (member === undefined) report(node, "loaderReach");
+            else if (loaderNames.has(member)) checkLoad(node.parent);
+          } else if (name === "require") checkLoad(node);
+          else if (name === "module") report(node, "loaderReach");
+        };
+        const checkSpecifiers = (node, each) => {
+          if (isTypeOnly(node)) return;
+          if (node.type === "ExportAllDeclaration") return each(node);
+          for (const specifier of node.specifiers)
+            if (!isTypeOnly(specifier))
+              each(specifier, specifierName(specifier));
+        };
+        const checkSource = (node, source) => {
+          if (!source) return;
+          const value = staticString(context, source);
+          if (value === "bun")
+            checkSpecifiers(node, (specifier, name) =>
+              name === undefined
+                ? report(specifier, "dynamicBunReach")
+                : allowedBunMembers.has(name) ||
+                  report(specifier, "bunReach", name),
+            );
+          else if (loaderModules.has(value))
+            checkSpecifiers(node, (specifier, name) => {
+              if (name === undefined || loaderNames.has(name))
+                report(specifier, "loaderReach");
+            });
+          else if (isFsSpecifier(value)) judgeLoad(node, value);
         };
         return {
           ImportDeclaration(node) {
@@ -281,54 +307,30 @@ export default {
           },
           TSImportEqualsDeclaration(node) {
             const { moduleReference } = node;
-            if (moduleReference.type !== "TSExternalModuleReference") return;
-            const value = staticString(context, moduleReference.expression);
-            if (value === "bun" && !isTypeOnly(node))
-              report(node, "dynamicBunReach");
-            else if (isFsSpecifier(value))
-              context.report({
+            if (
+              moduleReference.type === "TSExternalModuleReference" &&
+              !isTypeOnly(node)
+            )
+              judgeLoad(
                 node,
-                messageId: "fsImport",
-                data: { specifier: JSON.stringify(value) },
-              });
-          },
-          "Program:exit"() {
-            for (const reference of globalReferences(
-              context.sourceCode.scopeManager.globalScope,
-            )) {
-              const { identifier } = reference;
-              if (isTypePosition(reference)) continue;
-              if (identifier.name === "Bun") checkBunUse(identifier);
-              else if (globalHolders.has(identifier.name))
-                checkHolder(identifier);
-            }
+                staticString(context, moduleReference.expression),
+              );
           },
           ImportExpression(node) {
-            const value = staticString(context, node.source);
-            if (value === undefined)
-              context.report({ node, messageId: "dynamicImport" });
-            else if (value === "bun") report(node, "dynamicBunReach");
-            else if (isFsSpecifier(value))
-              context.report({
-                node,
-                messageId: "fsImport",
-                data: { specifier: JSON.stringify(value) },
-              });
+            judgeLoad(node, staticString(context, node.source));
           },
-          CallExpression(node) {
-            if (!isRequireCall(node)) return;
-            const [first] = node.arguments;
-            if (!first) return;
-            const value = staticString(context, first);
-            if (value === undefined)
-              context.report({ node, messageId: "dynamicImport" });
-            else if (value === "bun") checkBunUse(node);
-            else if (isFsSpecifier(value))
-              context.report({
-                node,
-                messageId: "fsImport",
-                data: { specifier: JSON.stringify(value) },
-              });
+          MetaProperty(node) {
+            if (node.meta.name === "import") checkGlobal(node, "import.meta");
+          },
+          "Program:exit"() {
+            for (const { references } of context.sourceCode.scopeManager.scopes)
+              for (const reference of references)
+                if (
+                  checkedGlobals.has(reference.identifier.name) &&
+                  !reference.init &&
+                  !isTypePosition(reference)
+                )
+                  checkGlobal(reference.identifier, reference.identifier.name);
           },
         };
       },
