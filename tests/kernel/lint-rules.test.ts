@@ -1235,7 +1235,69 @@ const stateFsCases = [
   ],
 ] as const;
 
-for (const [filePath, code, lines] of stateFsCases)
+const framing = "kernel/src/addons/state/framing.ts";
+const stateBunFileReachCases = [
+  [framing, "export const a = (p: string) => Bun.file(p);", [1]],
+  [framing, 'export const a = (p: string) => Bun.write(p, "x");', [1]],
+  [framing, 'export const a = (p: string) => Bun["file"](p);', [1]],
+  [framing, 'export const a = (p: string) => Bun[`write`](p, "x");', [1]],
+  [framing, "export const a = (p: string) => globalThis.Bun.file(p);", [1]],
+  [
+    framing,
+    "const { file, write } = Bun; export const a = [file, write];",
+    [1, 1],
+  ],
+  [
+    framing,
+    'const b = Bun; export const a = (p: string) => b.write(p, "x");',
+    [1],
+  ],
+  [
+    framing,
+    "const { Bun: { file } } = globalThis; export const a = file;",
+    [1],
+  ],
+  [framing, 'import { write } from "bun"; export const a = write;', [1]],
+  [framing, 'export { file } from "bun";', [1]],
+  [framing, 'import * as B from "bun"; export const a = B.file;', [1]],
+  [framing, 'export const a = require("bun").file;', [1]],
+  [framing, 'export const a = async () => (await import("bun")).write;', [1]],
+  [framing, 'const key = "wr" + "ite"; export const a = Bun[key];', [1]],
+  [framing, 'export const a = (key: string) => Bun[key as "file"];', [1]],
+  [framing, "const { ...all } = Bun; export const a = all;", [1]],
+  [framing, "export const a = (p: string) => Bun.mmap(p);", [1]],
+  [framing, 'export const a = new Bun.Glob("*");', [1]],
+  [framing, "export const a = Bun.Archive;", [1]],
+  [framing, "export const a = Bun.build;", [1]],
+  [framing, "export const a = Bun.FileSystemRouter;", [1]],
+  [framing, "export const a = [Bun.SQL, Bun.sql];", [1, 1]],
+  [
+    framing,
+    "export async function writeFrame(path: string, text: string) {\n  await Bun.write(path, text);\n  return Bun.file(path).text();\n}",
+    [2, 3],
+  ],
+  [
+    "kernel/src/addons/state/store.ts",
+    "export const a = (p: string) => Bun.write(p, Bun.file(p));",
+    [],
+  ],
+  [
+    "kernel/src/addons/state/coordination.ts",
+    "const { file } = Bun; export const a = (p: string) => file(p);",
+    [],
+  ],
+  [framing, 'export const a = Bun.spawn(["true"]);', []],
+  [framing, "const { spawnSync } = Bun; export const a = spawnSync;", []],
+  [framing, "export const a = [Bun.version, Bun.hash, Bun.stdout];", []],
+  [framing, 'import type { BunFile } from "bun"; export type A = BunFile;', []],
+  [framing, "export const a = (Bun: { file: string }) => Bun.file;", []],
+  [framing, "export const a = (b: { write: string }) => b.write;", []],
+] as const;
+
+for (const [filePath, code, lines] of [
+  ...stateFsCases,
+  ...stateBunFileReachCases,
+])
   test(`state-no-fs-import ${lines.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
     const found = await hits("state-no-fs-import", filePath, code);
     expect(found.map(({ line }) => line)).toEqual([...lines]);
