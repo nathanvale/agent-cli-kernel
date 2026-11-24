@@ -1,0 +1,7 @@
+{
+  "id": "ae2191c8-eslint.config",
+  "patch": "tests/planted-faults/patches/ae2191c8-eslint.config.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^noInlineConfig refuses every inline ESLint directive",
+  "source": "ae2191c8 fix(lint): switch inline ESLint configuration off across the repository"
+}
