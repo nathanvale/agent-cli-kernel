@@ -1266,8 +1266,13 @@ const output = `repository/no-process-reach: ${streamMessage}`;
 const domainOutput = `repository/no-domain-output: ${streamMessage}`;
 const restricted = (name: string) =>
   `no-restricted-properties: '${name}' is restricted from being used.`;
-const moduleStarRestriction =
-  "no-restricted-imports: * import is invalid because 'createRequire' from 'node:module' is restricted. Code outside the kernel and the state add-on imports them through their public index only, by a literal specifier: no computed or template-literal import(), require, createRequire or import.meta.require.";
+const patternRestriction = (specifier: string) =>
+  `no-restricted-imports: '${specifier}' import is restricted from being used by a pattern.`;
+const literalRestrictionMessage =
+  "Code outside the kernel and the state add-on imports them through their public index only, by a literal specifier: no computed or template-literal import(), require, createRequire or import.meta.require.";
+const createRequireRestriction = (specifier: string) =>
+  `no-restricted-imports: 'createRequire' import from '${specifier}' is restricted. ${literalRestrictionMessage}`;
+const moduleStarRestriction = `no-restricted-imports: * import is invalid because 'createRequire' from 'node:module' is restricted. ${literalRestrictionMessage}`;
 const consoleCall = "no-console: Unexpected console statement.";
 const runtimeSpellings = [
   ['import { spawnSync } from "bun"; export const run = spawnSync;', program],
@@ -1477,6 +1482,55 @@ const runtimeSpellings = [
   ['export const run = () => require("node:module");', program],
   ['export const run = () => import.meta.require("node:module");', program],
   ["for (Bun; false; ) { break; }", program],
+  [
+    'import { spawnSync } from "node:child_process"; export const run = spawnSync;',
+    patternRestriction("node:child_process"),
+  ],
+  [
+    'import { spawnSync } from "child_process"; export const run = spawnSync;',
+    patternRestriction("child_process"),
+  ],
+  [
+    'import cp from "node:child_process"; export const run = cp;',
+    patternRestriction("node:child_process"),
+  ],
+  [
+    'import * as cp from "node:child_process"; export const run = cp;',
+    patternRestriction("node:child_process"),
+  ],
+  ['import "node:child_process";', patternRestriction("node:child_process")],
+  [
+    'export { spawnSync } from "node:child_process";',
+    patternRestriction("node:child_process"),
+  ],
+  [
+    'export * from "node:child_process";',
+    patternRestriction("node:child_process"),
+  ],
+  [
+    'import { type SpawnOptions, spawnSync } from "node:child_process"; export type ChildOptions = SpawnOptions; export const run = spawnSync;',
+    patternRestriction("node:child_process"),
+  ],
+  [
+    'import { createRequire } from "node:module"; export const run = createRequire;',
+    [program, createRequireRestriction("node:module")],
+  ],
+  [
+    'import { createRequire } from "module"; export const run = createRequire;',
+    [program, createRequireRestriction("module")],
+  ],
+  [
+    'export { createRequire } from "node:module";',
+    [program, createRequireRestriction("node:module")],
+  ],
+  [
+    'import { type NodeModule, createRequire } from "node:module"; export type Mod = NodeModule; export const run = createRequire;',
+    [program, createRequireRestriction("node:module")],
+  ],
+  [
+    'import { type createRequire, Module } from "node:module"; export type Loader = typeof createRequire; export const run = Module;',
+    program,
+  ],
 ] as const;
 const honestRuntime = [
   'import type { Subprocess } from "bun"; export type Child = Subprocess;',
@@ -1505,6 +1559,14 @@ const honestRuntime = [
   "export const localRequire = () => { const require = (ok: boolean) => ok; return require(true); };",
   'import type { NodeModule } from "node:module"; export type Mod = NodeModule;',
   'import { type NodeModule } from "module"; export type Mod = NodeModule;',
+  'import type { SpawnOptions } from "node:child_process"; export type ChildOptions = SpawnOptions;',
+  'import { type SpawnOptions } from "node:child_process"; export type ChildOptions = SpawnOptions;',
+  'import type { SpawnOptions } from "child_process"; export type ChildOptions = SpawnOptions;',
+  'import type * as cp from "node:child_process"; export type ChildProcess = typeof cp;',
+  'import type { createRequire } from "node:module"; export type Loader = typeof createRequire;',
+  'import { type createRequire } from "node:module"; export type Loader = typeof createRequire;',
+  'import type { createRequire } from "module"; export type Loader = typeof createRequire;',
+  'import type * as mod from "node:module"; export type Mod = typeof mod;',
   "export const shadowed = (process: { env: string }) => process;",
 ];
 
@@ -1529,6 +1591,35 @@ for (const filePath of installedSource)
     for (const code of honestRuntime)
       expect(await runtimeHits(filePath, code)).toEqual([]);
   });
+
+test("the kernel lint admits type-only node:child_process imports in kernel/src/kernel/types.ts and refuses value and test imports across source paths", async () => {
+  const kernelFile = "kernel/src/kernel/types.ts";
+  expect(
+    await runtimeHits(
+      kernelFile,
+      'import type { SpawnOptions } from "node:child_process"; export type ChildOptions = SpawnOptions;',
+    ),
+  ).toEqual([]);
+  expect(
+    await runtimeHits(
+      kernelFile,
+      'import { type SpawnOptions } from "child_process"; export type ChildOptions = SpawnOptions;',
+    ),
+  ).toEqual([]);
+  expect(
+    await runtimeHits(
+      kernelFile,
+      'import { spawnSync } from "node:child_process"; export const run = spawnSync;',
+    ),
+  ).toEqual([patternRestriction("node:child_process")]);
+  for (const filePath of [kernelFile, ...installedSource])
+    expect(
+      await runtimeHits(
+        filePath,
+        'import type { Stub } from "../../../../tests/fixture.ts"; export type TestStub = Stub;',
+      ),
+    ).toEqual([patternRestriction("../../../../tests/fixture.ts")]);
+});
 
 const scriptForms = ["js", "mjs", "cjs", "jsx", "tsx"];
 

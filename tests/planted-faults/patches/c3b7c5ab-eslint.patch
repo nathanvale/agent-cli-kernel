@@ -1,0 +1,49 @@
+diff --git a/kernel/config/kernel/eslint.mjs b/kernel/config/kernel/eslint.mjs
+index 1fcd99e8..d895ab4c 100644
+--- a/kernel/config/kernel/eslint.mjs
++++ b/kernel/config/kernel/eslint.mjs
+@@ -33,11 +33,6 @@ const kernelIndexOnly = {
+   message:
+     "Code outside the kernel imports the kernel through its public index only.",
+ };
+-const testImports = { group: ["**/tests/**"] };
+-const childProcessImports = {
+-  group: ["node:child_process", "child_process"],
+-  allowTypeImports: true,
+-};
+ const ffiMessage =
+   "bun:ffi belongs only to the state add-on's linux-flock.ts (the Linux coordination lock call).";
+ const ffiPath = { name: "bun:ffi", message: ffiMessage };
+@@ -141,19 +136,16 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
+           {
+             name: "node:module",
+             importNames: ["createRequire"],
+-            allowTypeImports: true,
+             message: literalMessage,
+           },
+           {
+             name: "module",
+             importNames: ["createRequire"],
+-            allowTypeImports: true,
+             message: literalMessage,
+           },
+         ],
+         patterns: [
+-          testImports,
+-          childProcessImports,
++          { group: ["**/tests/**", "node:child_process", "child_process"] },
+           kernelIndexOnly,
+           logging,
+           stateIndexOnly,
+@@ -272,7 +264,10 @@ export function kernelLint(options) {
+           "error",
+           {
+             paths: [ffiPath],
+-            patterns: [testImports, childProcessImports, loggingImports],
++            patterns: [
++              { group: ["**/tests/**", "node:child_process", "child_process"] },
++              loggingImports,
++            ],
+           },
+         ],
+         "no-restricted-properties": [
