@@ -230,12 +230,15 @@ ignores inline `eslint-disable` comments. In `src/` it refuses:
   the kernel write it.
 - `Bun.spawn`, `Bun.spawnSync`, `Bun.$` and `node:child_process`. Starting a
   program belongs to the programs add-on.
-- The same streams and program starts by another route: `Bun.stdout`;
-  `spawn`, `$` or `stdout` imported from `"bun"`; a default or namespace
-  import of `"bun"` or `node:process`; `globalThis.process`; `stdout`
-  destructured from `process`; or `Bun`, `process` or `console` passed on
-  as a value. Read their members directly, such as `Bun.file(path)` or
-  `process.env`. A type-only import from `"bun"` passes.
+- The same streams and program starts by another route. From `Bun` and
+  `process`, read or import only common members such as `Bun.file(path)`,
+  `Bun.which`, `process.env`, `process.argv` and `process.exit`; the lint
+  refuses others, such as `Bun.stdout` or `process.emitWarning`. It also
+  refuses a default or namespace import of `"bun"`, `node:process` or
+  `node:console`, `globalThis.process`, `stdout` destructured from
+  `process`, a dynamic `import()` or `require()` of those modules or of
+  `node:child_process`, and `Bun`, `process` or `console` passed on as a
+  value. A type-only import from `"bun"` passes.
 - The `in` operator on a key the type does not declare, such as
   `"code" in error` in a `catch`. Read the value with `Object.hasOwn` and
   `Reflect.get`.

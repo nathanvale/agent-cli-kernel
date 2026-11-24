@@ -87,18 +87,31 @@ the kernel. They are plugin rules, so a host block that sets its own
   `f822a0ca-typescript-source` turns it off.
 - Lint `repository/no-domain-output` refuses `process.stdout`,
   `process.stderr`, `Bun.stdout` and `Bun.stderr` by name or by a fixed
-  key (string or template literal), destructured, or imported from
-  `node:process` or `"bun"`.
-- Lint `repository/no-process-reach` refuses `spawn`, `spawnSync` and `$`
-  imported from `"bun"`; a default, namespace or dynamic import of `"bun"`
-  or `node:process`; `process.getBuiltinModule` loading either module or
-  `node:child_process`; `Bun`, `process` and `console` read through
-  `globalThis`, `global` or `self`; a computed key that is not fixed; and
-  any other use of `Bun`, `process`, `console` or `globalThis` as a value.
-  `typeof` and type positions pass. Fault `f822a0ca-no-process-reach`
-  turns it off.
-- Review only: `require("bun")`, `require` in the kernel's own paths, and
-  `eval` or `new Function` text that names a runtime global.
+  key (string or template literal), destructured, or imported by value
+  from `node:process` or `"bun"`. A type-only import passes. Fault
+  `f822a0ca-no-domain-output` drops the destructured, `Bun` and `"bun"`
+  matchers.
+- Lint `repository/no-process-reach` works from an allowlist,
+  `runtimeMembers` in `kernel/config/kernel/eslint-rules.mjs`:
+  - A member that source reads or destructures from `Bun` or `process`
+    passes when the list names it, or when another rule judges it: the
+    stream names (`no-domain-output`) and `Bun.spawn`, `Bun.spawnSync`
+    and `Bun.$` (`no-restricted-properties`). A `console` member read
+    passes to `no-console`. Every other member, a destructured `console`
+    name, a rest element and a key that is not fixed are refused.
+  - An import from `"bun"`, `process` or `console`, with or without
+    `node:`, passes when it is type-only or names a listed member.
+    Default, namespace and `default`-named imports, `export *`, and a
+    re-export of an unlisted member are refused. `no-restricted-imports`
+    refuses static `node:child_process` imports.
+  - `import()`, `require()` and `import.meta.require()` are refused when
+    the module is one of those four, or when the rule cannot decide it.
+  - `Bun`, `process` and `console` read through `globalThis`, `global`
+    or `self`, and any other use of those names or of `globalThis` as a
+    value, are refused. `typeof` and type positions pass.
+  - Fault `f822a0ca-no-process-reach` turns the rule off.
+- Review only: `Bun.file` or `Bun.write` given the stream descriptors 1
+  or 2, and `eval` or `new Function` text that names a runtime global.
 
 ## Timer lint
 
