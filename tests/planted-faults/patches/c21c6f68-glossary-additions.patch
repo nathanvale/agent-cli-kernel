@@ -1,5 +1,5 @@
 diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
-index f8edb020..3d2c9274 100644
+index ed63e653..3d2c9274 100644
 --- a/scripts/glossary-additions.ts
 +++ b/scripts/glossary-additions.ts
 @@ -1,28 +1,15 @@
@@ -55,11 +55,14 @@ index f8edb020..3d2c9274 100644
    return JSON.stringify(keys.map((key) => own.get(key)));
  }
  
-@@ -64,30 +41,8 @@ function isApproved(own: ReadonlyMap<string, unknown>): boolean {
+@@ -64,33 +41,8 @@ function isApproved(own: ReadonlyMap<string, unknown>): boolean {
    return typeof approved === "string" && approved.trim() !== "";
  }
  
--function entries(value: unknown, where: string): [string, unknown][] {
+-function plainObjectEntries(
+-  value: unknown,
+-  where: string,
+-): [string, unknown][] {
 -  if (typeof value !== "object" || value === null || Array.isArray(value))
 -    throw new Error(`${where} must be a JSON object.`);
 -  return Object.entries(value);
@@ -87,7 +90,7 @@ index f8edb020..3d2c9274 100644
    base: string,
    current: string,
    revision: string,
-@@ -99,99 +54,23 @@ function additionProblems(
+@@ -102,105 +54,23 @@ function additionProblems(
      before.has(identityOf(own, identity)) || isApproved(own)
        ? []
        : [
@@ -100,11 +103,17 @@ index f8edb020..3d2c9274 100644
 -function readSuppressions(text: string) {
 -  const byFile = new Map<string, Map<string, number>>();
 -  const byRule = new Map<string, number>();
--  for (const [file, raw] of entries(JSON.parse(text), suppressionsFile)) {
+-  for (const [file, raw] of plainObjectEntries(
+-    JSON.parse(text),
+-    suppressionsFile,
+-  )) {
 -    const counts = new Map<string, number>();
--    for (const [rule, entry] of entries(raw, `${suppressionsFile}: ${file}`)) {
+-    for (const [rule, entry] of plainObjectEntries(
+-      raw,
+-      `${suppressionsFile}: ${file}`,
+-    )) {
 -      const n = new Map(
--        entries(entry, `${suppressionsFile}: ${file} ${rule}`),
+-        plainObjectEntries(entry, `${suppressionsFile}: ${file} ${rule}`),
 -      ).get("count");
 -      if (typeof n !== "number" || !Number.isInteger(n) || n < 0)
 -        throw new Error(
