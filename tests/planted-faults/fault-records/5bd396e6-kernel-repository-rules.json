@@ -1,0 +1,7 @@
+{
+  "id": "5bd396e6-kernel-repository-rules",
+  "patch": "tests/planted-faults/patches/5bd396e6-kernel-repository-rules.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^state-no-fs-import (?:bun import|loader) refuses \"(?:import|export) (?:\\{ (?:default|\"default\"|Module|builtinModules)|\\{\\}|\"node:module\")",
+  "source": "5bd396e6 fix(lint): read a named default as the whole module and refuse value imports of node:module"
+}

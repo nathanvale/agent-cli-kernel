@@ -48,7 +48,8 @@ gates and their witnesses.
   export of one, that no test reaches by import, unless
   `tests/template/standards/coverage-gaps-recorded-hits.json` records it. It also
   refuses a recorded hit that fallow no longer reports, so the list only
-  shrinks. The `test` job runs it through `bun run test`, in three shards.
+  shrinks, and `bun run check:names --against <base>` refuses unapproved
+  additions against the merge base. The `test` job runs it through `bun run test`, in three shards.
 - It leaves out the kernel's paths: `kernel/`, `tests/kernel/`,
   `tests/template/glossary/` and `config/kernel-repository-rules.mjs`.
 - Fault `aaedd58-doctor` adds to `scripts/doctor.ts` an exported `doneLine`
@@ -166,7 +167,13 @@ the kernel. They are plugin rules, so a host block that sets its own
   (including `{ default: fs }`), `require()`, `import()`, static string /
   template-literal / `const`-identifier computed keys, and static `+` /
   interpolated template / `const` string targets.
-- Review only: `.mjs` and `.js` test files, target paths built at run time
+- Test placement (`scripts/check-names.ts` and
+  `tests/template/names-check/names-check-test-placement.test.ts`) refuses
+  every file Bun runs as a test outside `.test.ts` files in `repository.json`
+  `testAreas`, so `.mjs`, `.js`, `.jsx`, `.tsx`, `.cjs`, `.mts`, `.cts`,
+  `.spec.*`, `_test.*` and `_spec.*` test files are refused by pre-commit,
+  tool-call hooks, and the hosted `test` job.
+- Review only: target paths built at run time
   or passed through helper parameters (`path.join(...)`, `new URL("file:...")`),
   `.call`/`.apply`/`.bind` invocations, and shell `ln`/`cp` commands inside
   child processes.
@@ -238,8 +245,16 @@ file extensions in those directories.
 - ESLint records a count per lint rule and file. `bun run lint` fails when
   the count grows or when the count falls and leaves an unused suppression.
   Run `bunx eslint . --prune-suppressions` after fixing a recorded hit.
-- Review replacements within a file. Replacing one violation with another
-  for the same lint rule can keep the count and pass lint.
+- `bun run check:names --against <base>` (the hosted `Recorded lists` step)
+  refuses growth of `eslint-suppressions.json` by total count per lint rule
+  against the merge base, unless that rule is a `repository/...` rule whose
+  definition newly landed in the same change. File renames and suite splits
+  that keep the rule's total unchanged pass.
+- Review replacements within a file, or moves across files, that keep a lint
+  rule's total count unchanged and pass lint.
+- Both hosted `quality:fallow` steps in `.github/workflows/ci.yml` pass
+  `--fail-on-baseline-growth`, refusing any new key in
+  `fallow-health-recorded-hits.json` against the base revision.
 - The lint rules for files outside the kernel live in
   `config/template-rules.mjs`, `config/platform-rules.mjs` and
   `config/payload-rules.mjs`.

@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 
 export type Step = {
   readonly name?: string;
+  readonly if?: string;
   readonly uses?: string;
   readonly run?: string;
   readonly with?: Record<string, unknown>;

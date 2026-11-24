@@ -1,4 +1,4 @@
-import { afterAll, beforeAll } from "bun:test";
+import { afterAll, beforeAll, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
@@ -9,6 +9,7 @@ import {
 import {
   type RecordedHit,
   recordedHitsFile,
+  recordedUnusedTermsFile,
 } from "../../../scripts/glossary.ts";
 import {
   git,
@@ -17,6 +18,7 @@ import {
   inherited,
 } from "../../support/git-fixture.ts";
 import { testFolder } from "../../support/test-folder.ts";
+import { jobOf } from "../../support/workflows.ts";
 import { publicSurfaceFile } from "../../../scripts/public-surface.ts";
 
 export const glossary = `# Fixture glossary
@@ -69,6 +71,100 @@ export function thrownBy(run: () => unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
   throw new Error("expected the call to throw");
+}
+
+const unusedTerm = {
+  term: "Fixture term",
+  reason: "Nothing uses it yet.",
+  ticket: "MAG-1",
+};
+const fallowBinary = join(import.meta.dir, "../../../node_modules/.bin/fallow");
+const suppressionsFile = "eslint-suppressions.json";
+const coverageGapsFile =
+  "tests/template/standards/coverage-gaps-recorded-hits.json";
+const fallowBaselineFile = "fallow-health-recorded-hits.json";
+const eslintConfig = "eslint.config.mjs";
+const templateRules = "config/template-rules.mjs";
+const payloadRules = "config/payload-rules.mjs";
+const baseRules = '"repository/no-in-operator": "error", "no-console": "error"';
+const configWith = (extra: string = "") =>
+  `export default [{ rules: { ${baseRules}${extra ? `, ${extra}` : ""} } }];\n`;
+const ruleModule = (body: string = "") =>
+  `export default { rules: { ${body} } };\n`;
+const baseSuppressions = {
+  "src/a.ts": { "repository/no-in-operator": { count: 2 } },
+};
+const baseCoverageGap = { path: "scripts/existing.ts", reason: "fixture" };
+
+function putJson(root: string, file: string, value: unknown) {
+  put(root, file, JSON.stringify(value));
+}
+
+function commitFiles(root: string, message: string, ...files: string[]) {
+  git(root, "add", "--", ...files);
+  git(root, "commit", "--quiet", "-m", message);
+}
+
+function addSuppression(
+  root: string,
+  rule: string,
+  count: number = 1,
+  file: string = "src/a.ts",
+) {
+  putJson(root, suppressionsFile, {
+    ...baseSuppressions,
+    [file]: {
+      ...(file === "src/a.ts" ? baseSuppressions["src/a.ts"] : {}),
+      [rule]: { count },
+    },
+  });
+}
+
+function suppressionRefusal(
+  rule: string,
+  count: number = 1,
+  file: string = "src/a.ts",
+  afterTotal: number = count,
+  beforeTotal: number = 0,
+) {
+  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (0; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`;
+}
+
+function coverageRefusal(target: string) {
+  return `${coverageGapsFile} adds a recorded coverage gap for ${target}, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`;
+}
+
+async function expectPass(root: string) {
+  expect(await check(root, ["--against", "HEAD"])).toEqual({
+    stderr: "",
+    code: 0,
+  });
+}
+
+function fallowWorkflowSteps() {
+  const steps = jobOf("ci.yml", "check").steps.filter((step) =>
+    step.run?.includes("quality:fallow"),
+  );
+  return {
+    pullRequest: steps.find((step) => step.if?.includes("pull_request")),
+    push: steps.find((step) => step.if?.includes("push")),
+    all: steps,
+  };
+}
+
+function fallowFlagsFrom(run: string, base: string): string[] {
+  const after = run.split("quality:fallow")[1]?.trim() ?? "";
+  return after
+    .replace(/"origin\/\$\{\{ github\.base_ref \}\}"/, base)
+    .split(/\s+/)
+    .filter((token) => token !== "");
+}
+
+function fallowBaseline(
+  finding_counts: Record<string, unknown>,
+  identity_finding_counts: Record<string, unknown>,
+) {
+  return { kind: "health", finding_counts, identity_finding_counts };
 }
 
 export function namesCheckFixture() {
@@ -134,5 +230,90 @@ export function namesCheckFixture() {
     return root;
   }
 
-  return { emptyRepository, folder, namesRepository, outsideRepository };
+  function recordedRepository(): string {
+    const root = namesRepository([hostHit]);
+    putJson(root, recordedUnusedTermsFile, { terms: [unusedTerm] });
+    commitFiles(root, "terms", recordedUnusedTermsFile);
+    return root;
+  }
+
+  function recordedFilesRepository(): string {
+    const root = recordedRepository();
+    put(root, eslintConfig, configWith());
+    put(root, templateRules, ruleModule('"no-locale-compare": {}'));
+    put(root, payloadRules, ruleModule('"no-in-operator": {}'));
+    putJson(root, suppressionsFile, baseSuppressions);
+    putJson(root, coverageGapsFile, { hits: [baseCoverageGap] });
+    commitFiles(
+      root,
+      "recorded files",
+      eslintConfig,
+      templateRules,
+      payloadRules,
+      suppressionsFile,
+      coverageGapsFile,
+    );
+    return root;
+  }
+
+  function fallowRepository(): string {
+    const root = emptyRepository();
+    putJson(root, "package.json", { name: "fixture", type: "module" });
+    putJson(root, ".fallowrc.json", {
+      audit: { gate: "new-only", healthBaseline: fallowBaselineFile },
+      entry: ["src/index.ts"],
+    });
+    put(
+      root,
+      "src/index.ts",
+      "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n",
+    );
+    putJson(
+      root,
+      fallowBaselineFile,
+      fallowBaseline(
+        { "src/index.ts": { crap_moderate: { count: 1 } } },
+        { "src/index.ts:greet": { crap_moderate: { count: 1 } } },
+      ),
+    );
+    commitFiles(
+      root,
+      "base",
+      "package.json",
+      ".fallowrc.json",
+      "src/index.ts",
+      fallowBaselineFile,
+    );
+    git(root, "checkout", "-q", "-b", "feature");
+    return root;
+  }
+
+  return {
+    addSuppression,
+    baseCoverageGap,
+    commitFiles,
+    configWith,
+    coverageGapsFile,
+    coverageRefusal,
+    emptyRepository,
+    eslintConfig,
+    expectPass,
+    fallowBaseline,
+    fallowBaselineFile,
+    fallowBinary,
+    fallowFlagsFrom,
+    fallowRepository,
+    fallowWorkflowSteps,
+    folder,
+    namesRepository,
+    outsideRepository,
+    putJson,
+    recordedFilesRepository,
+    recordedRepository,
+    ruleModule,
+    suppressionRefusal,
+    suppressionsFile,
+    templateRules,
+    unusedTerm,
+  };
 }
