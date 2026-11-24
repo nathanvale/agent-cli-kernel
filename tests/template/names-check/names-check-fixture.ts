@@ -110,12 +110,13 @@ function addSuppression(
   rule: string,
   count: number = 1,
   file: string = "src/a.ts",
+  extra: Record<string, unknown> = {},
 ) {
   putJson(root, suppressionsFile, {
     ...baseSuppressions,
     [file]: {
       ...(file === "src/a.ts" ? baseSuppressions["src/a.ts"] : {}),
-      [rule]: { count },
+      [rule]: { count, ...extra },
     },
   });
 }
@@ -126,8 +127,9 @@ function suppressionRefusal(
   file: string = "src/a.ts",
   afterTotal: number = count,
   beforeTotal: number = 0,
+  beforeCount: number = 0,
 ) {
-  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (0; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`;
+  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`;
 }
 
 function coverageRefusal(target: string) {
