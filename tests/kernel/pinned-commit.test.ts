@@ -584,6 +584,7 @@ const kernelPathFindings = [
   },
   { file: "src/kernel/runtime.ts", ruleId: "no-restricted-imports" },
   { file: "src/kernel/runtime.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/kernel/runtime.ts", ruleId: "repository/no-process-reach" },
   {
     file: "src/kernel/validation/brand.ts",
     ruleId: "no-restricted-syntax",
