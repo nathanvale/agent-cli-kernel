@@ -1187,8 +1187,27 @@ const refusedDirectiveLookalikes = [
   "// @ts-expect-error: bad type\n// TODO remove this cast\nexport const a = 1;",
   "// eslint-disable-next-line no-console\n// TODO remove this\nexport const a = 1;",
   "// biome-ignore format: keep table aligned\n// TODO clean up\nexport const a = 1;",
-  "// fallow-ignore-next-line unused -- kept for api\n// TODO clean up\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export -- kept for api\n// TODO clean up\nexport const a = 1;",
   "/* @ts-expect-error: bad type\n   TODO remove this */\nexport const a = 1;",
+  "/* biome-ignore format: keep table\u2028TODO remove this cast */\nexport const a = 1;",
+  "/* biome-ignore format: keep table\u2029TODO remove this cast */\nexport const a = 1;",
+  "/* fallow-ignore-next-line is how you hide a finding. */\nexport const a = 1;",
+  "// fallow-ignore-next-line is how you hide a finding.\nexport const a = 1;",
+  "// fallow-ignore unused-export\nexport const a = 1;",
+  "// fallow-ignore-next-line unused -- kept for api\nexport const a = 1;",
+  "/* @ts-nocheck prose */\nexport const a = 1;",
+  "/* @ts-check prose */\nexport const a = 1;",
+  "/* @ts-nocheck */\nexport const a = 1;",
+  "/* @ts-check */\nexport const a = 1;",
+  "// @ts-nocheck prose\nexport const a = 1;",
+  "// @ts-check prose\nexport const a = 1;",
+  "// biome-ignore format\nexport const a = 1;",
+  "// biome-ignore prose without colon\nexport const a = 1;",
+  "// biome-ignore-all foo: reason\nexport const a = 1;",
+  "/* eslint-disable TODO smuggled prose */\nexport const a = 1;",
+  "/* global state is fine here. */\nexport const a = 1;",
+  "/* exported from index. */\nexport const a = 1;",
+  "/* eslint is strict here. */\nexport const a = 1;",
 ] as const;
 
 const admittedDirectives = [
@@ -1198,8 +1217,10 @@ const admittedDirectives = [
   "// @ts-nocheck\nexport const a = 1;",
   "// @ts-check\nexport const a = 1;",
   "// biome-ignore format: keep table\nexport const a = 1;",
-  "// fallow-ignore-next-line unused -- kept for api\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export -- kept for api\nexport const a = 1;",
+  "// fallow-ignore-file unused-export -- kept for api\nexport const a = 1;",
   "// eslint-disable-next-line no-console\nexport const a = 1;",
+  "// eslint-disable-next-line @typescript-eslint/consistent-type-assertions\nexport const a = 1;",
   "export const a = 1; // eslint-disable-line no-console",
   "/* eslint-disable */\nexport const a = 1;",
   "/* eslint-enable */\nexport const a = 1;",
@@ -1569,20 +1590,26 @@ async function runtimeHits(filePath: string, code: string) {
     .map(({ ruleId, message }) => `${ruleId}: ${message}`);
 }
 
+const runtimeLintBound = 60_000;
+
 for (const filePath of installedSource)
-  test(`the kernel lint refuses each spelling of a program start or a process stream once in ${filePath}, and admits honest runtime use`, async () => {
-    const found = [];
-    for (const [code] of runtimeSpellings)
-      found.push([code, await runtimeHits(filePath, code)]);
-    expect(found).toEqual(
-      runtimeSpellings.map(([code, hit]) => [
-        code,
-        typeof hit === "string" ? [hit] : [...hit],
-      ]),
-    );
-    for (const code of honestRuntime)
-      expect(await runtimeHits(filePath, code)).toEqual([]);
-  });
+  test(
+    `the kernel lint refuses each spelling of a program start or a process stream once in ${filePath}, and admits honest runtime use`,
+    async () => {
+      const found = [];
+      for (const [code] of runtimeSpellings)
+        found.push([code, await runtimeHits(filePath, code)]);
+      expect(found).toEqual(
+        runtimeSpellings.map(([code, hit]) => [
+          code,
+          typeof hit === "string" ? [hit] : [...hit],
+        ]),
+      );
+      for (const code of honestRuntime)
+        expect(await runtimeHits(filePath, code)).toEqual([]);
+    },
+    runtimeLintBound,
+  );
 
 const scriptForms = ["js", "mjs", "cjs", "jsx", "tsx"];
 
