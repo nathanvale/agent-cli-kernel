@@ -1,8 +1,8 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -15,9 +15,7 @@ const biomeDirective =
-   /^biome-ignore(?:-all|-start|-end)?\s+(?:format|parse|(?:lint|assist)(?:\/[A-Za-z][A-Za-z0-9]*){0,2}(?:\([^()]+\))?):\s*\S/;
+@@ -18,9 +18,7 @@ const biomeDirective =
+   /^biome-ignore(?:-all|-start|-end)?\s+([a-z]+(?:\/[A-Za-z][A-Za-z0-9]*){0,2})(?:\([^()]+\))?:\s*\S/;
  const fallowTarget =
    "(?:policy-violation:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*|[a-z]+(?:-[a-z]+)+)";
 -const fallowDirective = new RegExp(
@@ -10,5 +10,5 @@ diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 -);
 +const fallowDirective = /^fallow-ignore(?:-next-line|-file)?(?:\s|$)/;
  
- function isDirectiveComment(comment) {
-   if (lineBreak.test(comment.value)) return false;
+ function loadBiomeCategories() {
+   const require = createRequire(import.meta.url);

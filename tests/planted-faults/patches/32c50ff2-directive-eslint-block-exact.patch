@@ -1,7 +1,7 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -6,9 +6,8 @@ const eslintReason = "(?:\\s+--\\s+\\S.*)?";
+@@ -9,9 +9,8 @@ const eslintReason = "(?:\\s+--\\s+\\S.*)?";
  const eslintLineDirective = new RegExp(
    `^eslint-disable(?:-next)?-line${eslintRuleList}${eslintReason}$`,
  );

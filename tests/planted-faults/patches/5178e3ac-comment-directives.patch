@@ -1,10 +1,10 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -35,5 +35,5 @@ function isDirectiveComment(comment) {
+@@ -105,5 +105,5 @@ function isDirectiveComment(comment, source) {
  }
  
- export function isDirectiveBlock(block) {
--  return block.every(isDirectiveComment);
-+  return isDirectiveComment(block[0]);
+ export function isDirectiveBlock(block, source) {
+-  return block.every((comment) => isDirectiveComment(comment, source));
++  return isDirectiveComment(block[0], source);
  }

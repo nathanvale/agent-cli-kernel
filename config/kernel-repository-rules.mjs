@@ -150,7 +150,7 @@ function isAdmitted(source, block, placed) {
   const [first = ""] = lines;
   const { start } = block[0].loc;
   return (
-    isDirectiveBlock(block) ||
+    isDirectiveBlock(block, source) ||
     commentMarker.test(first) ||
     acceptedDecision.test(lines.join(" ")) ||
     (safetyJustification.test(first) &&

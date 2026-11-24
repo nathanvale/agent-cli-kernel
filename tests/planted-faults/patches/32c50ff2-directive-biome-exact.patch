@@ -1,13 +1,12 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -11,8 +11,7 @@ const eslintBlockDirective = new RegExp(
- );
- const tsLineOnlyDirective = /^@ts-(?:no)?check$/;
- const tsCommentDirective = /^@ts-(?:expect-error|ignore)(?:$|[\s:])/;
--const biomeDirective =
--  /^biome-ignore(?:-all|-start|-end)?\s+(?:format|parse|(?:lint|assist)(?:\/[A-Za-z][A-Za-z0-9]*){0,2}(?:\([^()]+\))?):\s*\S/;
-+const biomeDirective = /^biome-ignore(?:-all|-start|-end)?(?:\s|$)/;
- const fallowTarget =
-   "(?:policy-violation:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*|[a-z]+(?:-[a-z]+)+)";
- const fallowDirective = new RegExp(
+@@ -72,6 +72,5 @@ const biomeCategories = loadBiomeCategories();
+ 
+ function isBiomeDirective(text) {
+-  const match = biomeDirective.exec(text);
+-  return match !== null && biomeCategories.has(match[1]);
++  return /^biome-ignore(?:-all|-start|-end)?(?:\s|$)/.test(text);
+ }
+ 
+ function isFallowBlockPlaced(comment, source) {
