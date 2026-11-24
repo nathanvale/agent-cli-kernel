@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+index 0e5574e8..942e5d70 100644
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -243,7 +243,7 @@ async function isNewRule(
+   const name = rule.slice(repositoryRulePrefix.length);
+   const before = definedRules(parser, (f) => optionalTextAt(root, base, f));
+   const after = definedRules(parser, (f) => optionalCurrent(read, f));
+-  return Boolean(before && after && !before.has(name) && after.has(name));
++  return Boolean(before && after && !before.has(name));
+ }
+ 
+ async function suppressionGrowthProblems(
