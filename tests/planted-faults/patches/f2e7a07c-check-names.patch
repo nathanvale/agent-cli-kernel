@@ -1,0 +1,40 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index dd8a6fa4..f0f23933 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -43,25 +43,17 @@ function placementProblems(tree: string, names: readonly string[]): string[] {
+   if (!existsSync(join(tree, "repository.json"))) return [];
+   const { testAreas } = readRepository(tree);
+   const places = testFilePlaces(testAreas).join(", ");
+-  const bunTestFile = /[._](?:test|spec)\.(?:[jt]sx?|[cm][jt]s)$/i;
+-  const namedTestTs = /(?:^|\/)[^/.][^/]*\.test\.ts$/;
+-  return names.flatMap((name) => {
+-    if (!bunTestFile.test(name)) return [];
+-    const validForm = namedTestTs.test(name);
+-    const inArea = testAreas.some((area) => holdsTestFile(area, name));
+-    if (validForm && inArea) return [];
+-    if (validForm)
+-      return [
++  return names
++    .filter(
++      (name) =>
++        name.startsWith("tests/") &&
++        name.endsWith(".test.ts") &&
++        !testAreas.some((area) => holdsTestFile(area, name)),
++    )
++    .map(
++      (name) =>
+         `${name} is a test file outside the folders repository.json gives test files. Repair: move it into one of ${places}, or add its folder to testAreas. Done when bun run check:names ${name} passes.`,
+-      ];
+-    if (inArea)
+-      return [
+-        `${name} is a test file Bun runs that is not a .test.ts file, so test lints, typecheck or timings skip it. Repair: rename it to <name>.test.ts in one of ${places}. Done when bun run check:names passes on the new path.`,
+-      ];
+-    return [
+-      `${name} is a test file Bun runs that is not a .test.ts file and sits outside the folders repository.json gives test files. Repair: rename it to <name>.test.ts and move it into one of ${places}, or add its folder to testAreas. Done when bun run check:names passes on the new path.`,
+-    ];
+-  });
++    );
+ }
+ 
+ async function problemsIn(
