@@ -200,10 +200,10 @@ const staticMemberName = (node) =>
   !node.parent.computed
     ? node.parent.property.name
     : undefined;
-const qualifiedRoot = (node) =>
-  node.parent.type === "TSQualifiedName" ? qualifiedRoot(node.parent) : node;
+const rootIdentifier = (node) =>
+  node.parent.type === "TSQualifiedName" ? rootIdentifier(node.parent) : node;
 const isTypePosition = ({ isValueReference, identifier }) => {
-  const root = qualifiedRoot(identifier);
+  const root = rootIdentifier(identifier);
   return root.parent.type === "TSImportEqualsDeclaration"
     ? root.parent.importKind === "type"
     : isValueReference === false ||
