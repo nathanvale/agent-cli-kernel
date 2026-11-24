@@ -216,9 +216,9 @@ async function problemsFor(
     if (revision === undefined || revision.startsWith("--") || extra.length > 0)
       throw new UsageError("--against takes one revision.");
     return [
-      ...recordedAdditionProblems(environment.root, revision, (path) =>
+      ...(await recordedAdditionProblems(environment.root, revision, (path) =>
         readFileSync(join(environment.root, path), "utf8"),
-      ),
+      )),
       ...(await publicNameProblems(environment.root, false, undefined, true)),
     ];
   }

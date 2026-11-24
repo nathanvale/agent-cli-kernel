@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+import type ts from "typescript";
 import {
   mergeBaseOf,
   optionalTextAt,
@@ -9,11 +11,13 @@ import {
 import { isAbsentError } from "./read-file.ts";
 
 const suppressionsFile = "eslint-suppressions.json";
-const lintConfigs = [
-  "eslint.config.mjs",
-  "config/kernel-repository-lint.mjs",
-  "config/verify-skill-lint.mjs",
-  "kernel/config/kernel/eslint.mjs",
+const repositoryRulePrefix = "repository/";
+const repositoryRuleModules = [
+  "config/template-rules.mjs",
+  "config/platform-rules.mjs",
+  "config/payload-rules.mjs",
+  "config/kernel-repository-rules.mjs",
+  "kernel/config/kernel/eslint-rules.mjs",
 ];
 
 type Recorded = {
@@ -134,56 +138,146 @@ function readSuppressions(text: string) {
   return { byFile, byRule };
 }
 
-function isNewRule(
+type TypeScript = typeof ts;
+
+function keyOf(ts: TypeScript, name: ts.PropertyName): string | undefined {
+  if (ts.isIdentifier(name)) return name.text;
+  const node = ts.isComputedPropertyName(name) ? name.expression : name;
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+    ? node.text
+    : undefined;
+}
+
+function rulesObjectOf(ts: TypeScript, source: ts.SourceFile) {
+  const def = source.statements.find(ts.isExportAssignment);
+  const obj = def && !def.isExportEquals ? def.expression : undefined;
+  if (!obj || !ts.isObjectLiteralExpression(obj)) return undefined;
+  if (obj.properties.some(ts.isSpreadAssignment)) return undefined;
+  const prop = obj.properties.find(
+    (p) => ts.isPropertyAssignment(p) && keyOf(ts, p.name) === "rules",
+  );
+  return prop &&
+    ts.isPropertyAssignment(prop) &&
+    ts.isObjectLiteralExpression(prop.initializer)
+    ? prop.initializer
+    : undefined;
+}
+
+function ruleNameOf(
+  ts: TypeScript,
+  prop: ts.ObjectLiteralElementLike,
+  imports: ReadonlySet<string>,
+): string | null | undefined {
+  if (ts.isSpreadAssignment(prop)) {
+    const e = prop.expression;
+    return ts.isPropertyAccessExpression(e) &&
+      e.name.text === "rules" &&
+      ts.isIdentifier(e.expression) &&
+      imports.has(e.expression.text)
+      ? null
+      : undefined;
+  }
+  return ts.isPropertyAssignment(prop) ||
+    ts.isMethodDeclaration(prop) ||
+    ts.isShorthandPropertyAssignment(prop)
+    ? keyOf(ts, prop.name)
+    : undefined;
+}
+
+function exportedRuleNames(ts: TypeScript, path: string, text: string) {
+  const opts = { reportDiagnostics: true, compilerOptions: { allowJs: true } };
+  if (ts.transpileModule(text, opts).diagnostics?.length) return undefined;
+  const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest);
+  const rules = rulesObjectOf(ts, source);
+  if (!rules) return undefined;
+  const dir = posix.dirname(path);
+  const imports = new Set(
+    source.statements.flatMap((s) =>
+      ts.isImportDeclaration(s) &&
+      s.importClause?.name &&
+      ts.isStringLiteral(s.moduleSpecifier) &&
+      repositoryRuleModules.includes(
+        posix.normalize(posix.join(dir, s.moduleSpecifier.text)),
+      )
+        ? [s.importClause.name.text]
+        : [],
+    ),
+  );
+  const names = new Set<string>();
+  for (const prop of rules.properties) {
+    const name = ruleNameOf(ts, prop, imports);
+    if (name === undefined) return undefined;
+    if (name !== null) names.add(name);
+  }
+  return names;
+}
+
+function definedRules(
+  ts: TypeScript,
+  read: (path: string) => string | undefined,
+) {
+  const names = new Set<string>();
+  for (const file of repositoryRuleModules) {
+    const text = read(file);
+    if (text === undefined) continue;
+    const found = exportedRuleNames(ts, file, text);
+    if (!found) return undefined;
+    for (const name of found) names.add(name);
+  }
+  return names;
+}
+
+async function isNewRule(
   root: string,
   base: string,
   read: (path: string) => string,
   rule: string,
 ) {
-  const escaped = rule.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const enabled = new RegExp(
-    `(?:^|[{,]\\s*)(?:["']${escaped}["']|${escaped})\\s*:\\s*(?:\\[\\s*)?(?:["'](?:error|warn)["']|[12]\\b)`,
-    "m",
-  );
-  return (
-    lintConfigs.some((f) => enabled.test(optionalCurrent(read, f) ?? "")) &&
-    !lintConfigs.some((f) => enabled.test(optionalTextAt(root, base, f) ?? ""))
-  );
+  if (!rule.startsWith(repositoryRulePrefix)) return false;
+  const { default: parser } = await import("typescript");
+  const name = rule.slice(repositoryRulePrefix.length);
+  const before = definedRules(parser, (f) => optionalTextAt(root, base, f));
+  const after = definedRules(parser, (f) => optionalCurrent(read, f));
+  return Boolean(before && after && !before.has(name) && after.has(name));
 }
 
-function suppressionGrowthProblems(
+async function suppressionGrowthProblems(
   root: string,
   base: string,
   read: (path: string) => string,
   revision: string,
-): string[] {
+): Promise<string[]> {
   const current = optionalCurrent(read, suppressionsFile);
   if (current === undefined) return [];
   const before = readSuppressions(
     optionalTextAt(root, base, suppressionsFile) ?? "{}",
   );
   const after = readSuppressions(current);
-  return [...after.byRule].flatMap(([rule, afterTotal]) => {
-    const beforeTotal = before.byRule.get(rule) ?? 0;
-    if (afterTotal <= beforeTotal) return [];
-    if (beforeTotal === 0 && isNewRule(root, base, read, rule)) return [];
-    return [...after.byFile].flatMap(([file, rules]) => {
-      const afterCount = rules.get(rule) ?? 0;
-      const beforeCount = before.byFile.get(file)?.get(rule) ?? 0;
-      return afterCount > beforeCount
-        ? [
-            `${suppressionsFile} records ${afterCount} ${afterCount === 1 ? "hit" : "hits"} for ${file} ${rule}, more than ${revision} records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.`,
-          ]
-        : [];
-    });
-  });
+  const groups = await Promise.all(
+    [...after.byRule].map(async ([rule, afterTotal]) => {
+      const beforeTotal = before.byRule.get(rule) ?? 0;
+      if (afterTotal <= beforeTotal) return [];
+      if (beforeTotal === 0 && (await isNewRule(root, base, read, rule)))
+        return [];
+      return [...after.byFile].flatMap(([file, rules]) => {
+        const afterCount = rules.get(rule) ?? 0;
+        const beforeCount = before.byFile.get(file)?.get(rule) ?? 0;
+        return afterCount > beforeCount
+          ? [
+              `${suppressionsFile} records ${afterCount} ${afterCount === 1 ? "hit" : "hits"} for ${file} ${rule}, more than ${revision} records (${beforeCount}; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.`,
+            ]
+          : [];
+      });
+    }),
+  );
+  return groups.flat();
 }
 
-export function recordedAdditionProblems(
+export async function recordedAdditionProblems(
   root: string,
   revision: string,
   currentText: (path: string) => string,
-): string[] {
+): Promise<string[]> {
   const base = mergeBaseOf(root, revision);
   return [
     ...recordedLists.flatMap((recorded) => {
@@ -201,6 +295,6 @@ export function recordedAdditionProblems(
         JSON.stringify({ [recorded.list]: [] });
       return additionProblems(recorded, before, current, revision);
     }),
-    ...suppressionGrowthProblems(root, base, currentText, revision),
+    ...(await suppressionGrowthProblems(root, base, currentText, revision)),
   ];
 }

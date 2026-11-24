@@ -1,7 +1,0 @@
-{
-  "id": "c21c6f68-glossary-additions",
-  "patch": "tests/planted-faults/patches/c21c6f68-glossary-additions.patch",
-  "testFile": "tests/template/names-check/names-check-growth.test.ts",
-  "title": "^recorded-hit growth class check refuses",
-  "source": "c21c6f68 fix(names-check): refuse growth in the lint suppressions and coverage-gap records"
-}
