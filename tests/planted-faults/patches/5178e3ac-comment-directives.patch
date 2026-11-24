@@ -1,8 +1,7 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
-index ac36bc92..4bd46cc7 100644
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -13,5 +13,5 @@ function isDirectiveComment(comment) {
+@@ -35,5 +35,5 @@ function isDirectiveComment(comment) {
  }
  
  export function isDirectiveBlock(block) {

@@ -192,9 +192,11 @@ _Avoid_: util, helper, common, core (for a shared edge)
 **Directive**:
 A comment a tool reads as an instruction rather than as prose, in that tool's
 exact form: `eslint-disable`, `eslint-disable-next-line`, `eslint-disable-line`,
-`eslint-enable`, `@ts-expect-error`, `@ts-ignore`, `biome-ignore` or
-`fallow-ignore`. The comment rule admits a comment as a directive only when it
-is one in that form; prose after a directive-looking word is refused.
+`eslint-enable`, `@ts-expect-error`, `@ts-ignore`, line-only `@ts-nocheck` or
+`@ts-check`, `biome-ignore` (`-all`, `-start`, `-end`),
+`fallow-ignore-next-line` or `fallow-ignore-file`. The comment rule admits a
+comment as a directive only when it is one in that form; prose after a
+directive-looking word is refused.
 _Avoid_: pragma, annotation (for a directive)
 
 **Contract boundary**:
