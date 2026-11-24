@@ -1240,3 +1240,119 @@ for (const [filePath, code, lines] of stateFsCases)
     const found = await hits("state-no-fs-import", filePath, code);
     expect(found.map(({ line }) => line)).toEqual([...lines]);
   });
+
+const runtimeGates = new Set([
+  "no-console",
+  "no-restricted-imports",
+  "no-restricted-properties",
+  "repository/no-domain-output",
+  "repository/no-process-reach",
+]);
+const installedSource = [
+  "kernel/src/addons/menu/index.ts",
+  "skills/verify-cli/helper/place.ts",
+];
+const program = "repository/no-process-reach program";
+const output = "repository/no-process-reach output";
+const domainOutput = "repository/no-domain-output output";
+const restricted = "no-restricted-properties restrictedObjectProperty";
+const consoleCall = "no-console unexpected";
+const runtimeSpellings = [
+  ['import { spawnSync } from "bun"; export const run = spawnSync;', program],
+  ['import { $ } from "bun"; export const run = $;', program],
+  ['import * as bun from "bun"; export const run = bun.spawn;', program],
+  ['import bun from "bun"; export const run = bun;', program],
+  ['export const run = () => import("bun");', program],
+  ["export const run = () => import(`bun`);", program],
+  ["export const run = globalThis.Bun.spawnSync;", program],
+  ['export const run = globalThis["Bun"];', program],
+  ["export const run = global.Bun;", program],
+  ["const runtime = Bun; export const run = runtime.spawnSync;", program],
+  ["export const run = [Bun];", program],
+  ['export const run = (key: "spawn") => Bun[key];', program],
+  ['export const run = Bun["spawn"];', restricted],
+  ["const { $ } = Bun; export const run = $;", restricted],
+  ["export const run = Bun.spawn;", restricted],
+  [
+    'export const run = process.getBuiltinModule("node:child_process");',
+    program,
+  ],
+  ['export const out = () => Bun.write(Bun.stdout, "x");', domainOutput],
+  ["const { stderr } = Bun; export const out = stderr;", domainOutput],
+  ['import { stdout } from "bun"; export const out = stdout;', domainOutput],
+  ["const { stdout } = process; export const out = stdout;", domainOutput],
+  [
+    "let out: unknown; ({ stdout: out } = process); export { out };",
+    domainOutput,
+  ],
+  ["const { ...all } = process; export const out = all;", output],
+  ['import proc from "node:process"; export const out = proc.stdout;', output],
+  ['import * as proc from "process"; export const out = proc;', output],
+  ['export const out = () => import("node:process");', output],
+  [
+    'import { stdout } from "node:process"; export const out = stdout;',
+    domainOutput,
+  ],
+  ['export const out = process.getBuiltinModule("node:process");', output],
+  ['export const out = () => globalThis.console.log("x");', output],
+  ['export const out = () => globalThis.process.stderr.write("x");', output],
+  ["const { process: host } = globalThis; export const out = host;", output],
+  ["const scope = globalThis; export const out = scope;", output],
+  ['export const out = () => process[`stdout`].write("x");', domainOutput],
+  ['export const out = () => process["stderr"].write("x");', domainOutput],
+  ['export const out = (key: "stdout") => process[key];', output],
+  ['export const out = () => process.stdout.write("x");', domainOutput],
+  ["const printer = console; export const out = printer;", output],
+  ['export const out = () => console.log("x");', consoleCall],
+] as const;
+const honestRuntime = [
+  'import type { Subprocess } from "bun"; export type Child = Subprocess;',
+  'import { type Subprocess } from "bun"; export type Child = Subprocess;',
+  "export const read = (path: string) => Bun.file(path).text();",
+  'export const home = () => process.env["HOME"];',
+  "const { argv } = process; export const args = argv;",
+  "export const tag = { process: 1, Bun: 2, console: 3 };",
+  "export type Spawn = typeof Bun.spawn;",
+  "export const kind = typeof process;",
+  "export const later = globalThis.setTimeout;",
+];
+
+async function runtimeHits(filePath: string, code: string) {
+  const [result] = await eslint.lintText(code, { filePath });
+  return (result?.messages ?? [])
+    .filter(({ ruleId }) => runtimeGates.has(String(ruleId)))
+    .map(({ ruleId, messageId }) => `${ruleId} ${messageId}`);
+}
+
+for (const filePath of installedSource)
+  test(`the kernel lint refuses each spelling of a program start or a process stream once in ${filePath}, and admits honest runtime use`, async () => {
+    const found = [];
+    for (const [code] of runtimeSpellings)
+      found.push([code, await runtimeHits(filePath, code)]);
+    expect(found).toEqual(runtimeSpellings.map(([code, hit]) => [code, [hit]]));
+    for (const code of honestRuntime)
+      expect(await runtimeHits(filePath, code)).toEqual([]);
+  });
+
+const scriptForms = ["js", "mjs", "cjs", "jsx", "tsx"];
+
+for (const typed of installedSource)
+  test(`the kernel lint refuses source beside ${typed} that is not TypeScript, and admits .ts`, async () => {
+    const folder = typed.slice(0, typed.lastIndexOf("/"));
+    const code = 'export const word = "menu";';
+    const refused = [];
+    for (const form of scriptForms)
+      refused.push(
+        await hits("typescript-source", `${folder}/word.${form}`, code),
+      );
+    expect(refused).toEqual(
+      scriptForms.map(() => [
+        {
+          line: 1,
+          message:
+            "Source is TypeScript (.ts, .mts or .cts). Repair: write this file as .ts, .mts or .cts.",
+        },
+      ]),
+    );
+    expect(await hits("typescript-source", typed, code)).toEqual([]);
+  });

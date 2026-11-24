@@ -14,6 +14,9 @@ afterAll(async () => {
 });
 
 const planted = {
+  "src/app/alias.ts":
+    "const runtime = Bun;\nexport const run = runtime.spawnSync;",
+  "src/app/script.mjs": 'export const word = "app";',
   "src/app/cause.ts":
     'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
   "src/app/in.ts": 'export const has = (o: object) => "a" in o;',
@@ -33,6 +36,7 @@ const planted = {
 };
 
 const plantedFindings = [
+  { file: "src/app/alias.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
   { file: "src/app/child.ts", ruleId: "no-restricted-syntax" },
   { file: "src/app/ffi.ts", ruleId: "no-restricted-imports" },
@@ -42,6 +46,7 @@ const plantedFindings = [
   { file: "src/app/logging.ts", ruleId: "no-restricted-imports" },
   { file: "src/app/output.ts", ruleId: "repository/no-domain-output" },
   { file: "src/app/predicate.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/app/script.mjs", ruleId: "repository/typescript-source" },
   { file: "src/app/spawn.ts", ruleId: "no-restricted-properties" },
   {
     file: "src/kernel/validation/planted.ts",
@@ -158,6 +163,38 @@ describe("kernelLint in a host layout", () => {
             file !== "src/kernel/validation/planted.ts",
         ),
       ).toEqual([]);
+    },
+    lintBound,
+  );
+
+  test(
+    "a host block after kernelLint that sets no-restricted-syntax, as the generated repository's does, keeps the runtime and TypeScript-source refusals",
+    async () => {
+      const tree = await hostTree([], []);
+      await writeFile(
+        join(tree, "host.config.mjs"),
+        [
+          'import { kernelLint } from "./config/kernel/eslint.mjs";',
+          "export default [",
+          '  ...kernelLint({ rootDir: import.meta.dirname, srcDir: "src", testDirs: [], addons: [] }),',
+          '  { files: ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"], rules: { "no-restricted-syntax": ["error", { selector: "TSAsExpression > TSAsExpression", message: "No chained assertion." }] } },',
+          "];",
+          "",
+        ].join("\n"),
+      );
+      const results = await new ESLint({
+        cwd: tree,
+        overrideConfigFile: "host.config.mjs",
+      }).lintFiles(["src/app/alias.ts", "src/app/script.mjs"]);
+      expect(
+        results.map((result) => [
+          relative(tree, result.filePath),
+          result.messages.map(({ ruleId }) => ruleId),
+        ]),
+      ).toEqual([
+        ["src/app/alias.ts", ["repository/no-process-reach"]],
+        ["src/app/script.mjs", ["repository/typescript-source"]],
+      ]);
     },
     lintBound,
   );
