@@ -31,7 +31,7 @@ function collectSchemaRefs(prop) {
   return refs.concat(prop.anyOf.map((item) => item?.$ref).filter(Boolean));
 }
 
-function resolveSchemaDef(ref, defs) {
+function resolveSchemaDefinition(ref, defs) {
   const def = defs[ref.replace(/^#\/\$defs\//, "")];
   if (!def) return undefined;
   if (def.properties) return def.properties;
@@ -42,7 +42,7 @@ function resolveSchemaDef(ref, defs) {
 
 function resolveSchemaProperties(prop, defs) {
   for (const ref of collectSchemaRefs(prop)) {
-    const resolved = resolveSchemaDef(ref, defs);
+    const resolved = resolveSchemaDefinition(ref, defs);
     if (resolved) return resolved;
   }
   return undefined;
