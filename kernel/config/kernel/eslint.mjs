@@ -33,6 +33,11 @@ const kernelIndexOnly = {
   message:
     "Code outside the kernel imports the kernel through its public index only.",
 };
+const testImports = { group: ["**/tests/**"] };
+const childProcessImports = {
+  group: ["node:child_process", "child_process"],
+  allowTypeImports: true,
+};
 const ffiMessage =
   "bun:ffi belongs only to the state add-on's linux-flock.ts (the Linux coordination lock call).";
 const ffiPath = { name: "bun:ffi", message: ffiMessage };
@@ -136,16 +141,19 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
           {
             name: "node:module",
             importNames: ["createRequire"],
+            allowTypeImports: true,
             message: literalMessage,
           },
           {
             name: "module",
             importNames: ["createRequire"],
+            allowTypeImports: true,
             message: literalMessage,
           },
         ],
         patterns: [
-          { group: ["**/tests/**", "node:child_process", "child_process"] },
+          testImports,
+          childProcessImports,
           kernelIndexOnly,
           logging,
           stateIndexOnly,
@@ -264,10 +272,7 @@ export function kernelLint(options) {
           "error",
           {
             paths: [ffiPath],
-            patterns: [
-              { group: ["**/tests/**", "node:child_process", "child_process"] },
-              loggingImports,
-            ],
+            patterns: [testImports, childProcessImports, loggingImports],
           },
         ],
         "no-restricted-properties": [
