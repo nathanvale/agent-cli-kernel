@@ -1,0 +1,38 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+index 269440e9..6781c2af 100644
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -444,14 +444,14 @@ export default {
+       create(context) {
+         const report = (node) => context.report({ node, messageId: "output" });
+         const owned = (owner, key) =>
+-          streamOwners.has(owner?.name) && streams.has(key);
++          owner?.name === "process" && streams.has(key);
+         return {
+           ImportSpecifier(node) {
+             if (node.importKind === "type" || node.parent.importKind === "type")
+               return;
+             const source = node.parent.source.value;
+             if (
+-              ["node:process", "process", "bun"].includes(source) &&
++              ["node:process", "process"].includes(source) &&
+               streams.has(node.imported.name ?? node.imported.value)
+             )
+               report(node);
+@@ -460,16 +460,6 @@ export default {
+             if (owned(node.object, staticKey(node.property, node.computed)))
+               report(node);
+           },
+-          "ObjectPattern > Property"(node) {
+-            const { parent } = node.parent;
+-            if (
+-              owned(
+-                parent.init ?? parent.right,
+-                staticKey(node.key, node.computed),
+-              )
+-            )
+-              report(node);
+-          },
+         };
+       },
+     },

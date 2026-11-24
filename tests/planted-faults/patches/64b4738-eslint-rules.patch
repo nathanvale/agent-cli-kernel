@@ -1,5 +1,5 @@
 diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
-index 783cf348..dcd69942 100644
+index 269440e9..798009ca 100644
 --- a/kernel/config/kernel/eslint-rules.mjs
 +++ b/kernel/config/kernel/eslint-rules.mjs
 @@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
@@ -31,9 +31,9 @@ index 783cf348..dcd69942 100644
  
  function constantText(context, node, depth = 0) {
    if (!node || depth > 8) return undefined;
-@@ -231,9 +246,254 @@ function loadedKind(source) {
-     ? undefined
-     : moduleKind(source);
+@@ -243,9 +258,254 @@ function admitted(owner, key, route) {
+     (route !== "import" && owner === "Bun" && bunStartMembers.has(key))
+   );
  }
 +const testFolderOwner = "/tests/support/test-folder.ts";
 +const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
@@ -286,7 +286,7 @@ index 783cf348..dcd69942 100644
      "no-locale-compare": {
        meta: {
          type: "problem",
-@@ -362,19 +622,10 @@ export default {
+@@ -374,19 +634,10 @@ export default {
        },
        create(context) {
          const file = context.filename.replaceAll("\\", "/");
@@ -308,7 +308,7 @@ index 783cf348..dcd69942 100644
          const checker = services.program.getTypeChecker();
          const keys = commonCauseKeys(services.program);
          const ownerTyped = (type) =>
-@@ -423,6 +674,106 @@ export default {
+@@ -435,6 +686,106 @@ export default {
          };
        },
      },
