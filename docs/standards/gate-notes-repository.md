@@ -125,8 +125,17 @@ What the gates of the repository rows refuse and where, what stays with the revi
 - `bun run check:commits <base>` installs, type-checks and lints each commit
   in `<base>..HEAD` at its own head, in a temporary worktree. Four
   `commits-shard` jobs split a pull request's range; `commits` needs all.
+- A test-first commit may leave its new test red until the next commit.
+  - `scripts/check-commits.ts` (`steps`) runs three commands per commit:
+    `bun install --frozen-lockfile`, `bun run typecheck`, and `bun run lint`.
+  - That lets test-first commits keep their new test red until the fix commit,
+    matching
+    [`.agents/skills/kernel-work/SKILL.md`](../../.agents/skills/kernel-work/SKILL.md#build)
+    (Build) and
+    [`docs/standards/planted-faults.md`](planted-faults.md#planted-faults)
+    ("RED-then-GREEN").
 - It never checks `f20777f` or an older commit. Some of those are red.
-- Format and tests at each commit stay review.
+- Formatting at each commit stays review.
 - Witnessed: [2d0c390], [258365e], [59d45c1], [de45f44], [d3df03e],
   [4737c48], [e07d962].
 
