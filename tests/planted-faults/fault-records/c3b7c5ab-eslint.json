@@ -1,0 +1,7 @@
+{
+  "id": "c3b7c5ab-eslint",
+  "patch": "tests/planted-faults/patches/c3b7c5ab-eslint.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^the kernel lint refuses each spelling of a program start or a process stream once in",
+  "source": "c3b7c5ab fix(lint): let type-only imports of node:child_process and node:module pass the kernel lint's import restrictions"
+}
