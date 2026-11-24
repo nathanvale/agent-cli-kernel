@@ -33,7 +33,7 @@ const moduleObject = (context, source) => {
     ? undefined
     : { module: value.replace(/^node:/, "") };
 };
-export const memberOf = (base, name) => {
+const memberOf = (base, name) => {
   if (base?.module && base.name === undefined) {
     if (base.module === "global" && name === "Bun") return { module: "bun" };
     if (base.module === "fs" && name === "promises")
@@ -45,7 +45,9 @@ export const memberOf = (base, name) => {
 };
 const definitionTracers = {
   ImportBinding: (def) => {
-    const mod = def.parent.source.value.replace(/^node:/, "");
+    const source = def.parent.source ?? def.node.moduleReference?.expression;
+    if (typeof source?.value !== "string") return undefined;
+    const mod = source.value.replace(/^node:/, "");
     const name =
       def.node.type === "ImportSpecifier"
         ? (def.node.imported.name ?? def.node.imported.value)

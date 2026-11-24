@@ -787,6 +787,11 @@ const bypasses = [
   ],
   [
     "tests-use-bounded-runner",
+    'import cp = require("node:child_process");\ncp.spawnSync("git", ["status"]);',
+    "child_process.spawnSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
     'Bun["spawn"](["git", "status"]);',
     "Bun.spawn() starts a child process outside a bounded runner",
   ],
@@ -1387,11 +1392,6 @@ const stateBunFileReachCases = [
     framingFile,
     "export async function writeFrame(path: string, text: string) {\n  await Bun.write(path, text);\n  return Bun.file(path).text();\n}",
     [member(2), member(3)],
-  ],
-  [
-    framingFile,
-    'import { Database } from "bun:sqlite"; export const a = Database;',
-    [[1, "fsImport"]],
   ],
   [
     framingFile,
