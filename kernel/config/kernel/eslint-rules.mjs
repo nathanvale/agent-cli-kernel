@@ -192,6 +192,45 @@ function ownerImport(context, file, root, installed) {
 const causeShape =
   /^(?:SUCCESS|USAGE|SCHEMA|DOMAIN|TRANSIENT|INTERNAL)_[A-Z0-9_]+$/;
 const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
+export const programStartMessage =
+  "Contract 3 source starts programs only through the programs add-on.";
+const outputMessage =
+  "Return domain data to the CLI output owner instead of accessing process streams.";
+const streams = new Set(["stdout", "stderr"]);
+const streamOwners = new Set(["process", "Bun"]);
+const runtimeGlobals = {
+  Bun: "program",
+  process: "output",
+  console: "output",
+  globalThis: "output",
+  global: "output",
+  self: "output",
+};
+const globalHolders = new Set(["globalThis", "global", "self"]);
+const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
+const runtimeModules = [
+  [/^((node:)?child_process|bun)$/, "program"],
+  [/^(node:)?process$/, "output"],
+];
+
+function staticKey(node, computed = true) {
+  if (!computed) return node.name;
+  if (node.type === "Literal") return node.value;
+  if (node.type === "TemplateLiteral" && node.expressions.length === 0)
+    return node.quasis[0].value.cooked;
+  return undefined;
+}
+
+function moduleKind(node) {
+  const name = node && staticKey(node);
+  return runtimeModules.find(([pattern]) => pattern.test(name))?.[1];
+}
+
+function loadedKind(source) {
+  return /child_process$/.test(staticKey(source))
+    ? undefined
+    : moduleKind(source);
+}
 
 export default {
   rules: {
@@ -388,33 +427,140 @@ export default {
       meta: {
         type: "problem",
         schema: [],
+        messages: { output: outputMessage },
+      },
+      create(context) {
+        const report = (node) => context.report({ node, messageId: "output" });
+        const owned = (owner, key) =>
+          streamOwners.has(owner?.name) && streams.has(key);
+        return {
+          ImportSpecifier(node) {
+            const source = node.parent.source.value;
+            if (
+              ["node:process", "process", "bun"].includes(source) &&
+              streams.has(node.imported.name ?? node.imported.value)
+            )
+              report(node);
+          },
+          MemberExpression(node) {
+            if (owned(node.object, staticKey(node.property, node.computed)))
+              report(node);
+          },
+          "ObjectPattern > Property"(node) {
+            const { parent } = node.parent;
+            if (
+              owned(
+                parent.init ?? parent.right,
+                staticKey(node.key, node.computed),
+              )
+            )
+              report(node);
+          },
+        };
+      },
+    },
+    "no-process-reach": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: { program: programStartMessage, output: outputMessage },
+      },
+      create(context) {
+        const report = (node, messageId) =>
+          messageId && context.report({ node, messageId });
+        const runtimeKey = (key) =>
+          Object.hasOwn(runtimeGlobals, key) ? runtimeGlobals[key] : undefined;
+        const loader = (member) => {
+          const call = member.parent;
+          const called =
+            call.type === "CallExpression" && call.callee === member;
+          const source = called ? call.arguments[0] : undefined;
+          if (source && staticKey(source) !== undefined)
+            report(call, moduleKind(source));
+          else report(member, "program");
+        };
+        const pattern = (parent, identifier) =>
+          parent.init === identifier && parent.id.type === "ObjectPattern"
+            ? parent.id
+            : parent.right === identifier &&
+                parent.left.type === "ObjectPattern"
+              ? parent.left
+              : undefined;
+        const memberUse = (member, name) => {
+          const key = staticKey(member.property, member.computed);
+          if (key === undefined) report(member, runtimeGlobals[name]);
+          else if (globalHolders.has(name)) report(member, runtimeKey(key));
+          else if (name === "process" && key === "getBuiltinModule")
+            loader(member);
+        };
+        const patternUse = (properties, name) => {
+          for (const property of properties) {
+            const key =
+              property.key && staticKey(property.key, property.computed);
+            if (property.type === "RestElement" || key === undefined)
+              report(property, runtimeGlobals[name]);
+            else if (globalHolders.has(name)) report(property, runtimeKey(key));
+          }
+        };
+        const typeUse = (parent) =>
+          ["TSTypeQuery", "TSQualifiedName"].includes(parent.type) ||
+          parent.operator === "typeof";
+        const judge = (identifier, name) => {
+          const { parent } = identifier;
+          const destructured = pattern(parent, identifier);
+          if (
+            parent.type === "MemberExpression" &&
+            parent.object === identifier
+          )
+            memberUse(parent, name);
+          else if (destructured) patternUse(destructured.properties, name);
+          else if (!typeUse(parent)) report(identifier, runtimeGlobals[name]);
+        };
+        return {
+          ImportDeclaration(node) {
+            if (node.importKind === "type") return;
+            const kind = loadedKind(node.source);
+            for (const specifier of node.specifiers)
+              if (specifier.type !== "ImportSpecifier") report(specifier, kind);
+              else if (
+                node.source.value === "bun" &&
+                specifier.importKind !== "type" &&
+                bunStartMembers.has(
+                  specifier.imported.name ?? specifier.imported.value,
+                )
+              )
+                report(specifier, "program");
+          },
+          ImportExpression(node) {
+            report(node, loadedKind(node.source));
+          },
+          "Program:exit"(program) {
+            const scope = context.sourceCode.getScope(program);
+            for (const name of Object.keys(runtimeGlobals)) {
+              const references =
+                scope.set.get(name)?.references ??
+                scope.through.filter(
+                  ({ identifier }) => identifier.name === name,
+                );
+              for (const { identifier } of references) judge(identifier, name);
+            }
+          },
+        };
+      },
+    },
+    "typescript-source": {
+      meta: {
+        type: "problem",
+        schema: [],
         messages: {
-          output:
-            "Return domain data to the CLI output owner instead of accessing process streams.",
+          source:
+            "Source is TypeScript (.ts, .mts or .cts). Repair: write this file as .ts, .mts or .cts.",
         },
       },
       create(context) {
         return {
-          ImportSpecifier(node) {
-            if (!["node:process", "process"].includes(node.parent.source.value))
-              return;
-            if (
-              ["stdout", "stderr"].includes(
-                node.imported.name ?? node.imported.value,
-              )
-            )
-              context.report({ node, messageId: "output" });
-          },
-          MemberExpression(node) {
-            const property = node.computed
-              ? node.property.value
-              : node.property.name;
-            if (
-              node.object.name === "process" &&
-              ["stdout", "stderr"].includes(property)
-            ) {
-              context.report({ node, messageId: "output" });
-            }
+          Program(node) {
+            context.report({ node, messageId: "source" });
           },
         };
       },

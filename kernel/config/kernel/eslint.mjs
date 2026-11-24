@@ -2,7 +2,10 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import kernelRules, { holdsKernelSource } from "./eslint-rules.mjs";
+import kernelRules, {
+  holdsKernelSource,
+  programStartMessage,
+} from "./eslint-rules.mjs";
 
 const stateFactoryProperty = {
   property: "stateAddon",
@@ -12,8 +15,7 @@ const stateFactoryProperty = {
 const childProcessImport = {
   selector:
     "ImportExpression:matches([source.value=/^(node:)?child_process$/], [source.quasis.0.value.cooked=/^(node:)?child_process$/])",
-  message:
-    "Contract 3 source starts programs only through the programs add-on.",
+  message: programStartMessage,
 };
 const loggingImports = {
   group: [
@@ -235,6 +237,16 @@ export function kernelLint(options) {
   const when = (name, block) => (selected(name) ? [block] : []);
   return tseslint.config(
     {
+      files: [`${srcDir}/**/*.{js,mjs,cjs,jsx,tsx}`],
+      linterOptions: { noInlineConfig: true },
+      languageOptions: {
+        parser: tseslint.parser,
+        parserOptions: { tsconfigRootDir: rootDir },
+      },
+      plugins: { repository },
+      rules: { "repository/typescript-source": "error" },
+    },
+    {
       files: [source, ...testDirs.map((dir) => `${dir}/${ts}`)],
       linterOptions: { noInlineConfig: true },
       extends: [
@@ -255,6 +267,7 @@ export function kernelLint(options) {
       plugins: { repository },
       rules: {
         "repository/no-domain-output": "error",
+        "repository/no-process-reach": "error",
         "repository/no-locale-compare": "error",
         "no-restricted-syntax": [
           ...rules["no-restricted-syntax"],
