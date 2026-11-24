@@ -96,19 +96,32 @@ the kernel. They are plugin rules, so a host block that sets its own
   - A member that source reads or destructures from `Bun` or `process`
     passes when the list names it, or when another rule judges it: the
     stream names (`no-domain-output`) and `Bun.spawn`, `Bun.spawnSync`
-    and `Bun.$` (`no-restricted-properties`). A `console` member read
-    passes to `no-console`. Every other member, a destructured `console`
-    name, a rest element and a key that is not fixed are refused.
+    and `Bun.$` (`no-restricted-properties`). Chainable `process` listener
+    methods (`on`, `once`, `off`, `addListener`, `removeListener`,
+    `removeAllListeners`, `prependListener`, `prependOnceListener`,
+    `setMaxListeners`) pass only as a call on `process` whose result is
+    discarded (an expression statement or under `void`); importing or
+    destructuring them is refused. A `console` member read passes to
+    `no-console`. Every other member, a destructured `console` name, a
+    rest element and a key that is not fixed are refused.
   - An import from `"bun"`, `process` or `console`, with or without
     `node:`, passes when it is type-only or names a listed member.
-    Default, namespace and `default`-named imports, `export *`, and a
-    re-export of an unlisted member are refused. `no-restricted-imports`
-    refuses static `node:child_process` imports.
-  - `import()`, `require()` and `import.meta.require()` are refused when
-    the module is one of those four, or when the rule cannot decide it.
-  - `Bun`, `process` and `console` read through `globalThis`, `global`
-    or `self`, and any other use of those names or of `globalThis` as a
-    value, are refused. `typeof` and type positions pass.
+    `"node:module"` and `"module"` admit only type-only imports; every
+    value import, re-export and side-effect import of them is refused.
+    Default, namespace, `default`-named and side-effect imports,
+    `export *`, and a re-export of an unlisted member are refused.
+    `no-restricted-imports` refuses static `node:child_process` imports.
+  - `import()`, unbound `require()` and `import.meta.require()` are
+    refused when the module is one of those five, or when the argument is
+    not a static string. Every other value reference to unbound `require`
+    or `import.meta.require`, every computed key on `import.meta`,
+    destructuring `require` or rest from `import.meta`, and using
+    `import.meta` as a value are refused.
+  - `Bun`, `process`, `console` and `require` read through `globalThis`,
+    `global` or `self`, and any other use of those names or of
+    `globalThis` as a value, are refused; a reference whose only
+    definitions are ambient (`declare`) is judged as the runtime global.
+    `typeof` and type positions pass.
   - Fault `f822a0ca-no-process-reach` turns the rule off.
 - Review only: `Bun.file` or `Bun.write` given the stream descriptors 1
   or 2, and `eval` or `new Function` text that names a runtime global.
