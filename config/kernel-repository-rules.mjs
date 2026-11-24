@@ -212,10 +212,12 @@ const isTypePosition = ({ isValueReference, identifier }) => {
 };
 const isTypeOnly = (node) =>
   node.importKind === "type" || node.exportKind === "type";
-const specifierName = ({ type, imported, local }) =>
-  type === "ImportDefaultSpecifier" || type === "ImportNamespaceSpecifier"
-    ? undefined
-    : ((imported ?? local).name ?? (imported ?? local).value);
+const specifierName = ({ type, imported, local }) => {
+  if (type === "ImportDefaultSpecifier" || type === "ImportNamespaceSpecifier")
+    return undefined;
+  const name = (imported ?? local).name ?? (imported ?? local).value;
+  return name === "default" ? undefined : name;
+};
 
 export default {
   rules: {
@@ -273,7 +275,11 @@ export default {
         };
         const checkSpecifiers = (node, each) => {
           if (isTypeOnly(node)) return;
-          if (node.type === "ExportAllDeclaration") return each(node);
+          if (
+            node.type === "ExportAllDeclaration" ||
+            node.specifiers.length === 0
+          )
+            return each(node);
           for (const specifier of node.specifiers)
             if (!isTypeOnly(specifier))
               each(specifier, specifierName(specifier));
@@ -290,7 +296,12 @@ export default {
             );
           else if (loaderModules.has(value))
             checkSpecifiers(node, (specifier, name) => {
-              if (name === undefined || loaderNames.has(name))
+              if (
+                value === "module" ||
+                value === "node:module" ||
+                name === undefined ||
+                loaderNames.has(name)
+              )
                 report(specifier, "loaderReach");
             });
           else if (isFsSpecifier(value)) judgeLoad(node, value);
