@@ -1,12 +1,12 @@
 diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
 --- a/scripts/glossary-additions.ts
 +++ b/scripts/glossary-additions.ts
-@@ -144,7 +144,7 @@ function suppressionGrowthProblems(
+@@ -155,7 +155,7 @@ function suppressionGrowthProblems(
    const after = readSuppressions(current);
    return [...after.byRule].flatMap(([rule, afterTotal]) => {
      const beforeTotal = before.byRule.get(rule) ?? 0;
 -    if (afterTotal <= beforeTotal) return [];
 +    if (afterTotal >= 0) return [];
+     const baseApprovals = before.approvalsByRule.get(rule);
      return [...after.byFile].flatMap(([file, rules]) => {
        const afterEntry = rules.get(rule);
-       const afterCount = afterEntry?.count ?? 0;

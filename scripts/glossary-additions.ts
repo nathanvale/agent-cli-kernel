@@ -111,6 +111,7 @@ function additionProblems(
 function readSuppressions(text: string) {
   const byFile = new Map<string, Map<string, SuppressionEntry>>();
   const byRule = new Map<string, number>();
+  const approvalsByRule = new Map<string, Set<string>>();
   for (const [file, raw] of plainObjectEntries(
     JSON.parse(text),
     suppressionsFile,
@@ -128,12 +129,18 @@ function readSuppressions(text: string) {
         throw new Error(
           `${suppressionsFile}: ${file} ${rule} needs a non-negative integer count.`,
         );
-      entries.set(rule, { count: n, approved: approvalOf(fields) });
+      const approved = approvalOf(fields);
+      entries.set(rule, { count: n, approved });
       byRule.set(rule, (byRule.get(rule) ?? 0) + n);
+      if (approved !== undefined) {
+        const approvals = approvalsByRule.get(rule) ?? new Set<string>();
+        approvals.add(approved);
+        approvalsByRule.set(rule, approvals);
+      }
     }
     byFile.set(file, entries);
   }
-  return { byFile, byRule };
+  return { byFile, byRule, approvalsByRule };
 }
 
 function suppressionGrowthProblems(
@@ -151,6 +158,7 @@ function suppressionGrowthProblems(
   return [...after.byRule].flatMap(([rule, afterTotal]) => {
     const beforeTotal = before.byRule.get(rule) ?? 0;
     if (afterTotal <= beforeTotal) return [];
+    const baseApprovals = before.approvalsByRule.get(rule);
     return [...after.byFile].flatMap(([file, rules]) => {
       const afterEntry = rules.get(rule);
       const afterCount = afterEntry?.count ?? 0;
@@ -159,7 +167,7 @@ function suppressionGrowthProblems(
       if (afterCount <= beforeCount) return [];
       if (
         afterEntry?.approved !== undefined &&
-        afterEntry.approved !== beforeEntry?.approved
+        !baseApprovals?.has(afterEntry.approved)
       )
         return [];
       return [

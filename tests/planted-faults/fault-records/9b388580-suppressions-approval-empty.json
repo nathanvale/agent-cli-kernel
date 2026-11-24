@@ -2,6 +2,6 @@
   "id": "9b388580-suppressions-approval-empty",
   "patch": "tests/planted-faults/patches/9b388580-suppressions-approval-empty.patch",
   "testFile": "tests/template/names-check/names-check-growth.test.ts",
-  "title": "^recorded-hit growth class check admits a new rule with an approval and refuses empty or stale approvals$",
+  "title": "^recorded-hit growth class check refuses empty or whitespace suppression approvals$",
   "source": "9b388580 fix(names-check): admit suppression growth only with a reviewed approval, never by guessing a rule is new"
 }

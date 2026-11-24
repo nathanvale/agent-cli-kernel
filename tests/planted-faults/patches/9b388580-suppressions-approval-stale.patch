@@ -1,13 +1,13 @@
 diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
 --- a/scripts/glossary-additions.ts
 +++ b/scripts/glossary-additions.ts
-@@ -151,10 +151,7 @@ function suppressionGrowthProblems(
+@@ -162,10 +162,7 @@ function suppressionGrowthProblems(
        const beforeEntry = before.byFile.get(file)?.get(rule);
        const beforeCount = beforeEntry?.count ?? 0;
        if (afterCount <= beforeCount) return [];
 -      if (
 -        afterEntry?.approved !== undefined &&
--        afterEntry.approved !== beforeEntry?.approved
+-        !baseApprovals?.has(afterEntry.approved)
 -      )
 +      if (afterEntry?.approved !== undefined)
          return [];
