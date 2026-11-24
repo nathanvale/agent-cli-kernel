@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, symlinkSync } from "node:fs";
+import { mkdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   nameProblems,
@@ -8,7 +8,9 @@ import {
   recordedHitsFile,
   trackedNames,
 } from "../../../scripts/glossary.ts";
-import { git } from "../../support/git-fixture.ts";
+import { git, gitEnv, inherited } from "../../support/git-fixture.ts";
+import { processWatchdog, spawnBounded } from "../../support/process.ts";
+import { jobOf } from "../../support/workflows.ts";
 import {
   check,
   glossary,
@@ -196,3 +198,388 @@ test("--tool-call in this repository with no GLOSSARY.md exits 2, and in a repos
     ),
   ).toEqual({ stderr: "", code: 0 });
 });
+
+const repositoryRoot = join(import.meta.dir, "../../..");
+const fallowBinary = join(repositoryRoot, "node_modules/.bin/fallow");
+const eslintSuppressionsFile = "eslint-suppressions.json";
+const coverageGapsRecordedHitsFile =
+  "tests/template/standards/coverage-gaps-recorded-hits.json";
+const fallowHealthRecordedHitsFile = "fallow-health-recorded-hits.json";
+
+const baseEslintConfig =
+  'export default [{ rules: { "repository/no-in-operator": "error", "no-console": "error" } }];\n';
+const baseSuppressions = {
+  "src/a.ts": { "repository/no-in-operator": { count: 2 } },
+};
+const baseCoverageGap = { path: "scripts/existing.ts", reason: "fixture" };
+
+function recordedFilesRepository() {
+  const root = recordedRepository();
+  put(root, "eslint.config.mjs", baseEslintConfig);
+  put(root, eslintSuppressionsFile, JSON.stringify(baseSuppressions));
+  put(
+    root,
+    coverageGapsRecordedHitsFile,
+    JSON.stringify({ hits: [baseCoverageGap] }),
+  );
+  git(
+    root,
+    "add",
+    "--",
+    "eslint.config.mjs",
+    eslintSuppressionsFile,
+    coverageGapsRecordedHitsFile,
+  );
+  git(root, "commit", "--quiet", "-m", "recorded files");
+  return root;
+}
+
+test.each([
+  [
+    "eslint-suppressions.json growing an existing rule",
+    (root: string) => {
+      put(
+        root,
+        eslintSuppressionsFile,
+        JSON.stringify({
+          ...baseSuppressions,
+          "src/b.ts": { "repository/no-in-operator": { count: 1 } },
+        }),
+      );
+    },
+    `${eslintSuppressionsFile} records 1 hit for src/b.ts repository/no-in-operator, more than HEAD records (0; rule total 3 exceeds 2). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+  ],
+  [
+    "eslint-suppressions.json growing a configured zero-hit rule",
+    (root: string) => {
+      put(
+        root,
+        eslintSuppressionsFile,
+        JSON.stringify({
+          ...baseSuppressions,
+          "src/a.ts": {
+            "repository/no-in-operator": { count: 2 },
+            "no-console": { count: 1 },
+          },
+        }),
+      );
+    },
+    `${eslintSuppressionsFile} records 1 hit for src/a.ts no-console, more than HEAD records (0; rule total 1 exceeds 0). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+  ],
+  [
+    "eslint-suppressions.json growing an unconfigured recommended rule",
+    (root: string) => {
+      put(
+        root,
+        eslintSuppressionsFile,
+        JSON.stringify({
+          ...baseSuppressions,
+          "src/a.ts": {
+            "repository/no-in-operator": { count: 2 },
+            "no-undef": { count: 2 },
+          },
+        }),
+      );
+    },
+    `${eslintSuppressionsFile} records 2 hits for src/a.ts no-undef, more than HEAD records (0; rule total 2 exceeds 0). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+  ],
+  [
+    "eslint-suppressions.json growing a rule only set to off in eslint.config.mjs",
+    (root: string) => {
+      put(
+        root,
+        "eslint.config.mjs",
+        'export default [{ rules: { "repository/no-in-operator": "error", "no-console": "error", "no-undef": "off" } }];\n',
+      );
+      put(
+        root,
+        eslintSuppressionsFile,
+        JSON.stringify({
+          ...baseSuppressions,
+          "src/a.ts": {
+            "repository/no-in-operator": { count: 2 },
+            "no-undef": { count: 1 },
+          },
+        }),
+      );
+    },
+    `${eslintSuppressionsFile} records 1 hit for src/a.ts no-undef, more than HEAD records (0; rule total 1 exceeds 0). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+  ],
+  [
+    "coverage-gaps-recorded-hits.json adding an unapproved file gap",
+    (root: string) => {
+      put(
+        root,
+        coverageGapsRecordedHitsFile,
+        JSON.stringify({
+          hits: [
+            baseCoverageGap,
+            { path: "scripts/spawned.ts", reason: "fixture" },
+          ],
+        }),
+      );
+    },
+    `${coverageGapsRecordedHitsFile} adds a recorded coverage gap for scripts/spawned.ts, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`,
+  ],
+  [
+    "coverage-gaps-recorded-hits.json adding an unapproved export gap",
+    (root: string) => {
+      put(
+        root,
+        coverageGapsRecordedHitsFile,
+        JSON.stringify({
+          hits: [
+            baseCoverageGap,
+            { path: "scripts/runner.ts", export: "run", reason: "fixture" },
+          ],
+        }),
+      );
+    },
+    `${coverageGapsRecordedHitsFile} adds a recorded coverage gap for scripts/runner.ts export run, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`,
+  ],
+])(
+  "recorded-hit growth class check refuses %s with its full message",
+  async (_case, mutate, expected) => {
+    const root = recordedFilesRepository();
+    mutate(root);
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: expected,
+      code: 1,
+    });
+  },
+  processWatchdog(7),
+);
+
+test(
+  "recorded-hit growth class check admits equal, shrinking, moves, newly landed lint rules, and approved entries",
+  async () => {
+    const root = recordedFilesRepository();
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: "",
+      code: 0,
+    });
+
+    put(
+      root,
+      eslintSuppressionsFile,
+      JSON.stringify({
+        "src/a.ts": { "repository/no-in-operator": { count: 1 } },
+      }),
+    );
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: "",
+      code: 0,
+    });
+
+    put(
+      root,
+      eslintSuppressionsFile,
+      JSON.stringify({
+        "src/a1.ts": { "repository/no-in-operator": { count: 1 } },
+        "src/a2.ts": { "repository/no-in-operator": { count: 1 } },
+      }),
+    );
+    put(root, coverageGapsRecordedHitsFile, JSON.stringify({ hits: [] }));
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: "",
+      code: 0,
+    });
+
+    put(
+      root,
+      "eslint.config.mjs",
+      'export default [{ rules: { "repository/no-in-operator": "error", "no-console": "error", "repository/new-rule": "error" } }];\n',
+    );
+    put(
+      root,
+      eslintSuppressionsFile,
+      JSON.stringify({
+        "src/a.ts": { "repository/new-rule": { count: 2 } },
+      }),
+    );
+    put(
+      root,
+      coverageGapsRecordedHitsFile,
+      JSON.stringify({
+        hits: [
+          baseCoverageGap,
+          { path: "scripts/spawned.ts", reason: "fixture", approved: "MAG-1" },
+        ],
+      }),
+    );
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: "",
+      code: 0,
+    });
+
+    rmSync(join(root, eslintSuppressionsFile));
+    rmSync(join(root, coverageGapsRecordedHitsFile));
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: "",
+      code: 0,
+    });
+  },
+  processWatchdog(12),
+);
+
+test(
+  "--against exits 2 on a malformed eslint-suppressions.json",
+  async () => {
+    const root = recordedFilesRepository();
+    put(
+      root,
+      eslintSuppressionsFile,
+      JSON.stringify({
+        "src/a.ts": { "repository/no-in-operator": { count: -1 } },
+      }),
+    );
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: `${eslintSuppressionsFile}: src/a.ts repository/no-in-operator needs a non-negative integer count.\n`,
+      code: 2,
+    });
+  },
+  processWatchdog(5),
+);
+
+function fallowWorkflowSteps() {
+  const steps = jobOf("ci.yml", "check").steps.filter((step) =>
+    step.run?.includes("quality:fallow"),
+  );
+  return {
+    pullRequest: steps.find((step) => step.if?.includes("pull_request")),
+    push: steps.find((step) => step.if?.includes("push")),
+    all: steps,
+  };
+}
+
+function fallowFlagsFrom(run: string, base: string): string[] {
+  const after = run.split("quality:fallow")[1]?.trim() ?? "";
+  return after
+    .replace(/"origin\/\$\{\{ github\.base_ref \}\}"/, base)
+    .split(/\s+/)
+    .filter((token) => token !== "");
+}
+
+function fallowRepository() {
+  const root = emptyRepository();
+  put(
+    root,
+    "package.json",
+    JSON.stringify({ name: "fixture", type: "module" }),
+  );
+  put(
+    root,
+    ".fallowrc.json",
+    JSON.stringify({
+      audit: { gate: "new-only", healthBaseline: fallowHealthRecordedHitsFile },
+      entry: ["src/index.ts"],
+    }),
+  );
+  put(
+    root,
+    "src/index.ts",
+    "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n",
+  );
+  put(
+    root,
+    fallowHealthRecordedHitsFile,
+    JSON.stringify({
+      kind: "health",
+      finding_counts: { "src/index.ts": { crap_moderate: { count: 1 } } },
+      identity_finding_counts: {
+        "src/index.ts:greet": { crap_moderate: { count: 1 } },
+      },
+    }),
+  );
+  git(
+    root,
+    "add",
+    "--",
+    "package.json",
+    ".fallowrc.json",
+    "src/index.ts",
+    fallowHealthRecordedHitsFile,
+  );
+  git(root, "commit", "--quiet", "-m", "base");
+  git(root, "checkout", "-q", "-b", "feature");
+  return root;
+}
+
+test(
+  "recorded-hit growth class check enforces --fail-on-baseline-growth on both hosted Fallow steps and refuses growth",
+  async () => {
+    const { pullRequest, push, all } = fallowWorkflowSteps();
+    expect(all).toHaveLength(2);
+    expect(pullRequest?.run).toBe(
+      'bun run --silent quality:fallow --base "origin/${{ github.base_ref }}" --fail-on-baseline-growth',
+    );
+    expect(push?.run).toBe(
+      'bun run --silent quality:fallow --base "${{ github.event.before }}" --fail-on-baseline-growth',
+    );
+
+    const root = fallowRepository();
+    const flags = fallowFlagsFrom(pullRequest?.run ?? "", "main");
+    const runFallow = () =>
+      spawnBounded(
+        [
+          fallowBinary,
+          "audit",
+          "--baseline-mode",
+          "identity",
+          "--format",
+          "json",
+          "--quiet",
+          ...flags,
+        ],
+        { cwd: root, env: { ...inherited(), ...gitEnv } },
+      );
+
+    put(
+      root,
+      "src/index.ts",
+      "export function greet(name: string): string {\n  return `hello ${name}`;\n}\nexport const kept = 1;\n",
+    );
+    git(root, "add", "--", "src/index.ts");
+    git(root, "commit", "--quiet", "-m", "equal");
+    expect((await runFallow()).exit).toBe(0);
+
+    put(
+      root,
+      fallowHealthRecordedHitsFile,
+      JSON.stringify({
+        kind: "health",
+        finding_counts: {},
+        identity_finding_counts: {},
+      }),
+    );
+    git(root, "add", "--", fallowHealthRecordedHitsFile);
+    git(root, "commit", "--quiet", "-m", "shrunk");
+    expect((await runFallow()).exit).toBe(0);
+
+    put(
+      root,
+      fallowHealthRecordedHitsFile,
+      JSON.stringify({
+        kind: "health",
+        finding_counts: {
+          "src/index.ts": {
+            crap_moderate: { count: 1 },
+            crap_high: { count: 1 },
+          },
+        },
+        identity_finding_counts: {
+          "src/index.ts:greet": { crap_moderate: { count: 1 } },
+          "src/index.ts:extra": { crap_high: { count: 1 } },
+        },
+      }),
+    );
+    git(root, "add", "--", fallowHealthRecordedHitsFile);
+    git(root, "commit", "--quiet", "-m", "grown");
+    const grown = await runFallow();
+    expect(grown.exit).toBe(1);
+    expect(grown.stderr).toBe(
+      `Baseline growth gate failed: ${join(realpathSync(root), fallowHealthRecordedHitsFile)} has 1 key that main does not have. Fix the new findings, or get a review for each new key:\n  identity_finding_counts: src/index.ts:extra crap_high (count 1)\n`,
+    );
+  },
+  processWatchdog(6),
+);
