@@ -1,0 +1,21 @@
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
+index 58d1d369..e281fd43 100644
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
+@@ -241,7 +241,6 @@ export default {
+           context.report({ node, messageId, data: { member } });
+         const judgeLoad = (node, value) => {
+           if (value === undefined) report(node, "dynamicImport");
+-          else if (value === "bun") report(node, "dynamicBunReach");
+           else if (loaderModules.has(value)) report(node, "loaderReach");
+           else if (isFsSpecifier(value))
+             context.report({
+@@ -281,7 +280,7 @@ export default {
+         const checkSource = (node, source) => {
+           if (!source) return;
+           const value = staticString(context, source);
+-          if (value === "bun")
++          if (value === "")
+             checkSpecifiers(node, (specifier, name) =>
+               name === undefined
+                 ? report(specifier, "dynamicBunReach")

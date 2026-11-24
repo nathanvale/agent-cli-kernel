@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 import kernel from "../kernel/config/kernel/eslint-rules.mjs";
+import { bare, origin, propertyName, staticString } from "./value-trace.mjs";
 
 const commentDirective =
   /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
@@ -43,15 +44,6 @@ const linkOrCopyCalls = new Set([
 const systemBinaryPath = /^\/(?:usr\/(?:local\/)?)?s?bin\/.+/;
 const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
 const bunSleeps = new Set(["sleep", "sleepSync"]);
-const typeWrappers = new Set([
-  "TSAsExpression",
-  "TSSatisfiesExpression",
-  "TSNonNullExpression",
-  "TSTypeAssertion",
-  "TSInstantiationExpression",
-]);
-const bare = (node) =>
-  typeWrappers.has(node?.type) ? bare(node.expression) : node;
 const isUndefined = (node) =>
   (node.type === "Identifier" && node.name === "undefined") ||
   (node.type === "UnaryExpression" && node.operator === "void");
@@ -64,151 +56,6 @@ const onlyCall = ({ body }) => {
       ? body.body.length === 1 && body.body[0].expression
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
-};
-const literalKey = (node) =>
-  node?.type === "Literal" && typeof node.value === "string"
-    ? node.value
-    : node?.type === "TemplateLiteral" && node.expressions.length === 0
-      ? node.quasis[0]?.value.cooked
-      : undefined;
-const propertyName = (node, context) =>
-  node.computed
-    ? context
-      ? staticString(context, node.property)
-      : literalKey(node.property)
-    : node.property.name;
-const lookup = (context, node) => {
-  for (
-    let scope = context.sourceCode.getScope(node);
-    scope;
-    scope = scope.upper
-  )
-    if (scope.set.has(node.name)) return scope.set.get(node.name);
-};
-const moduleObject = (context, source) => {
-  const value = staticString(context, source);
-  return value === undefined
-    ? undefined
-    : { module: value.replace(/^node:/, "") };
-};
-const memberOf = (base, name) => {
-  if (base?.module && base.name === undefined) {
-    if (base.module === "global" && name === "Bun") return { module: "bun" };
-    if (base.module === "fs" && name === "promises")
-      return { module: "fs/promises" };
-    if (name === "default") return { module: base.module };
-    return { module: base.module, name };
-  }
-  return { name };
-};
-const definitionTracers = {
-  ImportBinding: (def) => {
-    const mod = def.parent.source.value.replace(/^node:/, "");
-    const name =
-      def.node.type === "ImportSpecifier"
-        ? (def.node.imported.name ?? def.node.imported.value)
-        : undefined;
-    if (mod === "fs" && name === "promises") return { module: "fs/promises" };
-    if (name === "default") return { module: mod };
-    return { module: mod, name };
-  },
-  Variable: (def, node, next, context) => {
-    const { id, init } = def.node;
-    if (id === def.name) return next(init) ?? { name: node.name };
-    const property = id.properties?.find(
-      ({ type, value }) =>
-        type === "Property" && (value.left ?? value) === def.name,
-    );
-    if (!property) return { name: node.name };
-    const { key, computed } = property;
-    return memberOf(
-      next(init),
-      computed
-        ? staticString(context, key)
-        : key.type === "Literal"
-          ? key.value
-          : key.name,
-    );
-  },
-};
-const traceIdentifier = (node, next, context) => {
-  const def = lookup(context, node)?.defs[0];
-  if (!def)
-    return node.name === "globalThis"
-      ? { module: "global" }
-      : node.name === "Bun"
-        ? { module: "bun" }
-        : { module: "global", name: node.name };
-  return (
-    definitionTracers[def.type]?.(def, node, next, context) ?? {
-      name: node.name,
-    }
-  );
-};
-const tracers = {
-  Identifier: traceIdentifier,
-  MemberExpression: (node, next, context) => {
-    const name = propertyName(node, context);
-    return typeof name === "string"
-      ? memberOf(next(node.object), name)
-      : undefined;
-  },
-  CallExpression: (node, _next, context) =>
-    node.callee.type === "Identifier" && node.callee.name === "require"
-      ? moduleObject(context, node.arguments[0])
-      : undefined,
-  ImportExpression: (node, _next, context) =>
-    moduleObject(context, node.source),
-  AwaitExpression: (node, next) => next(node.argument),
-  ChainExpression: (node, next) => next(node.expression),
-  SequenceExpression: (node, next) => next(node.expressions.at(-1)),
-};
-const origin = (context, node, depth = 0) => {
-  const inner = bare(node);
-  return inner && depth < 8
-    ? tracers[inner.type]?.(
-        inner,
-        (next) => origin(context, next, depth + 1),
-        context,
-      )
-    : undefined;
-};
-const staticTemplate = (context, node, depth) => {
-  const head = node.quasis[0]?.value.cooked;
-  if (typeof head !== "string") return undefined;
-  let out = head;
-  for (let index = 0; index < node.expressions.length; index++) {
-    const part = staticString(context, node.expressions[index], depth + 1);
-    const tail = node.quasis[index + 1]?.value.cooked;
-    if (part === undefined || typeof tail !== "string") return undefined;
-    out += part + tail;
-  }
-  return out;
-};
-const staticFolders = {
-  Literal: (_context, node) =>
-    typeof node.value === "string" ? node.value : undefined,
-  TemplateLiteral: staticTemplate,
-  BinaryExpression: (context, node, depth) => {
-    if (node.operator !== "+") return undefined;
-    const left = staticString(context, node.left, depth + 1);
-    const right = staticString(context, node.right, depth + 1);
-    return left !== undefined && right !== undefined ? left + right : undefined;
-  },
-  Identifier: (context, node, depth) => {
-    const def = lookup(context, node)?.defs[0];
-    return def?.type === "Variable" &&
-      def.parent?.kind === "const" &&
-      def.node.id === def.name
-      ? staticString(context, def.node.init, depth + 1)
-      : undefined;
-  },
-};
-const staticString = (context, node, depth = 0) => {
-  const inner = bare(node);
-  return inner && depth < 8
-    ? staticFolders[inner.type]?.(context, inner, depth)
-    : undefined;
 };
 const isTimer = (traced, name) =>
   traced?.name === name &&
@@ -316,15 +163,59 @@ function isAdmitted(source, block, placed) {
 const fsModulePattern = /^(?:node:)?fs(?:\/promises)?$/;
 const isFsSpecifier = (value) =>
   typeof value === "string" && fsModulePattern.test(value);
-const isRequireCall = (node) =>
-  (node.callee.type === "Identifier" && node.callee.name === "require") ||
-  (node.callee.type === "MemberExpression" &&
-    node.callee.object.type === "MetaProperty" &&
-    propertyName(node.callee) === "require") ||
-  (node.callee.type === "MemberExpression" &&
-    node.callee.object.type === "Identifier" &&
-    node.callee.object.name === "process" &&
-    propertyName(node.callee) === "getBuiltinModule");
+const allowedBunMembers = new Set([
+  "$",
+  "spawn",
+  "spawnSync",
+  "stdin",
+  "stdout",
+  "stderr",
+  "version",
+  "revision",
+  "env",
+  "nanoseconds",
+  "hash",
+  "CryptoHasher",
+  "deepEquals",
+  "inspect",
+]);
+const globalHolders = new Set(["globalThis", "global", "self"]);
+const loaderModules = new Set([
+  "module",
+  "node:module",
+  "process",
+  "node:process",
+]);
+const loaderNames = new Set(["require", "createRequire", "getBuiltinModule"]);
+const checkedGlobals = new Set([
+  ...globalHolders,
+  "Bun",
+  "process",
+  "require",
+  "module",
+]);
+const staticMemberName = (node) =>
+  node.parent.type === "MemberExpression" &&
+  node.parent.object === node &&
+  !node.parent.computed
+    ? node.parent.property.name
+    : undefined;
+const rootIdentifier = (node) =>
+  node.parent.type === "TSQualifiedName" ? rootIdentifier(node.parent) : node;
+const isTypePosition = ({ isValueReference, identifier }) => {
+  const root = rootIdentifier(identifier);
+  return root.parent.type === "TSImportEqualsDeclaration"
+    ? root.parent.importKind === "type"
+    : isValueReference === false ||
+        root !== identifier ||
+        identifier.parent.type === "TSTypeQuery";
+};
+const isTypeOnly = (node) =>
+  node.importKind === "type" || node.exportKind === "type";
+const specifierName = ({ type, imported, local }) =>
+  type === "ImportDefaultSpecifier" || type === "ImportNamespaceSpecifier"
+    ? undefined
+    : ((imported ?? local).name ?? (imported ?? local).value);
 
 export default {
   rules: {
@@ -337,18 +228,72 @@ export default {
             "Files in kernel/src/addons/state outside store.ts and coordination.ts must not import filesystem module {{specifier}}. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.",
           dynamicImport:
             "Files in kernel/src/addons/state outside store.ts and coordination.ts must not use a non-static dynamic import that could load a filesystem module. Repair: use a static import of a non-filesystem module, or route filesystem access through store.ts or coordination.ts.",
+          bunReach:
+            "Files in kernel/src/addons/state outside store.ts and coordination.ts must not use Bun.{{member}}: only Bun members that touch no path are allowed here. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.",
+          dynamicBunReach:
+            'Files in kernel/src/addons/state outside store.ts and coordination.ts may use the Bun object only as Bun.<member> with a plain member name, read from Bun, globalThis.Bun, global.Bun or self.Bun, or as a named import from "bun". An alias, destructuring, spread, computed key, whole-module load of "bun", or bare globalThis, global or self hides which member is used. Repair: write Bun.<member> in place, or route filesystem access through store.ts or coordination.ts.',
+          loaderReach:
+            'Files in kernel/src/addons/state outside store.ts and coordination.ts may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
         },
       },
       create(context) {
-        const checkSource = (node, source) => {
-          if (!source) return;
-          const value = staticString(context, source);
-          if (isFsSpecifier(value))
+        const report = (node, messageId, member) =>
+          context.report({ node, messageId, data: { member } });
+        const judgeLoad = (node, value) => {
+          if (value === undefined) report(node, "dynamicImport");
+          else if (value === "bun") report(node, "dynamicBunReach");
+          else if (loaderModules.has(value)) report(node, "loaderReach");
+          else if (isFsSpecifier(value))
             context.report({
               node,
               messageId: "fsImport",
               data: { specifier: JSON.stringify(value) },
             });
+        };
+        const checkLoad = (node) => {
+          const call = node.parent;
+          if (call.type !== "CallExpression" || call.callee !== node)
+            report(node, "loaderReach");
+          else judgeLoad(call, staticString(context, call.arguments[0]));
+        };
+        const checkGlobal = (node, name) => {
+          const member = staticMemberName(node);
+          if (name === "Bun") {
+            if (member === undefined) report(node, "dynamicBunReach");
+            else if (!allowedBunMembers.has(member))
+              report(node.parent, "bunReach", member);
+          } else if (globalHolders.has(name)) {
+            if (member === undefined) report(node, "dynamicBunReach");
+            else checkGlobal(node.parent, member);
+          } else if (name === "process" || name === "import.meta") {
+            if (member === undefined) report(node, "loaderReach");
+            else if (loaderNames.has(member)) checkLoad(node.parent);
+          } else if (name === "require") checkLoad(node);
+          else if (name === "module") report(node, "loaderReach");
+        };
+        const checkSpecifiers = (node, each) => {
+          if (isTypeOnly(node)) return;
+          if (node.type === "ExportAllDeclaration") return each(node);
+          for (const specifier of node.specifiers)
+            if (!isTypeOnly(specifier))
+              each(specifier, specifierName(specifier));
+        };
+        const checkSource = (node, source) => {
+          if (!source) return;
+          const value = staticString(context, source);
+          if (value === "bun")
+            checkSpecifiers(node, (specifier, name) =>
+              name === undefined
+                ? report(specifier, "dynamicBunReach")
+                : allowedBunMembers.has(name) ||
+                  report(specifier, "bunReach", name),
+            );
+          else if (loaderModules.has(value))
+            checkSpecifiers(node, (specifier, name) => {
+              if (name === undefined || loaderNames.has(name))
+                report(specifier, "loaderReach");
+            });
+          else if (isFsSpecifier(value)) judgeLoad(node, value);
         };
         return {
           ImportDeclaration(node) {
@@ -360,30 +305,32 @@ export default {
           ExportAllDeclaration(node) {
             checkSource(node, node.source);
           },
-          ImportExpression(node) {
-            const value = staticString(context, node.source);
-            if (value === undefined)
-              context.report({ node, messageId: "dynamicImport" });
-            else if (isFsSpecifier(value))
-              context.report({
+          TSImportEqualsDeclaration(node) {
+            const { moduleReference } = node;
+            if (
+              moduleReference.type === "TSExternalModuleReference" &&
+              !isTypeOnly(node)
+            )
+              judgeLoad(
                 node,
-                messageId: "fsImport",
-                data: { specifier: JSON.stringify(value) },
-              });
+                staticString(context, moduleReference.expression),
+              );
           },
-          CallExpression(node) {
-            if (!isRequireCall(node)) return;
-            const [first] = node.arguments;
-            if (!first) return;
-            const value = staticString(context, first);
-            if (value === undefined)
-              context.report({ node, messageId: "dynamicImport" });
-            else if (isFsSpecifier(value))
-              context.report({
-                node,
-                messageId: "fsImport",
-                data: { specifier: JSON.stringify(value) },
-              });
+          ImportExpression(node) {
+            judgeLoad(node, staticString(context, node.source));
+          },
+          MetaProperty(node) {
+            if (node.meta.name === "import") checkGlobal(node, "import.meta");
+          },
+          "Program:exit"() {
+            for (const { references } of context.sourceCode.scopeManager.scopes)
+              for (const reference of references)
+                if (
+                  checkedGlobals.has(reference.identifier.name) &&
+                  !reference.init &&
+                  !isTypePosition(reference)
+                )
+                  checkGlobal(reference.identifier, reference.identifier.name);
           },
         };
       },
