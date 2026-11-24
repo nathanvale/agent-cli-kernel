@@ -1,22 +1,13 @@
 diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
-index adbd7288..37620817 100644
+index 58d1d369..eeb77343 100644
 --- a/config/kernel-repository-rules.mjs
 +++ b/config/kernel-repository-rules.mjs
-@@ -292,17 +292,6 @@ export default {
-                 data: { specifier: JSON.stringify(value) },
-               });
-           },
--          "Program:exit"() {
--            for (const reference of globalReferences(
--              context.sourceCode.scopeManager.globalScope,
--            )) {
--              const { identifier } = reference;
--              if (isTypePosition(reference)) continue;
--              if (identifier.name === "Bun") checkBunUse(identifier);
--              else if (globalHolders.has(identifier.name))
--                checkHolder(identifier);
--            }
--          },
-           ImportExpression(node) {
-             const value = staticString(context, node.source);
-             if (value === undefined)
+@@ -258,7 +258,7 @@ export default {
+         };
+         const checkGlobal = (node, name) => {
+           const member = staticMemberName(node);
+-          if (name === "Bun") {
++          if (name === "") {
+             if (member === undefined) report(node, "dynamicBunReach");
+             else if (!allowedBunMembers.has(member))
+               report(node.parent, "bunReach", member);
