@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the slow-reader test passes this file to bun --preload, so no import reaches it
 import { writeSync } from "node:fs";
 
 type Written = (error?: Error | null) => void;
