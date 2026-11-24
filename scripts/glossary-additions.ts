@@ -141,26 +141,31 @@ function readSuppressions(text: string) {
 type TypeScript = typeof ts;
 
 function keyOf(ts: TypeScript, name: ts.PropertyName): string | undefined {
-  if (ts.isIdentifier(name)) return name.text;
-  const node = ts.isComputedPropertyName(name) ? name.expression : name;
-  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
-    ? node.text
+  return ts.isIdentifier(name) || ts.isStringLiteral(name)
+    ? name.text
     : undefined;
 }
 
 function rulesObjectOf(ts: TypeScript, source: ts.SourceFile) {
-  const def = source.statements.find(ts.isExportAssignment);
+  const exports = source.statements.filter(ts.isExportAssignment);
+  const def = exports.length === 1 ? exports[0] : undefined;
   const obj = def && !def.isExportEquals ? def.expression : undefined;
   if (!obj || !ts.isObjectLiteralExpression(obj)) return undefined;
-  if (obj.properties.some(ts.isSpreadAssignment)) return undefined;
-  const prop = obj.properties.find(
-    (p) => ts.isPropertyAssignment(p) && keyOf(ts, p.name) === "rules",
-  );
-  return prop &&
-    ts.isPropertyAssignment(prop) &&
-    ts.isObjectLiteralExpression(prop.initializer)
-    ? prop.initializer
-    : undefined;
+  let rules: ts.ObjectLiteralExpression | undefined;
+  for (const prop of obj.properties) {
+    if (ts.isSpreadAssignment(prop)) return undefined;
+    const name = keyOf(ts, prop.name);
+    if (name === undefined) return undefined;
+    if (name !== "rules") continue;
+    if (
+      rules !== undefined ||
+      !ts.isPropertyAssignment(prop) ||
+      !ts.isObjectLiteralExpression(prop.initializer)
+    )
+      return undefined;
+    rules = prop.initializer;
+  }
+  return rules;
 }
 
 function ruleNameOf(
