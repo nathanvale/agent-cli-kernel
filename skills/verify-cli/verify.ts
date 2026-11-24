@@ -609,7 +609,9 @@ export function forwardStops(
   listen: (signal: NodeJS.Signals, stop: () => void) => unknown = (
     signal,
     stop,
-  ) => process.on(signal, stop),
+  ) => {
+    process.on(signal, stop);
+  },
 ): void {
   for (const signal of ["SIGTERM", "SIGINT"] as const)
     listen(signal, () => {
