@@ -1,0 +1,7 @@
+{
+  "id": "0f9ea9b7-directive-fallow-block-placement",
+  "patch": "tests/planted-faults/patches/0f9ea9b7-directive-fallow-block-placement.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^no-comments refuses directive-lookalike prose and trailing lines in template files",
+  "source": "0f9ea9b7 fix(lint): admit a Fallow block only where Fallow reads it and a biome-ignore only with a category Biome knows"
+}
