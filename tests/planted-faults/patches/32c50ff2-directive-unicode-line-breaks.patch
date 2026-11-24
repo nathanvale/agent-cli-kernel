@@ -1,0 +1,9 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -4,4 +4,4 @@ import { createRequire } from "node:module";
+-const lineBreak = /[\r\n\u2028\u2029]/;
++const lineBreak = /[\r\n]/;
+ const eslintRule =
+   "(?:@[a-z0-9_-]+/)?[a-z0-9][A-Za-z0-9_-]*(?:/[a-z0-9][A-Za-z0-9_-]*)*";
+ const eslintRuleList = `(?:\\s+${eslintRule}(?:\\s*,\\s*${eslintRule})*)?`;

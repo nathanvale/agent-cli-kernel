@@ -1167,6 +1167,102 @@ for (const [filePath, code, lines] of commentCases)
       );
   });
 
+const fullCommentMessage =
+  "A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification, on its own lines directly above the statement that holds a type cast (as T, not as const). Repair: say this in code (a clearer name, a type, a test title, or a lint rule whose message states the constraint), then delete the comment.";
+
+const refusedDirectiveLookalikes = [
+  "// global state is fine here: menu runs one at a time.\n// TODO remove the cast once the adapter types land.\nexport const a = 1;",
+  "// global state is fine here.\nexport const a = 1;",
+  "// globals are shared here.\nexport const a = 1;",
+  "// exported from index.\nexport const a = 1;",
+  "// eslint is strict here.\nexport const a = 1;",
+  "// eslint-disable TODO smuggled prose\nexport const a = 1;",
+  "// eslint-enable TODO smuggled prose\nexport const a = 1;",
+  "// eslint-foo bar\nexport const a = 1;",
+  "// eslint-disable-foo bar\nexport const a = 1;",
+  "// @ts-foo bar\nexport const a = 1;",
+  "// @ts-expect-errors bar\nexport const a = 1;",
+  "// biome-ignore-foo bar\nexport const a = 1;",
+  "// fallow-ignore-foo bar\nexport const a = 1;",
+  "// @ts-expect-error: bad type\n// TODO remove this cast\nexport const a = 1;",
+  "// eslint-disable-next-line no-console\n// TODO remove this\nexport const a = 1;",
+  "// biome-ignore format: keep table aligned\n// TODO clean up\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export -- kept for api\n// TODO clean up\nexport const a = 1;",
+  "/* @ts-expect-error: bad type\n   TODO remove this */\nexport const a = 1;",
+  "/* biome-ignore format: keep table\u2028TODO remove this cast */\nexport const a = 1;",
+  "/* biome-ignore format: keep table\u2029TODO remove this cast */\nexport const a = 1;",
+  "/* fallow-ignore-next-line is how you hide a finding. */\nexport const a = 1;",
+  "// fallow-ignore-next-line is how you hide a finding.\nexport const a = 1;",
+  "// fallow-ignore unused-export\nexport const a = 1;",
+  "// fallow-ignore-next-line unused -- kept for api\nexport const a = 1;",
+  "/* @ts-nocheck prose */\nexport const a = 1;",
+  "/* @ts-check prose */\nexport const a = 1;",
+  "/* @ts-nocheck */\nexport const a = 1;",
+  "/* @ts-check */\nexport const a = 1;",
+  "// @ts-nocheck prose\nexport const a = 1;",
+  "// @ts-check prose\nexport const a = 1;",
+  "// biome-ignore format\nexport const a = 1;",
+  "// biome-ignore prose without colon\nexport const a = 1;",
+  "// biome-ignore-all foo: reason\nexport const a = 1;",
+  "/* eslint-disable TODO smuggled prose */\nexport const a = 1;",
+  "/* global state is fine here. */\nexport const a = 1;",
+  "/* exported from index. */\nexport const a = 1;",
+  "/* eslint is strict here. */\nexport const a = 1;",
+  "// eslint-disable\nexport const a = 1;",
+  "// eslint-enable\nexport const a = 1;",
+  "// eslint no-console: off\nexport const a = 1;",
+  "// global foo\nexport const a = 1;",
+  "// globals foo\nexport const a = 1;",
+  "// exported a\nexport const a = 1;",
+  "/* globals */\nexport const a = 1;",
+  "/* exported */\nexport const a = 1;",
+  "export const a = 1; /* fallow-ignore-file -- prose */",
+  "/* fallow-ignore-file -- prose */ export const b = 1;",
+  "export const a = 1; /* fallow-ignore-next-line unused-export -- prose */",
+  "/* fallow-ignore-next-line unused-export -- prose */ export const b = 1;",
+  "// biome-ignore lint/remove/thisCast: prose must not become permission\nexport const a = 1;",
+  "// biome-ignore lint/fakeGroup: prose\nexport const a = 1;",
+  "// biome-ignore lint/style/fakeRule: prose\nexport const a = 1;",
+  "// biome-ignore assist/source: prose\nexport const a = 1;",
+  "// biome-ignore assist/source/fakeAction: prose\nexport const a = 1;",
+] as const;
+
+const admittedDirectives = [
+  "// @ts-expect-error -- lock test\nexport const a = 1;",
+  "// @ts-expect-error: lock test\nexport const a = 1;",
+  "// @ts-ignore reason\nexport const a = 1;",
+  "// @ts-nocheck\nexport const a = 1;",
+  "// @ts-check\nexport const a = 1;",
+  "// biome-ignore format: keep table\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst: keep binding mutable\nexport const a = 1;",
+  "// biome-ignore assist/source/organizeImports: preserve order\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export -- kept for api\nexport const a = 1;",
+  "// fallow-ignore-file unused-export -- kept for api\nexport const a = 1;",
+  "/* fallow-ignore-file unused-export -- kept for api */\nexport const a = 1;",
+  "  /* fallow-ignore-next-line unused-export -- kept for api */\nexport const a = 1;",
+  "// eslint-disable-next-line no-console\nexport const a = 1;",
+  "// eslint-disable-next-line @typescript-eslint/consistent-type-assertions\nexport const a = 1;",
+  "export const a = 1; // eslint-disable-line no-console",
+  "/* eslint-disable */\nexport const a = 1;",
+  "/* eslint-enable */\nexport const a = 1;",
+  "/* eslint no-console: off */\nexport const a = 1;",
+  "/* global foo */\nexport const a = 1;",
+  "/* globals foo */\nexport const a = 1;",
+  "/* exported a */\nexport const a = 1;",
+] as const;
+
+test("no-comments refuses directive-lookalike prose and trailing lines in kernel files, and admits exact directives", async () => {
+  const filePath = "kernel/src/addons/menu/index.ts";
+  for (const code of refusedDirectiveLookalikes) {
+    expect(await hits("no-comments", filePath, code)).toEqual([
+      { line: 1, message: fullCommentMessage },
+    ]);
+  }
+  for (const code of admittedDirectives) {
+    expect(await hits("no-comments", filePath, code)).toEqual([]);
+  }
+});
+
 const stateFsCases = [
   [
     "kernel/src/addons/state/install.ts",
@@ -1577,20 +1673,26 @@ async function runtimeHits(filePath: string, code: string) {
     .map(({ ruleId, message }) => `${ruleId}: ${message}`);
 }
 
+const runtimeLintBound = 60_000;
+
 for (const filePath of installedSource)
-  test(`the kernel lint refuses each spelling of a program start or a process stream once in ${filePath}, and admits honest runtime use`, async () => {
-    const found = [];
-    for (const [code] of runtimeSpellings)
-      found.push([code, await runtimeHits(filePath, code)]);
-    expect(found).toEqual(
-      runtimeSpellings.map(([code, hit]) => [
-        code,
-        typeof hit === "string" ? [hit] : [...hit],
-      ]),
-    );
-    for (const code of honestRuntime)
-      expect(await runtimeHits(filePath, code)).toEqual([]);
-  });
+  test(
+    `the kernel lint refuses each spelling of a program start or a process stream once in ${filePath}, and admits honest runtime use`,
+    async () => {
+      const found = [];
+      for (const [code] of runtimeSpellings)
+        found.push([code, await runtimeHits(filePath, code)]);
+      expect(found).toEqual(
+        runtimeSpellings.map(([code, hit]) => [
+          code,
+          typeof hit === "string" ? [hit] : [...hit],
+        ]),
+      );
+      for (const code of honestRuntime)
+        expect(await runtimeHits(filePath, code)).toEqual([]);
+    },
+    runtimeLintBound,
+  );
 
 test("the kernel lint admits type-only node:child_process imports in kernel/src/kernel/types.ts and refuses value and test imports across source paths", async () => {
   const kernelFile = "kernel/src/kernel/types.ts";

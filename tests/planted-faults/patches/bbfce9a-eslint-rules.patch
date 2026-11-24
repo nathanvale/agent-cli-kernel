@@ -1,8 +1,7 @@
 diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
-index 77941a1..4eaf511 100644
 --- a/config/kernel-repository-rules.mjs
 +++ b/config/kernel-repository-rules.mjs
-@@ -7,13 +7,6 @@ const safetyMarker = "SAFETY";
+@@ -8,13 +8,6 @@ const safetyMarker = "SAFETY";
  const commentMarker = new RegExp(`^(?:${plainMarkers.join("|")}):`);
  const safetyJustification = new RegExp(`^${safetyMarker}:\\s*\\S`);
  const acceptedDecision = /accepted decisions?\b/i;
@@ -14,9 +13,9 @@ index 77941a1..4eaf511 100644
 -  "VariableDeclaration",
 -]);
  const testFolderOwner = "/tests/support/test-folder.ts";
- const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
- const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
-@@ -177,54 +170,6 @@ function commentBlocks(source) {
+ const boundedRunnerOwners = [
+   "/tests/support/process.ts",
+@@ -111,54 +104,6 @@ function commentBlocks(source) {
    return blocks;
  }
  
@@ -59,7 +58,7 @@ index 77941a1..4eaf511 100644
 -  const [first = ""] = lines;
 -  const { start } = block[0].loc;
 -  return (
--    commentDirective.test(first) ||
+-    isDirectiveBlock(block, source) ||
 -    commentMarker.test(first) ||
 -    acceptedDecision.test(lines.join(" ")) ||
 -    (safetyJustification.test(first) &&
@@ -68,10 +67,10 @@ index 77941a1..4eaf511 100644
 -  );
 -}
 -
- export default {
-   rules: {
-     "no-comments": {
-@@ -233,23 +178,22 @@ export default {
+ const fsModulePattern = /^(?:node:)?fs(?:\/promises)?$/;
+ const isFsSpecifier = (value) =>
+   typeof value === "string" && fsModulePattern.test(value);
+@@ -351,23 +296,22 @@ export default {
          schema: [],
          messages: {
            comment:
@@ -98,7 +97,7 @@ index 77941a1..4eaf511 100644
 +              const lines = block.map((comment) => comment.value.trim());
 +              const [first = ""] = lines;
 +              if (
-+                commentDirective.test(first) ||
++                isDirectiveBlock(block, context.sourceCode) ||
 +                commentMarker.test(first) ||
 +                safetyJustification.test(first) ||
 +                acceptedDecision.test(lines.join(" "))

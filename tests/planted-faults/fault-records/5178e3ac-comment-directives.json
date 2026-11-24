@@ -1,0 +1,7 @@
+{
+  "id": "5178e3ac-comment-directives",
+  "patch": "tests/planted-faults/patches/5178e3ac-comment-directives.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^no-comments refuses directive-lookalike prose and trailing lines in template files",
+  "source": "5178e3ac fix(lint): admit a comment as a directive only in its tool's exact form"
+}

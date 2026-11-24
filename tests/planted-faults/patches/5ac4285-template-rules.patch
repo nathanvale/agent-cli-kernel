@@ -5,7 +5,7 @@ index 37c0e38..c5e5e9f 100644
 @@ -282,7 +282,7 @@ function isAdmitted(source, block, placed) {
    const { start } = block[0].loc;
    return (
-     commentDirective.test(first) ||
+     isDirectiveBlock(block, source) ||
 -    commentMarker.test(first) ||
 +    lines.some((line) => commentMarker.test(line)) ||
      acceptedDecision.test(lines.join(" ")) ||

@@ -1,0 +1,12 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -12,7 +12,7 @@ const eslintLineDirective = new RegExp(
+ const eslintBlockDirective = new RegExp(
+   `^(?:eslint-(?:disable|enable)${eslintRuleList}${eslintReason}|eslint\\s+${eslintRule}\\s*:\\s*\\S.*|globals?\\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\\s*:\\s*(?:readonly|writable|off|true|false))?(?:\\s*,\\s*[A-Za-z_$][A-Za-z0-9_$]*(?:\\s*:\\s*(?:readonly|writable|off|true|false))?)*|exported\\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\\s*,\\s*[A-Za-z_$][A-Za-z0-9_$]*)*)$`,
+ );
+-const tsLineOnlyDirective = /^@ts-(?:no)?check$/;
++const tsLineOnlyDirective = /^@ts-(?:no)?check(?:\s|$)/;
+ const tsCommentDirective = /^@ts-(?:expect-error|ignore)(?:$|[\s:])/;
+ const biomeDirective =
+   /^biome-ignore(?:-all|-start|-end)?\s+([a-z]+(?:\/[A-Za-z][A-Za-z0-9]*){0,2})(?:\([^()]+\))?:\s*\S/;

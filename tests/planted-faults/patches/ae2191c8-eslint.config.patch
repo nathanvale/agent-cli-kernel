@@ -1,0 +1,12 @@
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index a1e3226e..dcb41eef 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -29,7 +29,6 @@ function withChainedTypeAssertions(config) {
+ }
+ 
+ export default defineConfig(
+-  { linterOptions: { noInlineConfig: true } },
+   {
+     ignores: [
+       "node_modules/**",
