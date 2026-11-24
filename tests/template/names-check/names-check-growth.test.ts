@@ -29,20 +29,15 @@ const unusedTerm = {
 
 function recordedRepository() {
   const root = namesRepository([hostHit]);
-  put(root, recordedUnusedTermsFile, JSON.stringify({ terms: [unusedTerm] }));
-  git(root, "add", "--", recordedUnusedTermsFile);
-  git(root, "commit", "--quiet", "-m", "terms");
+  putJson(root, recordedUnusedTermsFile, { terms: [unusedTerm] });
+  commitFiles(root, "terms", recordedUnusedTermsFile);
   return root;
 }
 
 function widen(root: string, extra: Record<string, unknown> = {}) {
-  put(
-    root,
-    recordedHitsFile,
-    JSON.stringify({
-      hits: [hostHit, { ...hostHit, path: "docs/proof.md", ...extra }],
-    }),
-  );
+  putJson(root, recordedHitsFile, {
+    hits: [hostHit, { ...hostHit, path: "docs/proof.md", ...extra }],
+  });
 }
 
 function earlierAreaRepository(duplicate: boolean = false) {
@@ -56,13 +51,13 @@ function earlierAreaRepository(duplicate: boolean = false) {
   for (const { current, earlier } of moved)
     git(root, "mv", "--", current, earlier);
   const unrelated = "tests/template/glossary/recorded-hits.json";
-  put(root, unrelated, JSON.stringify({ hits: [{ file: "docs/term.md" }] }));
+  putJson(root, unrelated, { hits: [{ file: "docs/term.md" }] });
   git(root, "add", "--", unrelated);
   if (duplicate) {
     const other = "tests/template/other/recorded-hits.json";
     const otherTerms = "tests/template/other/recorded-unused-terms.json";
-    put(root, other, JSON.stringify({ hits: [hostHit] }));
-    put(root, otherTerms, JSON.stringify({ terms: [unusedTerm] }));
+    putJson(root, other, { hits: [hostHit] });
+    putJson(root, otherTerms, { terms: [unusedTerm] });
     git(root, "add", "--", other, otherTerms);
   }
   git(root, "commit", "--quiet", "-m", "earlier test area");
@@ -73,10 +68,7 @@ function earlierAreaRepository(duplicate: boolean = false) {
 
 test("--against follows a moved recorded list and still refuses an unapproved addition", async () => {
   const root = earlierAreaRepository();
-  expect(await check(root, ["--against", "HEAD"])).toEqual({
-    stderr: "",
-    code: 0,
-  });
+  await expectPass(root);
   widen(root);
   const refused = await check(root, ["--against", "HEAD"]);
   expect(refused.code).toBe(1);
@@ -104,16 +96,10 @@ test("a tracked symlink that points nowhere is a name the full-tree check judges
 
 test("--against passes lists that match the base revision, and ones that only shrank", async () => {
   const root = recordedRepository();
-  expect(await check(root, ["--against", "HEAD"])).toEqual({
-    stderr: "",
-    code: 0,
-  });
-  put(root, recordedHitsFile, JSON.stringify({ hits: [] }));
-  put(root, recordedUnusedTermsFile, JSON.stringify({ terms: [] }));
-  expect(await check(root, ["--against", "HEAD"])).toEqual({
-    stderr: "",
-    code: 0,
-  });
+  await expectPass(root);
+  putJson(root, recordedHitsFile, { hits: [] });
+  putJson(root, recordedUnusedTermsFile, { terms: [] });
+  await expectPass(root);
 });
 
 test("--against refuses a recorded hit the base revision does not list, and names the repair", async () => {
@@ -127,13 +113,9 @@ test("--against refuses a recorded hit the base revision does not list, and name
 
 test("--against refuses a recorded unused term the base revision does not list", async () => {
   const root = recordedRepository();
-  put(
-    root,
-    recordedUnusedTermsFile,
-    JSON.stringify({
-      terms: [unusedTerm, { ...unusedTerm, term: "Another term" }],
-    }),
-  );
+  putJson(root, recordedUnusedTermsFile, {
+    terms: [unusedTerm, { ...unusedTerm, term: "Another term" }],
+  });
   const { stderr, code } = await check(root, ["--against", "HEAD"]);
   expect(code).toBe(1);
   expect(stderr).toStartWith(
@@ -144,15 +126,10 @@ test("--against refuses a recorded unused term the base revision does not list",
 test("--against admits an addition that carries an approval, and a rewritten reason is no addition", async () => {
   const root = recordedRepository();
   widen(root, { approved: "MAG-1" });
-  put(
-    root,
-    recordedUnusedTermsFile,
-    JSON.stringify({ terms: [{ ...unusedTerm, reason: "Reworded." }] }),
-  );
-  expect(await check(root, ["--against", "HEAD"])).toEqual({
-    stderr: "",
-    code: 0,
+  putJson(root, recordedUnusedTermsFile, {
+    terms: [{ ...unusedTerm, reason: "Reworded." }],
   });
+  await expectPass(root);
   widen(root, { approved: "  " });
   expect((await check(root, ["--against", "HEAD"])).code).toBe(1);
 });
@@ -199,143 +176,183 @@ test("--tool-call in this repository with no GLOSSARY.md exits 2, and in a repos
   ).toEqual({ stderr: "", code: 0 });
 });
 
-const repositoryRoot = join(import.meta.dir, "../../..");
-const fallowBinary = join(repositoryRoot, "node_modules/.bin/fallow");
-const eslintSuppressionsFile = "eslint-suppressions.json";
-const coverageGapsRecordedHitsFile =
+const fallowBinary = join(import.meta.dir, "../../../node_modules/.bin/fallow");
+const suppressionsFile = "eslint-suppressions.json";
+const coverageGapsFile =
   "tests/template/standards/coverage-gaps-recorded-hits.json";
-const fallowHealthRecordedHitsFile = "fallow-health-recorded-hits.json";
+const fallowBaselineFile = "fallow-health-recorded-hits.json";
+const eslintConfig = "eslint.config.mjs";
+const templateRules = "config/template-rules.mjs";
+const payloadRules = "config/payload-rules.mjs";
 
-const baseEslintConfig =
-  'export default [{ rules: { "repository/no-in-operator": "error", "no-console": "error" } }];\n';
+const baseRules = '"repository/no-in-operator": "error", "no-console": "error"';
+const configWith = (extra: string = "") =>
+  `export default [{ rules: { ${baseRules}${extra ? `, ${extra}` : ""} } }];\n`;
+const ruleModule = (body: string = "") =>
+  `export default { rules: { ${body} } };\n`;
 const baseSuppressions = {
   "src/a.ts": { "repository/no-in-operator": { count: 2 } },
 };
 const baseCoverageGap = { path: "scripts/existing.ts", reason: "fixture" };
 
+function putJson(root: string, file: string, value: unknown) {
+  put(root, file, JSON.stringify(value));
+}
+
+function commitFiles(root: string, message: string, ...files: string[]) {
+  git(root, "add", "--", ...files);
+  git(root, "commit", "--quiet", "-m", message);
+}
+
 function recordedFilesRepository() {
   const root = recordedRepository();
-  put(root, "eslint.config.mjs", baseEslintConfig);
-  put(root, eslintSuppressionsFile, JSON.stringify(baseSuppressions));
-  put(
+  put(root, eslintConfig, configWith());
+  put(root, templateRules, ruleModule());
+  put(root, payloadRules, ruleModule('"no-in-operator": {}'));
+  putJson(root, suppressionsFile, baseSuppressions);
+  putJson(root, coverageGapsFile, { hits: [baseCoverageGap] });
+  commitFiles(
     root,
-    coverageGapsRecordedHitsFile,
-    JSON.stringify({ hits: [baseCoverageGap] }),
+    "recorded files",
+    eslintConfig,
+    templateRules,
+    payloadRules,
+    suppressionsFile,
+    coverageGapsFile,
   );
-  git(
-    root,
-    "add",
-    "--",
-    "eslint.config.mjs",
-    eslintSuppressionsFile,
-    coverageGapsRecordedHitsFile,
-  );
-  git(root, "commit", "--quiet", "-m", "recorded files");
   return root;
+}
+
+function addSuppression(
+  root: string,
+  rule: string,
+  count: number = 1,
+  file: string = "src/a.ts",
+) {
+  putJson(root, suppressionsFile, {
+    ...baseSuppressions,
+    [file]: {
+      ...(file === "src/a.ts" ? baseSuppressions["src/a.ts"] : {}),
+      [rule]: { count },
+    },
+  });
+}
+
+function suppressionRefusal(
+  rule: string,
+  count: number = 1,
+  file: string = "src/a.ts",
+  afterTotal: number = count,
+  beforeTotal: number = 0,
+) {
+  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (0; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`;
+}
+
+function coverageRefusal(target: string) {
+  return `${coverageGapsFile} adds a recorded coverage gap for ${target}, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`;
+}
+
+async function expectPass(root: string) {
+  expect(await check(root, ["--against", "HEAD"])).toEqual({
+    stderr: "",
+    code: 0,
+  });
 }
 
 test.each([
   [
     "eslint-suppressions.json growing an existing rule",
-    (root: string) => {
-      put(
-        root,
-        eslintSuppressionsFile,
-        JSON.stringify({
-          ...baseSuppressions,
-          "src/b.ts": { "repository/no-in-operator": { count: 1 } },
-        }),
-      );
-    },
-    `${eslintSuppressionsFile} records 1 hit for src/b.ts repository/no-in-operator, more than HEAD records (0; rule total 3 exceeds 2). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+    (r: string) =>
+      addSuppression(r, "repository/no-in-operator", 1, "src/b.ts"),
+    suppressionRefusal("repository/no-in-operator", 1, "src/b.ts", 3, 2),
   ],
   [
     "eslint-suppressions.json growing a configured zero-hit rule",
-    (root: string) => {
-      put(
-        root,
-        eslintSuppressionsFile,
-        JSON.stringify({
-          ...baseSuppressions,
-          "src/a.ts": {
-            "repository/no-in-operator": { count: 2 },
-            "no-console": { count: 1 },
-          },
-        }),
-      );
-    },
-    `${eslintSuppressionsFile} records 1 hit for src/a.ts no-console, more than HEAD records (0; rule total 1 exceeds 0). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+    (r: string) => addSuppression(r, "no-console"),
+    suppressionRefusal("no-console"),
   ],
   [
     "eslint-suppressions.json growing an unconfigured recommended rule",
-    (root: string) => {
-      put(
-        root,
-        eslintSuppressionsFile,
-        JSON.stringify({
-          ...baseSuppressions,
-          "src/a.ts": {
-            "repository/no-in-operator": { count: 2 },
-            "no-undef": { count: 2 },
-          },
-        }),
-      );
-    },
-    `${eslintSuppressionsFile} records 2 hits for src/a.ts no-undef, more than HEAD records (0; rule total 2 exceeds 0). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+    (r: string) => addSuppression(r, "no-undef", 2),
+    suppressionRefusal("no-undef", 2),
   ],
   [
     "eslint-suppressions.json growing a rule only set to off in eslint.config.mjs",
-    (root: string) => {
-      put(
-        root,
-        "eslint.config.mjs",
-        'export default [{ rules: { "repository/no-in-operator": "error", "no-console": "error", "no-undef": "off" } }];\n',
-      );
-      put(
-        root,
-        eslintSuppressionsFile,
-        JSON.stringify({
-          ...baseSuppressions,
-          "src/a.ts": {
-            "repository/no-in-operator": { count: 2 },
-            "no-undef": { count: 1 },
-          },
-        }),
-      );
+    (r: string) => {
+      put(r, eslintConfig, configWith('"no-undef": "off"'));
+      addSuppression(r, "no-undef");
     },
-    `${eslintSuppressionsFile} records 1 hit for src/a.ts no-undef, more than HEAD records (0; rule total 1 exceeds 0). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`,
+    suppressionRefusal("no-undef"),
+  ],
+  [
+    "eslint-suppressions.json growing a preset rule mentioned only in a comment",
+    (r: string) => {
+      put(
+        r,
+        eslintConfig,
+        `${configWith()}// Platform: ESLint already enables { "no-debugger": "error" }.\n`,
+      );
+      addSuppression(r, "no-debugger");
+    },
+    suppressionRefusal("no-debugger"),
+  ],
+  [
+    "eslint-suppressions.json growing a preset rule redundantly enabled in eslint.config.mjs",
+    (r: string) => {
+      put(r, eslintConfig, configWith('"no-debugger": "error"'));
+      addSuppression(r, "no-debugger");
+    },
+    suppressionRefusal("no-debugger"),
+  ],
+  [
+    "eslint-suppressions.json growing a rule on a disabled line in eslint.config.mjs",
+    (r: string) => {
+      put(r, eslintConfig, `${configWith()}/*\n"no-debugger": "error",\n*/\n`);
+      addSuppression(r, "no-debugger");
+    },
+    suppressionRefusal("no-debugger"),
+  ],
+  [
+    "eslint-suppressions.json growing a repository rule mentioned only in a rule-module comment",
+    (r: string) => {
+      put(r, eslintConfig, configWith('"repository/ghost-rule": "error"'));
+      put(r, templateRules, ruleModule('\n// "ghost-rule": {},\n'));
+      addSuppression(r, "repository/ghost-rule");
+    },
+    suppressionRefusal("repository/ghost-rule"),
+  ],
+  [
+    "eslint-suppressions.json growing a repository rule when a base rule module cannot be decided",
+    (r: string) => {
+      put(r, "config/platform-rules.mjs", ruleModule("...unknownRules"));
+      commitFiles(r, "undecidable base", "config/platform-rules.mjs");
+      put(r, templateRules, ruleModule('"new-rule": {}'));
+      put(r, eslintConfig, configWith('"repository/new-rule": "error"'));
+      addSuppression(r, "repository/new-rule");
+    },
+    suppressionRefusal("repository/new-rule"),
   ],
   [
     "coverage-gaps-recorded-hits.json adding an unapproved file gap",
-    (root: string) => {
-      put(
-        root,
-        coverageGapsRecordedHitsFile,
-        JSON.stringify({
-          hits: [
-            baseCoverageGap,
-            { path: "scripts/spawned.ts", reason: "fixture" },
-          ],
-        }),
-      );
-    },
-    `${coverageGapsRecordedHitsFile} adds a recorded coverage gap for scripts/spawned.ts, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`,
+    (r: string) =>
+      putJson(r, coverageGapsFile, {
+        hits: [
+          baseCoverageGap,
+          { path: "scripts/spawned.ts", reason: "fixture" },
+        ],
+      }),
+    coverageRefusal("scripts/spawned.ts"),
   ],
   [
     "coverage-gaps-recorded-hits.json adding an unapproved export gap",
-    (root: string) => {
-      put(
-        root,
-        coverageGapsRecordedHitsFile,
-        JSON.stringify({
-          hits: [
-            baseCoverageGap,
-            { path: "scripts/runner.ts", export: "run", reason: "fixture" },
-          ],
-        }),
-      );
-    },
-    `${coverageGapsRecordedHitsFile} adds a recorded coverage gap for scripts/runner.ts export run, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`,
+    (r: string) =>
+      putJson(r, coverageGapsFile, {
+        hits: [
+          baseCoverageGap,
+          { path: "scripts/runner.ts", export: "run", reason: "fixture" },
+        ],
+      }),
+    coverageRefusal("scripts/runner.ts export run"),
   ],
 ])(
   "recorded-hit growth class check refuses %s with its full message",
@@ -351,90 +368,59 @@ test.each([
 );
 
 test(
-  "recorded-hit growth class check admits equal, shrinking, moves, newly landed lint rules, and approved entries",
+  "recorded-hit growth class check admits equal, shrinking, moves, and approved entries",
   async () => {
     const root = recordedFilesRepository();
-    expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: "",
-      code: 0,
-    });
+    await expectPass(root);
 
-    put(
-      root,
-      eslintSuppressionsFile,
-      JSON.stringify({
-        "src/a.ts": { "repository/no-in-operator": { count: 1 } },
-      }),
-    );
-    expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: "",
-      code: 0,
+    putJson(root, suppressionsFile, {
+      "src/a.ts": { "repository/no-in-operator": { count: 1 } },
     });
+    await expectPass(root);
 
-    put(
-      root,
-      eslintSuppressionsFile,
-      JSON.stringify({
-        "src/a1.ts": { "repository/no-in-operator": { count: 1 } },
-        "src/a2.ts": { "repository/no-in-operator": { count: 1 } },
-      }),
-    );
-    put(root, coverageGapsRecordedHitsFile, JSON.stringify({ hits: [] }));
-    expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: "",
-      code: 0,
+    putJson(root, suppressionsFile, {
+      "src/a1.ts": { "repository/no-in-operator": { count: 1 } },
+      "src/a2.ts": { "repository/no-in-operator": { count: 1 } },
     });
+    putJson(root, coverageGapsFile, { hits: [] });
+    await expectPass(root);
 
-    put(
-      root,
-      "eslint.config.mjs",
-      'export default [{ rules: { "repository/no-in-operator": "error", "no-console": "error", "repository/new-rule": "error" } }];\n',
-    );
-    put(
-      root,
-      eslintSuppressionsFile,
-      JSON.stringify({
-        "src/a.ts": { "repository/new-rule": { count: 2 } },
-      }),
-    );
-    put(
-      root,
-      coverageGapsRecordedHitsFile,
-      JSON.stringify({
-        hits: [
-          baseCoverageGap,
-          { path: "scripts/spawned.ts", reason: "fixture", approved: "MAG-1" },
-        ],
-      }),
-    );
-    expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: "",
-      code: 0,
+    putJson(root, coverageGapsFile, {
+      hits: [
+        baseCoverageGap,
+        { path: "scripts/spawned.ts", reason: "fixture", approved: "MAG-1" },
+      ],
     });
+    await expectPass(root);
 
-    rmSync(join(root, eslintSuppressionsFile));
-    rmSync(join(root, coverageGapsRecordedHitsFile));
-    expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: "",
-      code: 0,
-    });
+    rmSync(join(root, suppressionsFile));
+    rmSync(join(root, coverageGapsFile));
+    await expectPass(root);
   },
   processWatchdog(12),
+);
+
+test(
+  "recorded-hit growth class check admits a new repository rule landing with recorded hits",
+  async () => {
+    const root = recordedFilesRepository();
+    put(root, templateRules, ruleModule('"new-rule": {}'));
+    put(root, eslintConfig, configWith('"repository/new-rule": "error"'));
+    addSuppression(root, "repository/new-rule", 2);
+    await expectPass(root);
+  },
+  processWatchdog(5),
 );
 
 test(
   "--against exits 2 on a malformed eslint-suppressions.json",
   async () => {
     const root = recordedFilesRepository();
-    put(
-      root,
-      eslintSuppressionsFile,
-      JSON.stringify({
-        "src/a.ts": { "repository/no-in-operator": { count: -1 } },
-      }),
-    );
+    putJson(root, suppressionsFile, {
+      "src/a.ts": { "repository/no-in-operator": { count: -1 } },
+    });
     expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: `${eslintSuppressionsFile}: src/a.ts repository/no-in-operator needs a non-negative integer count.\n`,
+      stderr: `${suppressionsFile}: src/a.ts repository/no-in-operator needs a non-negative integer count.\n`,
       code: 2,
     });
   },
@@ -460,47 +446,41 @@ function fallowFlagsFrom(run: string, base: string): string[] {
     .filter((token) => token !== "");
 }
 
+function fallowBaseline(
+  finding_counts: Record<string, unknown>,
+  identity_finding_counts: Record<string, unknown>,
+) {
+  return { kind: "health", finding_counts, identity_finding_counts };
+}
+
 function fallowRepository() {
   const root = emptyRepository();
-  put(
-    root,
-    "package.json",
-    JSON.stringify({ name: "fixture", type: "module" }),
-  );
-  put(
-    root,
-    ".fallowrc.json",
-    JSON.stringify({
-      audit: { gate: "new-only", healthBaseline: fallowHealthRecordedHitsFile },
-      entry: ["src/index.ts"],
-    }),
-  );
+  putJson(root, "package.json", { name: "fixture", type: "module" });
+  putJson(root, ".fallowrc.json", {
+    audit: { gate: "new-only", healthBaseline: fallowBaselineFile },
+    entry: ["src/index.ts"],
+  });
   put(
     root,
     "src/index.ts",
     "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n",
   );
-  put(
+  putJson(
     root,
-    fallowHealthRecordedHitsFile,
-    JSON.stringify({
-      kind: "health",
-      finding_counts: { "src/index.ts": { crap_moderate: { count: 1 } } },
-      identity_finding_counts: {
-        "src/index.ts:greet": { crap_moderate: { count: 1 } },
-      },
-    }),
+    fallowBaselineFile,
+    fallowBaseline(
+      { "src/index.ts": { crap_moderate: { count: 1 } } },
+      { "src/index.ts:greet": { crap_moderate: { count: 1 } } },
+    ),
   );
-  git(
+  commitFiles(
     root,
-    "add",
-    "--",
+    "base",
     "package.json",
     ".fallowrc.json",
     "src/index.ts",
-    fallowHealthRecordedHitsFile,
+    fallowBaselineFile,
   );
-  git(root, "commit", "--quiet", "-m", "base");
   git(root, "checkout", "-q", "-b", "feature");
   return root;
 }
@@ -539,46 +519,34 @@ test(
       "src/index.ts",
       "export function greet(name: string): string {\n  return `hello ${name}`;\n}\nexport const kept = 1;\n",
     );
-    git(root, "add", "--", "src/index.ts");
-    git(root, "commit", "--quiet", "-m", "equal");
+    commitFiles(root, "equal", "src/index.ts");
     expect((await runFallow()).exit).toBe(0);
 
-    put(
-      root,
-      fallowHealthRecordedHitsFile,
-      JSON.stringify({
-        kind: "health",
-        finding_counts: {},
-        identity_finding_counts: {},
-      }),
-    );
-    git(root, "add", "--", fallowHealthRecordedHitsFile);
-    git(root, "commit", "--quiet", "-m", "shrunk");
+    putJson(root, fallowBaselineFile, fallowBaseline({}, {}));
+    commitFiles(root, "shrunk", fallowBaselineFile);
     expect((await runFallow()).exit).toBe(0);
 
-    put(
+    putJson(
       root,
-      fallowHealthRecordedHitsFile,
-      JSON.stringify({
-        kind: "health",
-        finding_counts: {
+      fallowBaselineFile,
+      fallowBaseline(
+        {
           "src/index.ts": {
             crap_moderate: { count: 1 },
             crap_high: { count: 1 },
           },
         },
-        identity_finding_counts: {
+        {
           "src/index.ts:greet": { crap_moderate: { count: 1 } },
           "src/index.ts:extra": { crap_high: { count: 1 } },
         },
-      }),
+      ),
     );
-    git(root, "add", "--", fallowHealthRecordedHitsFile);
-    git(root, "commit", "--quiet", "-m", "grown");
+    commitFiles(root, "grown", fallowBaselineFile);
     const grown = await runFallow();
     expect(grown.exit).toBe(1);
     expect(grown.stderr).toBe(
-      `Baseline growth gate failed: ${join(realpathSync(root), fallowHealthRecordedHitsFile)} has 1 key that main does not have. Fix the new findings, or get a review for each new key:\n  identity_finding_counts: src/index.ts:extra crap_high (count 1)\n`,
+      `Baseline growth gate failed: ${join(realpathSync(root), fallowBaselineFile)} has 1 key that main does not have. Fix the new findings, or get a review for each new key:\n  identity_finding_counts: src/index.ts:extra crap_high (count 1)\n`,
     );
   },
   processWatchdog(6),
