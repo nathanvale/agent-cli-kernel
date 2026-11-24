@@ -1268,6 +1268,11 @@ const aliasChain = Array.from(
   { length: 10 },
   (_, index) => `const b${index + 1} = ${index === 0 ? "Bun" : `b${index}`};`,
 ).join(" ");
+const loader = (line: number) =>
+  [
+    line,
+    `${stateFiles} may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.`,
+  ] as const;
 const stateBunFileReachCases = [
   [
     framingFile,
@@ -1279,6 +1284,8 @@ const stateBunFileReachCases = [
     'export const a = (p: string) => Bun.write(p, "x");',
     [member(1, "write")],
   ],
+  [framingFile, "import f = Bun.file; export const a = f;", [use(1)]],
+  [framingFile, "import b = globalThis.Bun; export const a = b;", [use(1)]],
   [
     framingFile,
     "export const a = (p: string) => Bun.mmap(p);",
@@ -1326,23 +1333,6 @@ const stateBunFileReachCases = [
     framingFile,
     "export const a = globalThis.globalThis.Bun.file;",
     [member(1, "file")],
-  ],
-  [
-    framingFile,
-    'import { write } from "bun"; export const a = write;',
-    [member(1, "write")],
-  ],
-  [framingFile, 'export { file } from "bun";', [member(1, "file")]],
-  [framingFile, 'export const a = require("bun").file;', [member(1, "file")]],
-  [
-    framingFile,
-    'export const a = import.meta.require("bun").file;',
-    [member(1, "file")],
-  ],
-  [
-    framingFile,
-    'export const a = process.getBuiltinModule("bun").write;',
-    [member(1, "write")],
   ],
   [framingFile, 'export const a = (p: string) => Bun["file"](p);', [use(1)]],
   [
@@ -1408,19 +1398,6 @@ const stateBunFileReachCases = [
   ],
   [framingFile, "const g = globalThis; export const a = g.Bun.file;", [use(1)]],
   [framingFile, 'export const a = globalThis["Bun"].file;', [use(1)]],
-  [framingFile, 'import * as B from "bun"; export const a = B.file;', [use(1)]],
-  [framingFile, 'import B from "bun"; export const a = B.file;', [use(1)]],
-  [framingFile, 'export * from "bun";', [use(1)]],
-  [
-    framingFile,
-    'import B = require("bun"); export const a = B.file;',
-    [use(1)],
-  ],
-  [
-    framingFile,
-    'export const a = async () => (await import("bun")).write;',
-    [use(1)],
-  ],
   [
     framingFile,
     "export async function writeFrame(path: string, text: string) {\n  await Bun.write(path, text);\n  return Bun.file(path).text();\n}",
@@ -1452,7 +1429,6 @@ const stateBunFileReachCases = [
     [],
   ],
   [framingFile, "export const a = [Bun.version, Bun.hash, Bun.stdout];", []],
-  [framingFile, 'export const a = require("bun").spawn;', []],
   [
     framingFile,
     'import { spawn, type BunFile } from "bun"; export const a = (f: BunFile) => [spawn, f];',
@@ -1466,16 +1442,138 @@ const stateBunFileReachCases = [
   [framingFile, 'export type { BunFile } from "bun";', []],
   [framingFile, "export type A = typeof Bun.file;", []],
   [framingFile, "export const a = globalThis.structuredClone;", []],
-  [framingFile, "export const a = (Bun: { file: string }) => Bun.file;", []],
-  [framingFile, "export const a = (b: { write: string }) => b.write;", []],
 ] as const;
 
-for (const [filePath, code, expected] of stateBunFileReachCases)
-  test(`state-no-fs-import Bun reach ${expected.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
-    const found = (await messages(filePath, code)).filter(
-      ({ ruleId }) => ruleId === "repository/state-no-fs-import",
-    );
-    expect(found.map(({ line, message }) => [line, message])).toEqual(
-      expected.map(([line, message]) => [line, message]),
-    );
-  });
+const stateBunImportCases = [
+  [
+    framingFile,
+    'import { write } from "bun"; export const a = write;',
+    [member(1, "write")],
+  ],
+  [framingFile, 'export { file } from "bun";', [member(1, "file")]],
+  [framingFile, 'export const a = require("bun").file;', [use(1)]],
+  [framingFile, 'export const a = import.meta.require("bun").file;', [use(1)]],
+  [
+    framingFile,
+    'export const a = process.getBuiltinModule("bun").write;',
+    [use(1)],
+  ],
+  [framingFile, 'import * as B from "bun"; export const a = B.file;', [use(1)]],
+  [framingFile, 'import B from "bun"; export const a = B.file;', [use(1)]],
+  [framingFile, 'export * from "bun";', [use(1)]],
+  [
+    framingFile,
+    'import B = require("bun"); export const a = B.file;',
+    [use(1)],
+  ],
+  [
+    framingFile,
+    'export const a = async () => (await import("bun")).write;',
+    [use(1)],
+  ],
+  [framingFile, 'export const a = require("bun").spawn;', [use(1)]],
+] as const;
+
+const stateShadowedGlobalCases = [
+  [
+    framingFile,
+    "export const a = (Bun: { file: string }) => Bun.file;",
+    [member(1, "file")],
+  ],
+  [
+    framingFile,
+    "declare const Bun: typeof globalThis.Bun; export const a = Bun.file;",
+    [member(1, "file")],
+  ],
+  [
+    framingFile,
+    "declare const global: typeof globalThis; export const a = global.Bun.file;",
+    [member(1, "file")],
+  ],
+  [
+    framingFile,
+    "declare const self: typeof globalThis; export const a = self.Bun.file;",
+    [member(1, "file")],
+  ],
+  [
+    framingFile,
+    "declare const globalThis: { Bun: typeof Bun }; export const a = globalThis.Bun.file;",
+    [member(1, "file")],
+  ],
+  [framingFile, "const self = { dev: 1 }; export const a = self.dev;", []],
+] as const;
+
+const stateLoaderCases = [
+  [
+    framingFile,
+    'export const a = globalThis.process.getBuiltinModule("bun");',
+    [use(1)],
+  ],
+  [
+    framingFile,
+    'const p = process; export const a = p.getBuiltinModule("bun");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'export const a = (k: "getBuiltinModule") => process[k]("bun");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'export const a = (k: "require") => import.meta[k]("bun");',
+    [loader(1)],
+  ],
+  [framingFile, 'const r = require; export const a = r("bun");', [loader(1)]],
+  [framingFile, 'export const a = require.resolve("bun");', [loader(1)]],
+  [framingFile, "export const a = import.meta;", [loader(1)]],
+  [framingFile, 'export const a = module.require("bun");', [loader(1)]],
+  [
+    framingFile,
+    'import { createRequire } from "node:module"; export const a = createRequire;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import * as m from "node:module"; export const a = m;',
+    [loader(1)],
+  ],
+  [framingFile, 'export const a = require("node:module");', [loader(1)]],
+  [
+    framingFile,
+    'import { getBuiltinModule } from "node:process"; export const a = getBuiltinModule;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import proc from "node:process"; export const a = proc.getBuiltinModule("bun");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    "export const a = [process.platform, process.pid, import.meta.url];",
+    [],
+  ],
+  [framingFile, 'export const a = require("node:path");', []],
+  [
+    framingFile,
+    'import { builtinModules } from "node:module"; export const a = builtinModules;',
+    [],
+  ],
+] as const;
+
+for (const [group, cases] of [
+  ["Bun global", stateBunFileReachCases],
+  ["bun import", stateBunImportCases],
+  ["shadowed global", stateShadowedGlobalCases],
+  ["loader", stateLoaderCases],
+] as const)
+  for (const [filePath, code, expected] of cases)
+    test(`state-no-fs-import ${group} ${expected.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
+      const found = (await messages(filePath, code)).filter(
+        ({ ruleId }) => ruleId === "repository/state-no-fs-import",
+      );
+      expect(found.map(({ line, message }) => [line, message])).toEqual(
+        expected.map(([line, message]) => [line, message]),
+      );
+    });
