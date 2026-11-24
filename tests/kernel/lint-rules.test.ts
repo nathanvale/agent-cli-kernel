@@ -1472,6 +1472,18 @@ const stateBunImportCases = [
     [use(1)],
   ],
   [framingFile, 'export const a = require("bun").spawn;', [use(1)]],
+  [
+    framingFile,
+    'import { default as b } from "bun"; export const a = b;',
+    [use(1)],
+  ],
+  [
+    framingFile,
+    'import { "default" as b } from "bun"; export const a = b;',
+    [use(1)],
+  ],
+  [framingFile, 'export { default } from "bun";', [use(1)]],
+  [framingFile, 'export { "default" as b } from "bun";', [use(1)]],
 ] as const;
 
 const stateShadowedGlobalCases = [
@@ -1558,8 +1570,69 @@ const stateLoaderCases = [
   [
     framingFile,
     'import { builtinModules } from "node:module"; export const a = builtinModules;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { builtinModules } from "module"; export const a = builtinModules;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { default as p } from "node:process"; export const a = p;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { "default" as p } from "process"; export const a = p;',
+    [loader(1)],
+  ],
+  [framingFile, 'export { default } from "node:process";', [loader(1)]],
+  [framingFile, 'export { "default" as p } from "process";', [loader(1)]],
+  [framingFile, 'export { default } from "node:module";', [loader(1)]],
+  [framingFile, 'export { default } from "module";', [loader(1)]],
+  [
+    framingFile,
+    'import { default as m } from "node:module"; export const a = m;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { "default" as m } from "module"; export const a = m;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { Module } from "node:module"; export const a = Module;',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { Module } from "module"; export const a = Module;',
+    [loader(1)],
+  ],
+  [framingFile, 'export { Module } from "node:module";', [loader(1)]],
+  [framingFile, 'export { Module } from "module";', [loader(1)]],
+  [framingFile, 'import "node:module";', [loader(1)]],
+  [framingFile, 'import {} from "module";', [loader(1)]],
+  [framingFile, 'export {} from "node:module";', [loader(1)]],
+  [
+    framingFile,
+    'import type { Module } from "node:module"; export type A = Module;',
     [],
   ],
+  [
+    framingFile,
+    'import { type Module } from "node:module"; export type A = Module;',
+    [],
+  ],
+  [framingFile, 'export type { Module } from "node:module";', []],
+  [
+    framingFile,
+    'import { platform } from "node:process"; export const a = platform;',
+    [],
+  ],
+  [framingFile, 'export { platform as default } from "node:process";', []],
 ] as const;
 
 for (const [group, cases] of [
