@@ -38,7 +38,6 @@ const planted = {
 const plantedFindings = [
   { file: "src/app/alias.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
-  { file: "src/app/child.ts", ruleId: "no-restricted-syntax" },
   { file: "src/app/child.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/ffi.ts", ruleId: "no-restricted-imports" },
   { file: "src/app/in.ts", ruleId: "repository/no-in-operator" },

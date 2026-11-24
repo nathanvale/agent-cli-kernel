@@ -43,17 +43,17 @@ runFamily(
   {
     "R11.host-node-specifier": async () =>
       expect(await errors(dynamic("node:child_process"), hostFile)).toEqual([
-        "no-restricted-syntax",
+        "repository/no-process-reach",
       ]),
     "R11.host-bare-specifier": async () =>
       expect(await errors(dynamic("child_process"), hostFile)).toEqual([
-        "no-restricted-syntax",
+        "repository/no-process-reach",
       ]),
     "R11.kernel-specifiers": async () => {
       for (const file of kernelFiles)
         for (const specifier of ["node:child_process", "child_process"])
           expect(await errors(dynamic(specifier), file)).toEqual([
-            "no-restricted-syntax",
+            "repository/no-process-reach",
           ]);
     },
     "R11.path-twin-clean": async () => {

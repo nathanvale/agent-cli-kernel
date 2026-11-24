@@ -192,7 +192,7 @@ function ownerImport(context, file, root, installed) {
 const causeShape =
   /^(?:SUCCESS|USAGE|SCHEMA|DOMAIN|TRANSIENT|INTERNAL)_[A-Z0-9_]+$/;
 const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
-export const programStartMessage =
+const programStartMessage =
   "Contract 3 source starts programs only through the programs add-on.";
 const outputMessage =
   "Return domain data to the CLI output owner instead of accessing process streams.";

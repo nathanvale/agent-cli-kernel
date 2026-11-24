@@ -2,20 +2,11 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import kernelRules, {
-  holdsKernelSource,
-  programStartMessage,
-} from "./eslint-rules.mjs";
+import kernelRules, { holdsKernelSource } from "./eslint-rules.mjs";
 
 const stateFactoryProperty = {
   property: "stateAddon",
   message: "Only the state add-on folder may author the state add-on factory.",
-};
-// Platform: ESLint no-restricted-imports checks static imports only, not dynamic import().
-const childProcessImport = {
-  selector:
-    "ImportExpression:matches([source.value=/^(node:)?child_process$/], [source.quasis.0.value.cooked=/^(node:)?child_process$/])",
-  message: programStartMessage,
 };
 const loggingImports = {
   group: [
@@ -122,7 +113,6 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
   return {
     "no-restricted-syntax": [
       ...rules["no-restricted-syntax"],
-      childProcessImport,
       ...(banFfi ? [ffiImport] : []),
       ...reachability,
       {
@@ -269,11 +259,7 @@ export function kernelLint(options) {
         "repository/no-domain-output": "error",
         "repository/no-process-reach": "error",
         "repository/no-locale-compare": "error",
-        "no-restricted-syntax": [
-          ...rules["no-restricted-syntax"],
-          childProcessImport,
-          ffiImport,
-        ],
+        "no-restricted-syntax": [...rules["no-restricted-syntax"], ffiImport],
         "no-restricted-imports": [
           "error",
           {
@@ -309,7 +295,6 @@ export function kernelLint(options) {
         "no-restricted-properties": ["error", ...programProperties],
         "no-restricted-syntax": [
           ...rules["no-restricted-syntax"],
-          childProcessImport,
           ffiImport,
           {
             selector:
@@ -347,7 +332,6 @@ export function kernelLint(options) {
               "CallExpression[callee.object.name='Object']:matches([callee.property.name='assign'], [callee.computed=true][callee.property.value='assign'])",
             message: "Object.assign is forbidden.",
           },
-          childProcessImport,
           ffiImport,
         ],
       },
