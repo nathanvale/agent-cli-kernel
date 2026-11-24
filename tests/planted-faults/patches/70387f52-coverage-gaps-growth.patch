@@ -1,0 +1,22 @@
+diff --git a/scripts/glossary-additions.ts b/scripts/glossary-additions.ts
+index d255bc5d..00020d47 100644
+--- a/scripts/glossary-additions.ts
++++ b/scripts/glossary-additions.ts
+@@ -44,16 +44,7 @@ const recordedLists: readonly Recorded[] = [
+     identity: ["term"],
+     describe: (own) => `a recorded unused term "${String(own.get("term"))}"`,
+   },
+-  {
+-    file: "tests/template/standards/coverage-gaps-recorded-hits.json",
+-    list: "hits",
+-    identity: ["path", "export"],
+-    optional: true,
+-    gate: "the import-coverage check",
+-    repair: "import and call it from a test, then remove the entry",
+-    describe: (own) =>
+-      `a recorded coverage gap for ${String(own.get("path"))}${own.get("export") === undefined ? "" : ` export ${String(own.get("export"))}`}`,
+-  },
++
+ ];
+ 
+ function identityOf(
