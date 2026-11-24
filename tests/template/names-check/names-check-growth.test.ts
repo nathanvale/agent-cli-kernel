@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  mkdirSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import {
   nameProblems,
@@ -32,6 +26,7 @@ const {
   configWith,
   coverageGapsFile,
   coverageRefusal,
+  earlierAreaRepository,
   emptyRepository,
   eslintConfig,
   expectPass,
@@ -59,30 +54,11 @@ function widen(root: string, extra: Record<string, unknown> = {}) {
   });
 }
 
-function earlierAreaRepository(duplicate: boolean = false) {
-  const root = recordedRepository();
-  const folder = "tests/template/recorded-checks";
-  mkdirSync(join(root, folder), { recursive: true });
-  const moved = [recordedHitsFile, recordedUnusedTermsFile].map((file) => ({
-    current: file,
-    earlier: `${folder}/${file.split("/").at(-1)}`,
-  }));
-  for (const { current, earlier } of moved)
-    git(root, "mv", "--", current, earlier);
-  const unrelated = "tests/template/glossary/recorded-hits.json";
-  putJson(root, unrelated, { hits: [{ file: "docs/term.md" }] });
-  git(root, "add", "--", unrelated);
-  if (duplicate) {
-    const other = "tests/template/other/recorded-hits.json";
-    const otherTerms = "tests/template/other/recorded-unused-terms.json";
-    putJson(root, other, { hits: [hostHit] });
-    putJson(root, otherTerms, { terms: [unusedTerm] });
-    git(root, "add", "--", other, otherTerms);
-  }
-  git(root, "commit", "--quiet", "-m", "earlier test area");
-  for (const { current, earlier } of moved)
-    git(root, "mv", "--", earlier, current);
-  return root;
+function commitApproved(root: string, rule: string, approved: string) {
+  putJson(root, suppressionsFile, {
+    "src/a.ts": { [rule]: { count: 2, approved } },
+  });
+  commitFiles(root, "approved suppression", suppressionsFile);
 }
 
 test(
@@ -350,6 +326,18 @@ test.each([
     suppressionRefusal("repository/new-rule", 2),
   ],
   [
+    "eslint-suppressions.json growing a moved entry with a stale approval",
+    (r: string) => {
+      commitApproved(r, "repository/no-in-operator", "#123 reason");
+      putJson(r, suppressionsFile, {
+        "src/b.ts": {
+          "repository/no-in-operator": { count: 3, approved: "#123 reason" },
+        },
+      });
+    },
+    suppressionRefusal("repository/no-in-operator", 3, "src/b.ts", 3, 2),
+  ],
+  [
     "coverage-gaps-recorded-hits.json adding an unapproved file gap",
     (r: string) =>
       putJson(r, coverageGapsFile, {
@@ -418,7 +406,22 @@ test(
 );
 
 test(
-  "recorded-hit growth class check admits a new rule with an approval and refuses empty or stale approvals",
+  "recorded-hit growth class check refuses empty or whitespace suppression approvals",
+  async () => {
+    const root = recordedFilesRepository();
+    for (const approved of ["", "   "]) {
+      addSuppression(root, "repository/new-rule", 2, "src/a.ts", { approved });
+      expect(await check(root, ["--against", "HEAD"])).toEqual({
+        stderr: suppressionRefusal("repository/new-rule", 2),
+        code: 1,
+      });
+    }
+  },
+  processWatchdog(9),
+);
+
+test(
+  "recorded-hit growth class check admits a new rule with an approval",
   async () => {
     const root = recordedFilesRepository();
     put(
@@ -427,47 +430,63 @@ test(
       ruleModule('"no-locale-compare": {}, "new-rule": {}'),
     );
     put(root, eslintConfig, configWith('"repository/new-rule": "error"'));
-
-    addSuppression(root, "repository/new-rule", 2);
-    expect(await check(root, ["--against", "HEAD"])).toEqual({
-      stderr: suppressionRefusal("repository/new-rule", 2),
-      code: 1,
-    });
-
-    for (const approved of ["", "   "]) {
-      addSuppression(root, "repository/new-rule", 2, "src/a.ts", { approved });
-      expect(await check(root, ["--against", "HEAD"])).toEqual({
-        stderr: suppressionRefusal("repository/new-rule", 2),
-        code: 1,
-      });
-    }
-
     addSuppression(root, "repository/new-rule", 2, "src/a.ts", {
       approved: "PR #117 — new rule landing with existing hits",
     });
     await expectPass(root);
+  },
+  processWatchdog(5),
+);
 
-    commitFiles(
+test(
+  "recorded-hit growth class check refuses a same-path stale approval and admits a renewed one",
+  async () => {
+    const root = recordedFilesRepository();
+    commitApproved(
       root,
-      "land approved rule",
-      templateRules,
-      eslintConfig,
-      suppressionsFile,
+      "repository/new-rule",
+      "PR #117 — new rule landing with existing hits",
     );
-    addSuppression(root, "repository/new-rule", 3, "src/a.ts", {
-      approved: "PR #117 — new rule landing with existing hits",
+
+    putJson(root, suppressionsFile, {
+      "src/a.ts": {
+        "repository/new-rule": {
+          count: 3,
+          approved: "PR #117 — new rule landing with existing hits",
+        },
+      },
     });
     expect(await check(root, ["--against", "HEAD"])).toEqual({
       stderr: suppressionRefusal("repository/new-rule", 3, "src/a.ts", 3, 2, 2),
       code: 1,
     });
 
-    addSuppression(root, "repository/new-rule", 3, "src/a.ts", {
-      approved: "PR #118 — additional approved hit",
+    putJson(root, suppressionsFile, {
+      "src/a.ts": {
+        "repository/new-rule": {
+          count: 3,
+          approved: "PR #118 — additional approved hit",
+        },
+      },
     });
     await expectPass(root);
   },
-  processWatchdog(14),
+  processWatchdog(9),
+);
+
+test(
+  "recorded-hit growth class check admits an honest move of an approved suppression",
+  async () => {
+    const root = recordedFilesRepository();
+    commitApproved(root, "repository/no-in-operator", "#123 reason");
+    putJson(root, suppressionsFile, {
+      "src/b.ts": {
+        "repository/no-in-operator": { count: 2, approved: "#123 reason" },
+      },
+    });
+    await expectPass(root);
+  },
+  processWatchdog(6),
 );
 
 test(
