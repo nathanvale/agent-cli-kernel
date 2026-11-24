@@ -1,9 +1,8 @@
 import { posix } from "node:path";
 import kernel from "../kernel/config/kernel/eslint-rules.mjs";
+import { isDirectiveBlock } from "./comment-directives.mjs";
 import { bare, origin, propertyName, staticString } from "./value-trace.mjs";
 
-const commentDirective =
-  /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
 const plainMarkers = ["Platform", "Interface"];
 const safetyMarker = "SAFETY";
 const commentMarker = new RegExp(`^(?:${plainMarkers.join("|")}):`);
@@ -151,7 +150,7 @@ function isAdmitted(source, block, placed) {
   const [first = ""] = lines;
   const { start } = block[0].loc;
   return (
-    commentDirective.test(first) ||
+    isDirectiveBlock(block) ||
     commentMarker.test(first) ||
     acceptedDecision.test(lines.join(" ")) ||
     (safetyJustification.test(first) &&

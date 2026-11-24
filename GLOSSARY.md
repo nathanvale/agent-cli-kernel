@@ -189,6 +189,14 @@ _Avoid_: util, helper, common, core (for a shared edge)
 
 ### Internal kernel names
 
+**Directive**:
+A comment a tool reads as an instruction rather than as prose, in that tool's
+exact form: `eslint-disable`, `eslint-disable-next-line`, `eslint-disable-line`,
+`eslint-enable`, `@ts-expect-error`, `@ts-ignore`, `biome-ignore` or
+`fallow-ignore`. The comment rule admits a comment as a directive only when it
+is one in that form; prose after a directive-looking word is refused.
+_Avoid_: pragma, annotation (for a directive)
+
 **Contract boundary**:
 The public set of authority identity, resource identity and absolute path
 constructors exposed as `contractFor().boundary`. Their values carry the

@@ -1,10 +1,9 @@
 import { posix } from "node:path";
+import { isDirectiveBlock } from "./comment-directives.mjs";
 
 const localeNames = new Set(["localeCompare", "Collator"]);
 const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
 const comma = { type: "Literal", value: "," };
-const commentDirective =
-  /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
 const plainMarkers = ["Platform", "Interface"];
 const safetyMarker = "SAFETY";
 const commentMarker = new RegExp(`^(?:${plainMarkers.join("|")}):`);
@@ -327,7 +326,7 @@ function isAdmitted(source, block, placed) {
   const [first = ""] = lines;
   const { start } = block[0].loc;
   return (
-    commentDirective.test(first) ||
+    isDirectiveBlock(block) ||
     commentMarker.test(first) ||
     acceptedDecision.test(lines.join(" ")) ||
     (safetyJustification.test(first) &&

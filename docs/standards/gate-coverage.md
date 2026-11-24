@@ -216,8 +216,15 @@ file extensions in those directories.
     state.
   - The phrase "accepted decision" or "accepted decisions" anywhere in
     the block.
-  - A lint or compiler directive, such as `eslint-disable-next-line` or
-    `@ts-expect-error`. Other rules govern those.
+  - A directive in its exact form, with every comment in the block judged on
+    its own (never admitting following prose lines): `@ts-expect-error`,
+    `@ts-ignore`, `@ts-nocheck`, `@ts-check`, `biome-ignore` (`-all`,
+    `-start`, `-end`), `fallow-ignore` (`-next-line`, `-file`),
+    `eslint-disable-next-line` and `eslint-disable-line`, plus block-only
+    `eslint`, `eslint-disable`, `eslint-enable`, `global`, `globals` and
+    `exported`. `eslint.config.mjs` sets `linterOptions.noInlineConfig: true`
+    across every linted path, so ESLint refuses every inline ESLint
+    directive.
   - `SAFETY:` and a justification on its first line, on its own lines
     directly above the statement that holds a type cast (`as T`, not
     `as const`).

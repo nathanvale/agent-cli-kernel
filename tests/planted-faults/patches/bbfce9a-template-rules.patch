@@ -59,7 +59,7 @@ index 4904ca1..5c25355 100644
 -  const [first = ""] = lines;
 -  const { start } = block[0].loc;
 -  return (
--    commentDirective.test(first) ||
+-    isDirectiveBlock(block) ||
 -    commentMarker.test(first) ||
 -    acceptedDecision.test(lines.join(" ")) ||
 -    (safetyJustification.test(first) &&
@@ -98,7 +98,7 @@ index 4904ca1..5c25355 100644
 +              const lines = block.map((comment) => comment.value.trim());
 +              const [first = ""] = lines;
 +              if (
-+                commentDirective.test(first) ||
++                isDirectiveBlock(block) ||
 +                commentMarker.test(first) ||
 +                safetyJustification.test(first) ||
 +                acceptedDecision.test(lines.join(" "))
