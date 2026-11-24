@@ -8,11 +8,14 @@ const eslint = new ESLint({ cwd: root });
 
 async function messages(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath });
-  return (result?.messages ?? []).map(({ ruleId, line, message }) => ({
-    ruleId,
-    line,
-    message,
-  }));
+  return (result?.messages ?? []).map(
+    ({ ruleId, line, message, messageId }) => ({
+      ruleId,
+      line,
+      message,
+      messageId,
+    }),
+  );
 }
 
 async function hits(rule: string, filePath: string, code: string) {
@@ -1235,50 +1238,170 @@ const stateFsCases = [
   ],
 ] as const;
 
+for (const [filePath, code, lines] of stateFsCases)
+  test(`state-no-fs-import ${lines.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
+    const found = await hits("state-no-fs-import", filePath, code);
+    expect(found.map(({ line }) => line)).toEqual([...lines]);
+  });
+
 const framingFile = "kernel/src/addons/state/framing.ts";
+const member = (line: number) => [line, "bunReach"] as const;
+const use = (line: number) => [line, "dynamicBunReach"] as const;
+const aliasChain = Array.from(
+  { length: 10 },
+  (_, index) => `const b${index + 1} = ${index === 0 ? "Bun" : `b${index}`};`,
+).join(" ");
 const stateBunFileReachCases = [
-  [framingFile, "export const a = (p: string) => Bun.file(p);", [1]],
-  [framingFile, 'export const a = (p: string) => Bun.write(p, "x");', [1]],
-  [framingFile, 'export const a = (p: string) => Bun["file"](p);', [1]],
-  [framingFile, 'export const a = (p: string) => Bun[`write`](p, "x");', [1]],
-  [framingFile, "export const a = (p: string) => globalThis.Bun.file(p);", [1]],
+  [framingFile, "export const a = (p: string) => Bun.file(p);", [member(1)]],
+  [
+    framingFile,
+    'export const a = (p: string) => Bun.write(p, "x");',
+    [member(1)],
+  ],
+  [framingFile, "export const a = (p: string) => Bun.mmap(p);", [member(1)]],
+  [framingFile, 'export const a = new Bun.Glob("*");', [member(1)]],
+  [framingFile, "export const a = Bun.Archive;", [member(1)]],
+  [framingFile, "export const a = Bun.build;", [member(1)]],
+  [framingFile, "export const a = Bun.FileSystemRouter;", [member(1)]],
+  [framingFile, "export const a = [Bun.SQL, Bun.sql];", [member(1), member(1)]],
+  [
+    framingFile,
+    "export const a = [Bun.Image, Bun.postgres];",
+    [member(1), member(1)],
+  ],
+  [
+    framingFile,
+    "export const a = [Bun.ModuleGraph, Bun.serve];",
+    [member(1), member(1)],
+  ],
+  [
+    framingFile,
+    "export const a = (p: string) => globalThis.Bun.file(p);",
+    [member(1)],
+  ],
+  [
+    framingFile,
+    "export const a = (p: string) => global.Bun.file(p);",
+    [member(1)],
+  ],
+  [
+    framingFile,
+    "export const a = (p: string) => self.Bun.file(p);",
+    [member(1)],
+  ],
+  [
+    framingFile,
+    "export const a = globalThis.globalThis.Bun.file;",
+    [member(1)],
+  ],
+  [
+    framingFile,
+    'import { write } from "bun"; export const a = write;',
+    [member(1)],
+  ],
+  [framingFile, 'export { file } from "bun";', [member(1)]],
+  [framingFile, 'export const a = require("bun").file;', [member(1)]],
+  [
+    framingFile,
+    'export const a = import.meta.require("bun").file;',
+    [member(1)],
+  ],
+  [
+    framingFile,
+    'export const a = process.getBuiltinModule("bun").write;',
+    [member(1)],
+  ],
+  [framingFile, 'export const a = (p: string) => Bun["file"](p);', [use(1)]],
+  [
+    framingFile,
+    'export const a = (p: string) => Bun[`write`](p, "x");',
+    [use(1)],
+  ],
+  [
+    framingFile,
+    'const key = "wr" + "ite"; export const a = Bun[key];',
+    [use(1)],
+  ],
+  [
+    framingFile,
+    'export const a = (key: string) => Bun[key as "file"];',
+    [use(1)],
+  ],
   [
     framingFile,
     "const { file, write } = Bun; export const a = [file, write];",
-    [1, 1],
+    [use(1)],
   ],
+  [
+    framingFile,
+    "const { spawnSync } = Bun; export const a = spawnSync;",
+    [use(1)],
+  ],
+  [framingFile, "const { ...all } = Bun; export const a = all;", [use(1)]],
   [
     framingFile,
     'const b = Bun; export const a = (p: string) => b.write(p, "x");',
-    [1],
+    [use(1)],
   ],
+  [framingFile, "let b; b = Bun; export const a = b;", [use(1)]],
+  [
+    framingFile,
+    "let b; if (Date.now()) b = Bun; export const a = b;",
+    [use(1)],
+  ],
+  [framingFile, `${aliasChain} export const a = b10.file;`, [use(1)]],
+  [framingFile, "export const a = { ...Bun };", [use(1)]],
+  [
+    framingFile,
+    "export const a = (x: boolean) => (x ? Bun : Bun).file;",
+    [use(1), use(1)],
+  ],
+  [framingFile, "export const a = (Bun || Bun).file;", [use(1), use(1)]],
+  [framingFile, "export const a = String(Bun);", [use(1)]],
   [
     framingFile,
     "const { Bun: { file } } = globalThis; export const a = file;",
-    [1],
+    [use(1)],
   ],
-  [framingFile, 'import { write } from "bun"; export const a = write;', [1]],
-  [framingFile, 'export { file } from "bun";', [1]],
-  [framingFile, 'import * as B from "bun"; export const a = B.file;', [1]],
-  [framingFile, 'export const a = require("bun").file;', [1]],
+  [
+    framingFile,
+    "const { Bun: { file } = {} } = globalThis; export const a = file;",
+    [use(1)],
+  ],
+  [framingFile, "const g = globalThis; export const a = g.Bun.file;", [use(1)]],
+  [framingFile, 'export const a = globalThis["Bun"].file;', [use(1)]],
+  [framingFile, 'import * as B from "bun"; export const a = B.file;', [use(1)]],
+  [framingFile, 'import B from "bun"; export const a = B.file;', [use(1)]],
+  [framingFile, 'export * from "bun";', [use(1)]],
+  [
+    framingFile,
+    'import B = require("bun"); export const a = B.file;',
+    [use(1)],
+  ],
   [
     framingFile,
     'export const a = async () => (await import("bun")).write;',
-    [1],
+    [use(1)],
   ],
-  [framingFile, 'const key = "wr" + "ite"; export const a = Bun[key];', [1]],
-  [framingFile, 'export const a = (key: string) => Bun[key as "file"];', [1]],
-  [framingFile, "const { ...all } = Bun; export const a = all;", [1]],
-  [framingFile, "export const a = (p: string) => Bun.mmap(p);", [1]],
-  [framingFile, 'export const a = new Bun.Glob("*");', [1]],
-  [framingFile, "export const a = Bun.Archive;", [1]],
-  [framingFile, "export const a = Bun.build;", [1]],
-  [framingFile, "export const a = Bun.FileSystemRouter;", [1]],
-  [framingFile, "export const a = [Bun.SQL, Bun.sql];", [1, 1]],
   [
     framingFile,
     "export async function writeFrame(path: string, text: string) {\n  await Bun.write(path, text);\n  return Bun.file(path).text();\n}",
-    [2, 3],
+    [member(2), member(3)],
+  ],
+  [
+    framingFile,
+    'import { Database } from "bun:sqlite"; export const a = Database;',
+    [[1, "fsImport"]],
+  ],
+  [
+    framingFile,
+    'import fs = require("node:fs"); export const a = fs.readFileSync;',
+    [[1, "fsImport"]],
+  ],
+  [
+    framingFile,
+    'import path = require("node:path"); export const a = path.join;',
+    [],
   ],
   [
     "kernel/src/addons/state/store.ts",
@@ -1290,23 +1413,36 @@ const stateBunFileReachCases = [
     "const { file } = Bun; export const a = (p: string) => file(p);",
     [],
   ],
-  [framingFile, 'export const a = Bun.spawn(["true"]);', []],
-  [framingFile, "const { spawnSync } = Bun; export const a = spawnSync;", []],
+  [
+    framingFile,
+    'export const a = [Bun.spawn(["true"]), Bun.spawnSync, Bun.$];',
+    [],
+  ],
   [framingFile, "export const a = [Bun.version, Bun.hash, Bun.stdout];", []],
+  [framingFile, 'export const a = require("bun").spawn;', []],
+  [
+    framingFile,
+    'import { spawn, type BunFile } from "bun"; export const a = (f: BunFile) => [spawn, f];',
+    [],
+  ],
   [
     framingFile,
     'import type { BunFile } from "bun"; export type A = BunFile;',
     [],
   ],
+  [framingFile, 'export type { BunFile } from "bun";', []],
+  [framingFile, "export type A = typeof Bun.file;", []],
+  [framingFile, "export const a = globalThis.structuredClone;", []],
   [framingFile, "export const a = (Bun: { file: string }) => Bun.file;", []],
   [framingFile, "export const a = (b: { write: string }) => b.write;", []],
 ] as const;
 
-for (const [filePath, code, lines] of [
-  ...stateFsCases,
-  ...stateBunFileReachCases,
-])
-  test(`state-no-fs-import ${lines.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
-    const found = await hits("state-no-fs-import", filePath, code);
-    expect(found.map(({ line }) => line)).toEqual([...lines]);
+for (const [filePath, code, expected] of stateBunFileReachCases)
+  test(`state-no-fs-import Bun reach ${expected.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
+    const found = (await messages(filePath, code)).filter(
+      ({ ruleId }) => ruleId === "repository/state-no-fs-import",
+    );
+    expect(found.map(({ line, messageId }) => [line, messageId])).toEqual(
+      expected.map(([line, messageId]) => [line, messageId]),
+    );
   });
