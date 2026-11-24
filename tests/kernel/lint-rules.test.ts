@@ -1293,7 +1293,7 @@ const runtimeSpellings = [
   ["export const run = Bun.openInEditor;", program],
   [
     'export const run = process.getBuiltinModule("node:child_process");',
-    program,
+    output,
   ],
   ['export const out = () => Bun.write(Bun.stdout, "x");', domainOutput],
   ["const { stderr } = Bun; export const out = stderr;", domainOutput],

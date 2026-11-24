@@ -208,10 +208,23 @@ const runtimeGlobals = {
 };
 const globalHolders = new Set(["globalThis", "global", "self"]);
 const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
-const runtimeModules = [
-  [/^((node:)?child_process|bun)$/, "program"],
-  [/^(node:)?process$/, "output"],
-];
+const runtimeMembers = {
+  Bun: new Set(
+    "version revision main env argv which file write stdin sleep sleepSync nanoseconds hash CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth escapeHTML randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color TOML isMainThread".split(
+      " ",
+    ),
+  ),
+  process: new Set(
+    "env argv argv0 execArgv execPath exit exitCode pid ppid platform arch version versions release cwd uptime hrtime memoryUsage cpuUsage resourceUsage on once off addListener removeListener removeAllListeners listeners listenerCount nextTick kill getuid geteuid getgid getegid getgroups umask title stdin features isBun revision".split(
+      " ",
+    ),
+  ),
+  console: new Set(),
+  child_process: new Set(),
+};
+const runtimeModules = new Map(
+  Object.keys(runtimeMembers).map((owner) => [owner.toLowerCase(), owner]),
+);
 
 function staticKey(node, computed = true) {
   if (!computed) return node.name;
@@ -221,15 +234,14 @@ function staticKey(node, computed = true) {
   return undefined;
 }
 
-function moduleKind(node) {
-  const name = node && staticKey(node);
-  return runtimeModules.find(([pattern]) => pattern.test(name))?.[1];
-}
-
-function loadedKind(source) {
-  return /child_process$/.test(staticKey(source))
-    ? undefined
-    : moduleKind(source);
+function admitted(owner, key, route) {
+  if (runtimeMembers[owner].has(key)) return true;
+  if (route === "export") return false;
+  if (owner === "console") return route === "member";
+  return (
+    streams.has(key) ||
+    (route !== "import" && owner === "Bun" && bunStartMembers.has(key))
+  );
 }
 
 export default {
@@ -435,6 +447,8 @@ export default {
           streamOwners.has(owner?.name) && streams.has(key);
         return {
           ImportSpecifier(node) {
+            if (node.importKind === "type" || node.parent.importKind === "type")
+              return;
             const source = node.parent.source.value;
             if (
               ["node:process", "process", "bun"].includes(source) &&
@@ -466,18 +480,39 @@ export default {
         messages: { program: programStartMessage, output: outputMessage },
       },
       create(context) {
-        const report = (node, messageId) =>
-          messageId && context.report({ node, messageId });
-        const runtimeKey = (key) =>
-          Object.hasOwn(runtimeGlobals, key) ? runtimeGlobals[key] : undefined;
-        const loader = (member) => {
-          const call = member.parent;
-          const called =
-            call.type === "CallExpression" && call.callee === member;
-          const source = called ? call.arguments[0] : undefined;
-          if (source && staticKey(source) !== undefined)
-            report(call, moduleKind(source));
-          else report(member, "program");
+        const report = (node, owner) =>
+          context.report({
+            node,
+            messageId: (owner && runtimeGlobals[owner]) || "program",
+          });
+        const ownerOf = (source) => {
+          const name = source && staticKey(source);
+          return typeof name === "string"
+            ? runtimeModules.get(name.replace(/^node:/, ""))
+            : undefined;
+        };
+        const typeOnly = (node) =>
+          node.importKind === "type" || node.exportKind === "type";
+        const specifierAdmitted = (specifier, owner, route) => {
+          const name = specifier.imported ?? specifier.local;
+          return (
+            typeOnly(specifier) ||
+            (["ImportSpecifier", "ExportSpecifier"].includes(specifier.type) &&
+              admitted(owner, name.name ?? name.value, route))
+          );
+        };
+        const specifiersUse = (node, route) => {
+          const owner = ownerOf(node.source);
+          if (!owner || owner === "child_process" || typeOnly(node)) return;
+          if (!node.specifiers) report(node, owner);
+          for (const specifier of node.specifiers ?? [])
+            if (!specifierAdmitted(specifier, owner, route))
+              report(specifier, owner);
+        };
+        const load = (node, source) => {
+          const owner = ownerOf(source);
+          if (owner || !source || staticKey(source) === undefined)
+            report(node, owner);
         };
         const pattern = (parent, identifier) =>
           parent.init === identifier && parent.id.type === "ObjectPattern"
@@ -486,20 +521,25 @@ export default {
                 parent.left.type === "ObjectPattern"
               ? parent.left
               : undefined;
+        const refused = (name, key, route) =>
+          globalHolders.has(name)
+            ? Object.hasOwn(runtimeGlobals, key)
+            : !admitted(name, key, route);
         const memberUse = (member, name) => {
           const key = staticKey(member.property, member.computed);
-          if (key === undefined) report(member, runtimeGlobals[name]);
-          else if (globalHolders.has(name)) report(member, runtimeKey(key));
-          else if (name === "process" && key === "getBuiltinModule")
-            loader(member);
+          if (key === undefined || refused(name, key, "member"))
+            report(member, globalHolders.has(name) && key ? key : name);
         };
         const patternUse = (properties, name) => {
           for (const property of properties) {
             const key =
               property.key && staticKey(property.key, property.computed);
-            if (property.type === "RestElement" || key === undefined)
-              report(property, runtimeGlobals[name]);
-            else if (globalHolders.has(name)) report(property, runtimeKey(key));
+            if (
+              property.type === "RestElement" ||
+              key === undefined ||
+              refused(name, key, "pattern")
+            )
+              report(property, globalHolders.has(name) && key ? key : name);
           }
         };
         const typeUse = (parent) =>
@@ -514,26 +554,16 @@ export default {
           )
             memberUse(parent, name);
           else if (destructured) patternUse(destructured.properties, name);
-          else if (!typeUse(parent)) report(identifier, runtimeGlobals[name]);
+          else if (!typeUse(parent)) report(identifier, name);
         };
         return {
-          ImportDeclaration(node) {
-            if (node.importKind === "type") return;
-            const kind = loadedKind(node.source);
-            for (const specifier of node.specifiers)
-              if (specifier.type !== "ImportSpecifier") report(specifier, kind);
-              else if (
-                node.source.value === "bun" &&
-                specifier.importKind !== "type" &&
-                bunStartMembers.has(
-                  specifier.imported.name ?? specifier.imported.value,
-                )
-              )
-                report(specifier, "program");
-          },
-          ImportExpression(node) {
-            report(node, loadedKind(node.source));
-          },
+          ImportDeclaration: (node) => specifiersUse(node, "import"),
+          ExportNamedDeclaration: (node) =>
+            node.source && specifiersUse(node, "export"),
+          ExportAllDeclaration: (node) => specifiersUse(node, "export"),
+          ImportExpression: (node) => load(node, node.source),
+          "CallExpression[callee.name='require'], CallExpression[callee.object.type='MetaProperty'][callee.property.name='require']":
+            (node) => load(node, node.arguments[0]),
           "Program:exit"(program) {
             const scope = context.sourceCode.getScope(program);
             for (const name of Object.keys(runtimeGlobals)) {
