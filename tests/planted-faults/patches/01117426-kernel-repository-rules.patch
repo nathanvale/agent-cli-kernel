@@ -1,0 +1,116 @@
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
+index 32412a92..5cf93bba 100644
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
+@@ -1,12 +1,6 @@
+ import { posix } from "node:path";
+ import kernel from "../kernel/config/kernel/eslint-rules.mjs";
+-import {
+-  bare,
+-  memberOf,
+-  origin,
+-  propertyName,
+-  staticString,
+-} from "./origin-trace.mjs";
++import { bare, origin, propertyName, staticString } from "./origin-trace.mjs";
+ 
+ const commentDirective =
+   /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
+@@ -178,41 +172,6 @@ const isRequireCall = (node) =>
+     node.callee.object.type === "Identifier" &&
+     node.callee.object.name === "process" &&
+     propertyName(node.callee) === "getBuiltinModule");
+-const bunFileMembers = new Set([
+-  "file",
+-  "write",
+-  "mmap",
+-  "Glob",
+-  "Archive",
+-  "build",
+-  "FileSystemRouter",
+-  "SQL",
+-  "sql",
+-]);
+-const isBunObject = (traced) =>
+-  traced?.module === "bun" && traced.name === undefined;
+-const keyName = (context, property) =>
+-  property.type !== "Property"
+-    ? undefined
+-    : property.computed
+-      ? staticString(context, property.key)
+-      : (property.key.name ?? property.key.value);
+-const patternSource = (context, pattern) => {
+-  const { parent } = pattern;
+-  if (parent.type === "VariableDeclarator" && parent.id === pattern)
+-    return origin(context, parent.init);
+-  if (
+-    (parent.type === "AssignmentExpression" ||
+-      parent.type === "AssignmentPattern") &&
+-    parent.left === pattern
+-  )
+-    return origin(context, parent.right);
+-  if (parent.type === "Property" && parent.parent.type === "ObjectPattern") {
+-    const key = keyName(context, parent);
+-    const base = patternSource(context, parent.parent);
+-    return key === undefined || !base ? undefined : memberOf(base, key);
+-  }
+-};
+ 
+ export default {
+   rules: {
+@@ -225,39 +184,12 @@ export default {
+             "Files in kernel/src/addons/state outside store.ts and coordination.ts must not import filesystem module {{specifier}}. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.",
+           dynamicImport:
+             "Files in kernel/src/addons/state outside store.ts and coordination.ts must not use a non-static dynamic import that could load a filesystem module. Repair: use a static import of a non-filesystem module, or route filesystem access through store.ts or coordination.ts.",
+-          bunReach:
+-            "Files in kernel/src/addons/state outside store.ts and coordination.ts must not reach the filesystem through Bun.{{member}}. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.",
+-          dynamicBunReach:
+-            "Files in kernel/src/addons/state outside store.ts and coordination.ts must not read a Bun member by a non-static key or a rest pattern, because it could reach Bun.file or Bun.write. Repair: name the Bun member with a static key.",
+         },
+       },
+       create(context) {
+-        const checkBunMember = (node, name) => {
+-          if (name === undefined)
+-            context.report({ node, messageId: "dynamicBunReach" });
+-          else if (bunFileMembers.has(name))
+-            context.report({
+-              node,
+-              messageId: "bunReach",
+-              data: { member: name },
+-            });
+-        };
+         const checkSource = (node, source) => {
+           if (!source) return;
+           const value = staticString(context, source);
+-          if (
+-            value === "bun" &&
+-            (node.importKind ?? node.exportKind) !== "type"
+-          )
+-            for (const specifier of node.specifiers ?? []) {
+-              const named = specifier.imported ?? specifier.local;
+-              if (
+-                specifier.type !== "ImportDefaultSpecifier" &&
+-                specifier.type !== "ImportNamespaceSpecifier" &&
+-                (specifier.importKind ?? specifier.exportKind) !== "type"
+-              )
+-                checkBunMember(specifier, named.name ?? named.value);
+-            }
+           if (isFsSpecifier(value))
+             context.report({
+               node,
+@@ -275,15 +207,6 @@ export default {
+           ExportAllDeclaration(node) {
+             checkSource(node, node.source);
+           },
+-          MemberExpression(node) {
+-            if (isBunObject(origin(context, node.object)))
+-              checkBunMember(node, propertyName(node, context));
+-          },
+-          ObjectPattern(node) {
+-            if (isBunObject(patternSource(context, node)))
+-              for (const property of node.properties)
+-                checkBunMember(property, keyName(context, property));
+-          },
+           ImportExpression(node) {
+             const value = staticString(context, node.source);
+             if (value === undefined)

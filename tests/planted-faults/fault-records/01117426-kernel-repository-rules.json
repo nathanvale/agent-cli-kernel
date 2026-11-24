@@ -1,0 +1,7 @@
+{
+  "id": "01117426-kernel-repository-rules",
+  "patch": "tests/planted-faults/patches/01117426-kernel-repository-rules.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^state-no-fs-import",
+  "source": "01117426 fix(lint): refuse state add-on filesystem reach through the Bun global"
+}
