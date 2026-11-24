@@ -115,7 +115,13 @@ gates and their witnesses.
   (including `{ default: fs }`), `require()`, `import()`, static string /
   template-literal / `const`-identifier computed keys, and static `+` /
   interpolated template / `const` string targets.
-- Review only: `.mjs` and `.js` test files, target paths built at run time
+- Test placement (`scripts/check-names.ts` and
+  `tests/template/names-check/names-check-test-placement.test.ts`) refuses
+  every file Bun runs as a test outside `.test.ts` files in `repository.json`
+  `testAreas`, so `.mjs`, `.js`, `.jsx`, `.tsx`, `.cjs`, `.mts`, `.cts`,
+  `.spec.*`, `_test.*` and `_spec.*` test files are refused by pre-commit,
+  tool-call hooks, and the hosted `test` job.
+- Review only: target paths built at run time
   or passed through helper parameters (`path.join(...)`, `new URL("file:...")`),
   `.call`/`.apply`/`.bind` invocations, and shell `ln`/`cp` commands inside
   child processes.

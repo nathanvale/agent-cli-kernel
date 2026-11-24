@@ -1,0 +1,7 @@
+{
+  "id": "f2e7a07c-check-names",
+  "patch": "tests/planted-faults/patches/f2e7a07c-check-names.patch",
+  "testFile": "tests/template/names-check/names-check-test-placement.test.ts",
+  "title": "^in process: every file Bun runs as a test that is not a placed",
+  "source": "f2e7a07c fix(names-check): refuse any file Bun runs as a test unless it is a .test.ts in a test area"
+}
