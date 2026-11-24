@@ -75,6 +75,31 @@ gates and their witnesses.
   teardown release order, process-group `SIGKILL`, and calls reached through
   dynamic keys or helper wrappers passed as parameters.
 
+## Kernel source lint
+
+`kernelLint` runs these rules on the source folder of the kernel
+repository, of `skills/verify-cli/`, and of every repository that installs
+the kernel. They are plugin rules, so a host block that sets its own
+`no-restricted-syntax` options after `kernelLint` cannot replace them.
+
+- Lint `repository/typescript-source` refuses a `.js`, `.mjs`, `.cjs`,
+  `.jsx` or `.tsx` file in the source folder. Fault
+  `f822a0ca-typescript-source` turns it off.
+- Lint `repository/no-domain-output` refuses `process.stdout`,
+  `process.stderr`, `Bun.stdout` and `Bun.stderr` by name or by a fixed
+  key (string or template literal), destructured, or imported from
+  `node:process` or `"bun"`.
+- Lint `repository/no-process-reach` refuses `spawn`, `spawnSync` and `$`
+  imported from `"bun"`; a default, namespace or dynamic import of `"bun"`
+  or `node:process`; `process.getBuiltinModule` loading either module or
+  `node:child_process`; `Bun`, `process` and `console` read through
+  `globalThis`, `global` or `self`; a computed key that is not fixed; and
+  any other use of `Bun`, `process`, `console` or `globalThis` as a value.
+  `typeof` and type positions pass. Fault `f822a0ca-no-process-reach`
+  turns it off.
+- Review only: `require("bun")`, `require` in the kernel's own paths, and
+  `eval` or `new Function` text that names a runtime global.
+
 ## Timer lint
 
 - Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and

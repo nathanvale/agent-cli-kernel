@@ -224,10 +224,18 @@ Where your repository uses it, it checks every file in `src/`, including
 `src/kernel/` and `src/addons/`, and the test folders you name, and it
 ignores inline `eslint-disable` comments. In `src/` it refuses:
 
+- A file that is not TypeScript: `.js`, `.mjs`, `.cjs`, `.jsx` or `.tsx`.
+  Write source as `.ts`, `.mts` or `.cts`.
 - `console`, `process.stdout` and `process.stderr`. Return `data` and let
   the kernel write it.
 - `Bun.spawn`, `Bun.spawnSync`, `Bun.$` and `node:child_process`. Starting a
   program belongs to the programs add-on.
+- The same streams and program starts by another route: `Bun.stdout`;
+  `spawn`, `$` or `stdout` imported from `"bun"`; a default or namespace
+  import of `"bun"` or `node:process`; `globalThis.process`; `stdout`
+  destructured from `process`; or `Bun`, `process` or `console` passed on
+  as a value. Read their members directly, such as `Bun.file(path)` or
+  `process.env`. A type-only import from `"bun"` passes.
 - The `in` operator on a key the type does not declare, such as
   `"code" in error` in a `catch`. Read the value with `Object.hasOwn` and
   `Reflect.get`.
