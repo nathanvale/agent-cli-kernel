@@ -39,6 +39,7 @@ const plantedFindings = [
   { file: "src/app/alias.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
   { file: "src/app/child.ts", ruleId: "no-restricted-syntax" },
+  { file: "src/app/child.ts", ruleId: "repository/no-process-reach" },
   { file: "src/app/ffi.ts", ruleId: "no-restricted-imports" },
   { file: "src/app/in.ts", ruleId: "repository/no-in-operator" },
   { file: "src/app/kernel-deep.ts", ruleId: "no-restricted-imports" },
@@ -185,7 +186,11 @@ describe("kernelLint in a host layout", () => {
       const results = await new ESLint({
         cwd: tree,
         overrideConfigFile: "host.config.mjs",
-      }).lintFiles(["src/app/alias.ts", "src/app/script.mjs"]);
+      }).lintFiles([
+        "src/app/alias.ts",
+        "src/app/child.ts",
+        "src/app/script.mjs",
+      ]);
       expect(
         results.map((result) => [
           relative(tree, result.filePath),
@@ -193,6 +198,7 @@ describe("kernelLint in a host layout", () => {
         ]),
       ).toEqual([
         ["src/app/alias.ts", ["repository/no-process-reach"]],
+        ["src/app/child.ts", ["repository/no-process-reach"]],
         ["src/app/script.mjs", ["repository/typescript-source"]],
       ]);
     },

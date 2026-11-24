@@ -1252,11 +1252,16 @@ const installedSource = [
   "kernel/src/addons/menu/index.ts",
   "skills/verify-cli/helper/place.ts",
 ];
-const program = "repository/no-process-reach program";
-const output = "repository/no-process-reach output";
-const domainOutput = "repository/no-domain-output output";
-const restricted = "no-restricted-properties restrictedObjectProperty";
-const consoleCall = "no-console unexpected";
+const startMessage =
+  "Contract 3 source starts programs only through the programs add-on.";
+const streamMessage =
+  "Return domain data to the CLI output owner instead of accessing process streams.";
+const program = `repository/no-process-reach: ${startMessage}`;
+const output = `repository/no-process-reach: ${streamMessage}`;
+const domainOutput = `repository/no-domain-output: ${streamMessage}`;
+const restricted = (name: string) =>
+  `no-restricted-properties: '${name}' is restricted from being used.`;
+const consoleCall = "no-console: Unexpected console statement.";
 const runtimeSpellings = [
   ['import { spawnSync } from "bun"; export const run = spawnSync;', program],
   ['import { $ } from "bun"; export const run = $;', program],
@@ -1270,9 +1275,22 @@ const runtimeSpellings = [
   ["const runtime = Bun; export const run = runtime.spawnSync;", program],
   ["export const run = [Bun];", program],
   ['export const run = (key: "spawn") => Bun[key];', program],
-  ['export const run = Bun["spawn"];', restricted],
-  ["const { $ } = Bun; export const run = $;", restricted],
-  ["export const run = Bun.spawn;", restricted],
+  ['export const run = Bun["spawn"];', restricted("Bun.spawn")],
+  ["const { $ } = Bun; export const run = $;", restricted("Bun.$")],
+  ["export const run = Bun.spawn;", restricted("Bun.spawn")],
+  ['import { default as bun } from "bun"; export const run = bun;', program],
+  ['export { spawnSync } from "bun";', program],
+  ['export { $ } from "bun";', program],
+  ['export { default as bun } from "bun";', program],
+  ['export * from "bun";', program],
+  ['export const run = () => import("node:child_process");', program],
+  ['export const run = () => import("child_process");', program],
+  ["export const run = (name: string) => import(name);", program],
+  ['export const run = () => import("b" + "un");', program],
+  ['export const run = import.meta.require("bun");', program],
+  ['export const run = import.meta.require("node:child_process");', program],
+  ['export const run = require("bun");', program],
+  ["export const run = Bun.openInEditor;", program],
   [
     'export const run = process.getBuiltinModule("node:child_process");',
     program,
@@ -1304,6 +1322,32 @@ const runtimeSpellings = [
   ['export const out = () => process.stdout.write("x");', domainOutput],
   ["const printer = console; export const out = printer;", output],
   ['export const out = () => console.log("x");', consoleCall],
+  ["const { log } = console; export const out = log;", output],
+  ["let log: unknown; ({ log } = console); export { log };", output],
+  ["export const out = ({ log } = console) => log;", output],
+  [
+    'import { "default" as proc } from "node:process"; export const out = proc;',
+    output,
+  ],
+  [
+    'import { default as proc } from "process"; export const out = proc;',
+    output,
+  ],
+  [
+    'import { getBuiltinModule } from "node:process"; export const out = getBuiltinModule;',
+    output,
+  ],
+  [
+    "const { getBuiltinModule } = process; export const out = getBuiltinModule;",
+    output,
+  ],
+  ['import c from "node:console"; export const out = c;', output],
+  ['import { log } from "console"; export const out = log;', output],
+  ['export { stdout } from "node:process";', output],
+  ['export * as proc from "node:process";', output],
+  ['export const out = import.meta.require("node:process");', output],
+  ['export const out = () => process.emitWarning("x");', output],
+  ['export const out = () => process._rawDebug("x");', output],
 ] as const;
 const honestRuntime = [
   'import type { Subprocess } from "bun"; export type Child = Subprocess;',
@@ -1315,13 +1359,21 @@ const honestRuntime = [
   "export type Spawn = typeof Bun.spawn;",
   "export const kind = typeof process;",
   "export const later = globalThis.setTimeout;",
+  'import type { stdout } from "bun"; export type Out = typeof stdout;',
+  'import { type stdout } from "node:process"; export type Out = typeof stdout;',
+  "export const flag = () => process.env.X;",
+  "export const args = () => process.argv;",
+  'export const read = () => Bun.file("x");',
+  'import { file } from "bun"; export const read = file;',
+  'import { env } from "node:process"; export const read = env;',
+  'export const path = () => import("node:path");',
 ];
 
 async function runtimeHits(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath });
   return (result?.messages ?? [])
     .filter(({ ruleId }) => runtimeGates.has(String(ruleId)))
-    .map(({ ruleId, messageId }) => `${ruleId} ${messageId}`);
+    .map(({ ruleId, message }) => `${ruleId}: ${message}`);
 }
 
 for (const filePath of installedSource)
