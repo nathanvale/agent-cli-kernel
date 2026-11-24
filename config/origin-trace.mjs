@@ -33,7 +33,7 @@ const moduleObject = (context, source) => {
     ? undefined
     : { module: value.replace(/^node:/, "") };
 };
-const memberOf = (base, name) => {
+export const memberOf = (base, name) => {
   if (base?.module && base.name === undefined) {
     if (base.module === "global" && name === "Bun") return { module: "bun" };
     if (base.module === "fs" && name === "promises")
