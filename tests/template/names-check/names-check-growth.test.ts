@@ -10,7 +10,6 @@ import {
 } from "../../../scripts/glossary.ts";
 import { git, gitEnv, inherited } from "../../support/git-fixture.ts";
 import { processWatchdog, spawnBounded } from "../../support/process.ts";
-import { jobOf } from "../../support/workflows.ts";
 import {
   check,
   glossary,
@@ -19,20 +18,32 @@ import {
   put,
 } from "./names-check-fixture.ts";
 
-const { emptyRepository, namesRepository } = namesCheckFixture();
-
-const unusedTerm = {
-  term: "Fixture term",
-  reason: "Nothing uses it yet.",
-  ticket: "MAG-1",
-};
-
-function recordedRepository() {
-  const root = namesRepository([hostHit]);
-  putJson(root, recordedUnusedTermsFile, { terms: [unusedTerm] });
-  commitFiles(root, "terms", recordedUnusedTermsFile);
-  return root;
-}
+const {
+  addSuppression,
+  baseCoverageGap,
+  commitFiles,
+  configWith,
+  coverageGapsFile,
+  coverageRefusal,
+  emptyRepository,
+  eslintConfig,
+  expectPass,
+  fallowBaseline,
+  fallowBaselineFile,
+  fallowBinary,
+  fallowFlagsFrom,
+  fallowRepository,
+  fallowWorkflowSteps,
+  namesRepository,
+  putJson,
+  recordedFilesRepository,
+  recordedRepository,
+  ruleModule,
+  suppressionRefusal,
+  suppressionsFile,
+  templateRules,
+  unusedTerm,
+} = namesCheckFixture();
 
 function widen(root: string, extra: Record<string, unknown> = {}) {
   putJson(root, recordedHitsFile, {
@@ -176,89 +187,6 @@ test("--tool-call in this repository with no GLOSSARY.md exits 2, and in a repos
   ).toEqual({ stderr: "", code: 0 });
 });
 
-const fallowBinary = join(import.meta.dir, "../../../node_modules/.bin/fallow");
-const suppressionsFile = "eslint-suppressions.json";
-const coverageGapsFile =
-  "tests/template/standards/coverage-gaps-recorded-hits.json";
-const fallowBaselineFile = "fallow-health-recorded-hits.json";
-const eslintConfig = "eslint.config.mjs";
-const templateRules = "config/template-rules.mjs";
-const payloadRules = "config/payload-rules.mjs";
-
-const baseRules = '"repository/no-in-operator": "error", "no-console": "error"';
-const configWith = (extra: string = "") =>
-  `export default [{ rules: { ${baseRules}${extra ? `, ${extra}` : ""} } }];\n`;
-const ruleModule = (body: string = "") =>
-  `export default { rules: { ${body} } };\n`;
-const baseSuppressions = {
-  "src/a.ts": { "repository/no-in-operator": { count: 2 } },
-};
-const baseCoverageGap = { path: "scripts/existing.ts", reason: "fixture" };
-
-function putJson(root: string, file: string, value: unknown) {
-  put(root, file, JSON.stringify(value));
-}
-
-function commitFiles(root: string, message: string, ...files: string[]) {
-  git(root, "add", "--", ...files);
-  git(root, "commit", "--quiet", "-m", message);
-}
-
-function recordedFilesRepository() {
-  const root = recordedRepository();
-  put(root, eslintConfig, configWith());
-  put(root, templateRules, ruleModule());
-  put(root, payloadRules, ruleModule('"no-in-operator": {}'));
-  putJson(root, suppressionsFile, baseSuppressions);
-  putJson(root, coverageGapsFile, { hits: [baseCoverageGap] });
-  commitFiles(
-    root,
-    "recorded files",
-    eslintConfig,
-    templateRules,
-    payloadRules,
-    suppressionsFile,
-    coverageGapsFile,
-  );
-  return root;
-}
-
-function addSuppression(
-  root: string,
-  rule: string,
-  count: number = 1,
-  file: string = "src/a.ts",
-) {
-  putJson(root, suppressionsFile, {
-    ...baseSuppressions,
-    [file]: {
-      ...(file === "src/a.ts" ? baseSuppressions["src/a.ts"] : {}),
-      [rule]: { count },
-    },
-  });
-}
-
-function suppressionRefusal(
-  rule: string,
-  count: number = 1,
-  file: string = "src/a.ts",
-  afterTotal: number = count,
-  beforeTotal: number = 0,
-) {
-  return `${suppressionsFile} records ${count} ${count === 1 ? "hit" : "hits"} for ${file} ${rule}, more than HEAD records (0; rule total ${afterTotal} exceeds ${beforeTotal}). Repair: fix the lint violation and run bunx eslint . --prune-suppressions.\n`;
-}
-
-function coverageRefusal(target: string) {
-  return `${coverageGapsFile} adds a recorded coverage gap for ${target}, which HEAD does not record, so this change widens what the import-coverage check admits. Repair: import and call it from a test, then remove the entry; or, if it must stay, make a reviewed change that gives the entry an "approved" field naming the ticket or pull request that agreed it, with its reason.\n`;
-}
-
-async function expectPass(root: string) {
-  expect(await check(root, ["--against", "HEAD"])).toEqual({
-    stderr: "",
-    code: 0,
-  });
-}
-
 test.each([
   [
     "eslint-suppressions.json growing an existing rule",
@@ -322,12 +250,65 @@ test.each([
     suppressionRefusal("repository/ghost-rule"),
   ],
   [
+    "eslint-suppressions.json growing an existing zero-hit repository rule",
+    (r: string) => addSuppression(r, "repository/no-locale-compare"),
+    suppressionRefusal("repository/no-locale-compare"),
+  ],
+  [
+    "eslint-suppressions.json growing a rule from an unlisted plugin module",
+    (r: string) => {
+      put(r, "config/anti-slop-rules.mjs", ruleModule('"new-rule": {}'));
+      addSuppression(r, "anti-slop/new-rule");
+    },
+    suppressionRefusal("anti-slop/new-rule"),
+  ],
+  [
     "eslint-suppressions.json growing a repository rule when a base rule module cannot be decided",
     (r: string) => {
       put(r, "config/platform-rules.mjs", ruleModule("...unknownRules"));
       commitFiles(r, "undecidable base", "config/platform-rules.mjs");
       put(r, templateRules, ruleModule('"new-rule": {}'));
       put(r, eslintConfig, configWith('"repository/new-rule": "error"'));
+      addSuppression(r, "repository/new-rule");
+    },
+    suppressionRefusal("repository/new-rule"),
+  ],
+  [
+    "eslint-suppressions.json growing a repository rule when a base rule module has a computed outer property",
+    (r: string) => {
+      put(
+        r,
+        "config/platform-rules.mjs",
+        'const key = "rules";\nexport default { rules: {}, [key]: { "existing-rule": {} } };\n',
+      );
+      commitFiles(r, "computed outer base", "config/platform-rules.mjs");
+      put(r, "config/platform-rules.mjs", ruleModule('"existing-rule": {}'));
+      addSuppression(r, "repository/existing-rule");
+    },
+    suppressionRefusal("repository/existing-rule"),
+  ],
+  [
+    "eslint-suppressions.json growing a repository rule when a base rule module repeats rules",
+    (r: string) => {
+      put(
+        r,
+        "config/platform-rules.mjs",
+        'export default { rules: {}, rules: { "existing-rule": {} } };\n',
+      );
+      commitFiles(r, "duplicate rules base", "config/platform-rules.mjs");
+      put(r, "config/platform-rules.mjs", ruleModule('"existing-rule": {}'));
+      addSuppression(r, "repository/existing-rule");
+    },
+    suppressionRefusal("repository/existing-rule"),
+  ],
+  [
+    "eslint-suppressions.json growing a repository rule when a head rule module cannot be decided",
+    (r: string) => {
+      put(
+        r,
+        templateRules,
+        'const key = "rules";\nexport default { rules: { "new-rule": {} }, [key]: {} };\n',
+      );
       addSuppression(r, "repository/new-rule");
     },
     suppressionRefusal("repository/new-rule"),
@@ -364,7 +345,7 @@ test.each([
       code: 1,
     });
   },
-  processWatchdog(7),
+  processWatchdog(11),
 );
 
 test(
@@ -397,7 +378,7 @@ test(
     rmSync(join(root, coverageGapsFile));
     await expectPass(root);
   },
-  processWatchdog(12),
+  processWatchdog(18),
 );
 
 test(
@@ -409,7 +390,7 @@ test(
     addSuppression(root, "repository/new-rule", 2);
     await expectPass(root);
   },
-  processWatchdog(5),
+  processWatchdog(10),
 );
 
 test(
@@ -424,66 +405,33 @@ test(
       code: 2,
     });
   },
-  processWatchdog(5),
+  processWatchdog(6),
 );
 
-function fallowWorkflowSteps() {
-  const steps = jobOf("ci.yml", "check").steps.filter((step) =>
-    step.run?.includes("quality:fallow"),
-  );
-  return {
-    pullRequest: steps.find((step) => step.if?.includes("pull_request")),
-    push: steps.find((step) => step.if?.includes("push")),
-    all: steps,
-  };
-}
-
-function fallowFlagsFrom(run: string, base: string): string[] {
-  const after = run.split("quality:fallow")[1]?.trim() ?? "";
-  return after
-    .replace(/"origin\/\$\{\{ github\.base_ref \}\}"/, base)
-    .split(/\s+/)
-    .filter((token) => token !== "");
-}
-
-function fallowBaseline(
-  finding_counts: Record<string, unknown>,
-  identity_finding_counts: Record<string, unknown>,
-) {
-  return { kind: "health", finding_counts, identity_finding_counts };
-}
-
-function fallowRepository() {
-  const root = emptyRepository();
-  putJson(root, "package.json", { name: "fixture", type: "module" });
-  putJson(root, ".fallowrc.json", {
-    audit: { gate: "new-only", healthBaseline: fallowBaselineFile },
-    entry: ["src/index.ts"],
-  });
-  put(
-    root,
-    "src/index.ts",
-    "export function greet(name: string): string {\n  return `hello ${name}`;\n}\n",
-  );
-  putJson(
-    root,
-    fallowBaselineFile,
-    fallowBaseline(
-      { "src/index.ts": { crap_moderate: { count: 1 } } },
-      { "src/index.ts:greet": { crap_moderate: { count: 1 } } },
-    ),
-  );
-  commitFiles(
-    root,
-    "base",
-    "package.json",
-    ".fallowrc.json",
-    "src/index.ts",
-    fallowBaselineFile,
-  );
-  git(root, "checkout", "-q", "-b", "feature");
-  return root;
-}
+test.each([
+  ["a top-level array", [], `${suppressionsFile} must be a JSON object.\n`],
+  [
+    "a non-object rule entry",
+    { "src/a.ts": { "repository/no-in-operator": 1 } },
+    `${suppressionsFile}: src/a.ts repository/no-in-operator must be a JSON object.\n`,
+  ],
+  [
+    "a fractional count",
+    { "src/a.ts": { "repository/no-in-operator": { count: 1.5 } } },
+    `${suppressionsFile}: src/a.ts repository/no-in-operator needs a non-negative integer count.\n`,
+  ],
+])(
+  "--against exits 2 on a malformed eslint-suppressions.json with %s",
+  async (_case, value, expected) => {
+    const root = recordedFilesRepository();
+    putJson(root, suppressionsFile, value);
+    expect(await check(root, ["--against", "HEAD"])).toEqual({
+      stderr: expected,
+      code: 2,
+    });
+  },
+  processWatchdog(6),
+);
 
 test(
   "recorded-hit growth class check enforces --fail-on-baseline-growth on both hosted Fallow steps and refuses growth",
