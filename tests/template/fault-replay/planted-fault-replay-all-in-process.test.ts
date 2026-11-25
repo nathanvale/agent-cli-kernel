@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type Fault,
@@ -280,6 +280,111 @@ describe("replayAll", () => {
         `Repair: re-plant the fault so a test matching '^L\\.refuses ' fails, or update the record's title. Done when bun run fault-replay ${subject.id} passes.`,
       );
       expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
+      expect(run.leftovers).toEqual([]);
+    },
+    processWatchdog(12),
+  );
+
+  test(
+    "does not write any worktree or git object under the checkout's .git, even when dirty",
+    async () => {
+      const subject = planted();
+      recorded(subject.root, [subject.fault]);
+      write(subject.root, "untracked.txt", "dirty\n");
+      const objectsBefore = gitOutput(subject.root, "count-objects");
+      const gitEntriesBefore = readdirSync(join(subject.root, ".git")).sort();
+
+      const run = await replayedAll(subject.root);
+
+      expect(run.result).toBe(0);
+      expect(run.stdout).toContain(`KILLED ${subject.id} in `);
+      expect(worktrees(subject.root)).toEqual([subject.root]);
+      expect(gitOutput(subject.root, "count-objects")).toBe(objectsBefore);
+      expect(readdirSync(join(subject.root, ".git")).sort()).toEqual(
+        gitEntriesBefore,
+      );
+      expect(run.leftovers).toEqual([]);
+    },
+    processWatchdog(12),
+  );
+
+  test(
+    "gives KILLED to a fault whose test runs git on the replayed tree",
+    async () => {
+      const subject = planted({
+        tests: `import { expect, test } from "bun:test";
+import { limit } from "../src/limit.ts";
+
+test("L.refuses NaN with git", () => {
+  const status = Bun.spawnSync(["git", "rev-parse", "--is-inside-work-tree", "HEAD"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  expect(status.exitCode).toBe(0);
+  expect(status.stdout.toString().trim().startsWith("true\\n")).toBe(true);
+  expect(() => limit(Number.NaN)).toThrow("limit must be a number");
+});
+`,
+      });
+      recorded(subject.root, [subject.fault]);
+
+      const run = await replayedAll(subject.root);
+
+      expect(run.result).toBe(0);
+      expect(run.stdout).toContain(`KILLED ${subject.id} in `);
+      expect(run.leftovers).toEqual([]);
+    },
+    processWatchdog(12),
+  );
+
+  test(
+    "restores patched files between faults so a later fault does not see an earlier patch",
+    async () => {
+      const subject = planted();
+      commit(subject.root, "add second guard", {
+        "src/other.ts": `export function check(value: number): number {
+  if (value < 0) throw new RangeError("must be non-negative");
+  return value;
+}
+`,
+        "tests/other.test.ts": `import { expect, test } from "bun:test";
+import { limit } from "../src/limit.ts";
+import { check } from "../src/other.ts";
+
+test("O.refuses negative while limit still refuses NaN", () => {
+  expect(() => limit(Number.NaN)).toThrow("limit must be a number");
+  expect(() => check(-1)).toThrow("must be non-negative");
+});
+`,
+      });
+      const second: Fault = {
+        id: "zzz9999-other",
+        patch: "tests/planted-faults/patches/zzz9999-other.patch",
+        testFile: "tests/other.test.ts",
+        title: "^O\\.refuses ",
+        source: "zzz9999 fix: refuse negative",
+      };
+      write(
+        subject.root,
+        second.patch,
+        `diff --git a/src/other.ts b/src/other.ts
+--- a/src/other.ts
++++ b/src/other.ts
+@@ -1,4 +1,3 @@
+ export function check(value: number): number {
+-  if (value < 0) throw new RangeError("must be non-negative");
+   return value;
+ }
+`,
+      );
+      recorded(subject.root, [subject.fault, second]);
+
+      const run = await replayedAll(subject.root);
+
+      expect(run.result).toBe(0);
+      expect(run.stdout).toContain(`KILLED ${subject.id} in `);
+      expect(run.stdout).toContain(`KILLED ${second.id} in `);
+      expect(run.stdout).toContain("2 of 2 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
     },
     processWatchdog(12),

@@ -1,12 +1,12 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { constants, tmpdir } from "node:os";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { constants } from "node:os";
 import { basename, join } from "node:path";
+import {
+  type Copy,
+  copyCommit,
+  copyWorkingTree,
+  replayInCopy,
+} from "./planted-fault-copy.ts";
 import {
   hunksOf,
   patchText,
@@ -14,22 +14,14 @@ import {
   quoted,
   replantRepair,
   type Source,
-  sourceIn,
 } from "./planted-fault-patch.ts";
 import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
 import { faultsInShard } from "./planted-fault-shards.ts";
-import { snapshotWorkingTree } from "./planted-fault-snapshot.ts";
-import {
-  faultedVerdict,
-  unparsedFiles,
-  type Verdict,
-} from "./planted-fault-verdict.ts";
+import { type Verdict } from "./planted-fault-verdict.ts";
 import {
   runWithOwnTools,
-  startChild,
   withoutRepositoryLocation,
 } from "./process-runner.ts";
-import { readOptionalUtf8 } from "./read-file.ts";
 
 export type { Verdict };
 
@@ -141,10 +133,6 @@ export function readRecords(root: string): Fault[] {
   );
 }
 
-export function commitWorkingTreeInScratchIndex(root: string): string {
-  return snapshotWorkingTree(root, gitOrThrow);
-}
-
 export function stepLimitMilliseconds(
   env: Readonly<Record<string, string | undefined>>,
 ): number {
@@ -193,10 +181,6 @@ async function step(
   return { passed: exitCode === 0, output };
 }
 
-function testArgs(fault: Fault): string[] {
-  return ["test", `./${fault.testFile}`, "-t", fault.title];
-}
-
 function sourceAt(root: string, base: string): Source {
   return {
     read: (path) => {
@@ -218,20 +202,6 @@ function sourceAt(root: string, base: string): Source {
   };
 }
 
-async function removeWorktree(
-  root: string,
-  folder: string,
-  dir: string,
-  limitMilliseconds: number,
-): Promise<void> {
-  const worktree = (argv: readonly string[]) =>
-    startChild(["git", "worktree", ...argv], { cwd: root, limitMilliseconds })
-      .finished;
-  const removed = await worktree(["remove", "--force", dir]);
-  rmSync(folder, { recursive: true, force: true });
-  if (removed.timedOut || removed.exitCode !== 0) await worktree(["prune"]);
-}
-
 export async function replay(
   root: string,
   fault: Fault,
@@ -239,55 +209,17 @@ export async function replay(
   limitMilliseconds: number,
 ): Promise<Verdict> {
   const patch = patchText(root, fault);
-  const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
-  const dir = join(folder, "tree");
-  const gitInTree = (argv: readonly string[]) =>
-    step(fault.id, dir, ["git", ...argv], limitMilliseconds);
-  const bunInTree = (argv: readonly string[]) =>
-    step(fault.id, dir, [process.execPath, ...argv], limitMilliseconds);
+  let copy: Copy | undefined;
   try {
-    const added = await step(
-      fault.id,
-      root,
-      ["git", "worktree", "add", "--detach", "--quiet", dir, commit],
-      limitMilliseconds,
-    );
-    if (!added.passed) throw new Error(added.output.trim());
-    const listed = await gitInTree(["ls-files", "-z"]);
-    if (!listed.passed) throw new Error(listed.output.trim());
-    const tracked = new Set(listed.output.split("\0").filter((p) => p !== ""));
-    const placement = place(fault.patch, patch, sourceIn(dir, tracked));
-    if (placement.kind === "refused")
-      return { kind: "STALE", output: placement.cause };
-    const installed = await bunInTree(["install", "--frozen-lockfile"]);
-    if (!installed.passed)
-      throw new Error(
-        `bun install --frozen-lockfile failed while replaying ${fault.id}:\n${installed.output}`,
-      );
-    const clean = await bunInTree(testArgs(fault));
-    if (!clean.passed) return { kind: "BROKEN", output: clean.output };
-    const unparsed = unparsedFiles(placement.files);
-    if (unparsed !== undefined) return { kind: "UNPARSED", ...unparsed };
-    for (const [path, text] of placement.files)
-      writeFileSync(join(dir, path), text);
-    const reportPath = join(folder, "junit.xml");
-    const faulted = await bunInTree([
-      ...testArgs(fault),
-      "--reporter=junit",
-      `--reporter-outfile=${reportPath}`,
-    ]);
-    if (faulted.passed) return { kind: "SURVIVED" };
-    return faultedVerdict(
-      faulted.output,
-      readOptionalUtf8(reportPath),
-      fault.title,
-    );
+    copy = await copyCommit(root, commit, fault.id, limitMilliseconds, step);
+    return await replayInCopy(copy, fault, patch, limitMilliseconds, step);
   } catch (error) {
     if (error instanceof StepTimedOut)
       return { kind: "TIMEOUT", step: error.step };
     throw error;
   } finally {
-    await removeWorktree(root, folder, dir, limitMilliseconds);
+    if (copy !== undefined)
+      rmSync(copy.folder, { recursive: true, force: true });
   }
 }
 
@@ -399,6 +331,34 @@ export function faultsTouchedSince(root: string, base: string): string[] {
     .map(({ id }) => id);
 }
 
+function printSummary(killed: number, total: number, started: number): void {
+  const seconds = (performance.now() - started) / 1000;
+  print(
+    `${killed} of ${total} planted faults KILLED in ${seconds.toFixed(1)} s, ${(seconds / total).toFixed(1)} s per fault, with Bun ${Bun.version}.`,
+  );
+}
+
+async function replayOne(
+  root: string,
+  copy: Copy,
+  fault: Fault,
+  limitMilliseconds: number,
+): Promise<Verdict> {
+  try {
+    return await replayInCopy(
+      copy,
+      fault,
+      patchText(root, fault),
+      limitMilliseconds,
+      step,
+    );
+  } catch (error) {
+    if (error instanceof StepTimedOut)
+      return { kind: "TIMEOUT", step: error.step };
+    throw error;
+  }
+}
+
 export async function replayAll(
   root: string,
   ids: readonly string[],
@@ -414,32 +374,53 @@ export async function replayAll(
   }
   const chosen =
     ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
-  if (chosen.length === 0) {
+  const [first] = chosen;
+  if (first === undefined) {
     print(
       `${recordsPath} has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.`,
     );
     return 1;
   }
   const limitMilliseconds = stepLimitMilliseconds(env);
-  const commit = commitWorkingTreeInScratchIndex(root);
   const started = performance.now();
   let killed = 0;
-  for (const fault of chosen) {
-    const begun = performance.now();
-    const verdict = await replay(root, fault, commit, limitMilliseconds);
-    haltIfStopped(fault.id);
-    report(
-      fault,
-      verdict,
-      (performance.now() - begun) / 1000,
-      limitMilliseconds,
-    );
-    if (verdict.kind === "KILLED") killed += 1;
+  let copy: Copy | undefined;
+  try {
+    try {
+      copy = await copyWorkingTree(root, first.id, limitMilliseconds, step);
+    } catch (error) {
+      if (error instanceof StepTimedOut) {
+        const seconds = (performance.now() - started) / 1000;
+        for (const fault of chosen)
+          report(
+            fault,
+            { kind: "TIMEOUT", step: error.step },
+            seconds,
+            limitMilliseconds,
+          );
+        printSummary(0, chosen.length, started);
+        return 1;
+      }
+      throw error;
+    }
+    for (const fault of chosen) {
+      haltIfStopped(fault.id);
+      const begun = performance.now();
+      const verdict = await replayOne(root, copy, fault, limitMilliseconds);
+      haltIfStopped(fault.id);
+      report(
+        fault,
+        verdict,
+        (performance.now() - begun) / 1000,
+        limitMilliseconds,
+      );
+      if (verdict.kind === "KILLED") killed += 1;
+    }
+  } finally {
+    if (copy !== undefined)
+      rmSync(copy.folder, { recursive: true, force: true });
   }
-  const seconds = (performance.now() - started) / 1000;
-  print(
-    `${killed} of ${chosen.length} planted faults KILLED in ${seconds.toFixed(1)} s, ${(seconds / chosen.length).toFixed(1)} s per fault, with Bun ${Bun.version}.`,
-  );
+  printSummary(killed, chosen.length, started);
   return killed === chosen.length ? 0 : 1;
 }
 
