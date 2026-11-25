@@ -27,6 +27,9 @@ import type { CauseTable } from "agent-cli-kernel";
 - `contractFor().boundary` is the contract boundary. Its `authority`, `resource`
   and `path` constructors validate authority identities, resource identities
   and absolute paths.
+- `readRootedFile(root, path, limitBytes)` from `agent-cli-kernel/rooted-file`
+  reads a regular file inside a folder root when the path came from outside
+  (derived or user-given), refusing links, escapes and over-limit reads.
 - `runProcess(contract, setup)(argv)` is the entry. It parses, routes, runs
   the handler, writes the result and exits the process. `setup` is optional;
   it gives a run its add-ons.

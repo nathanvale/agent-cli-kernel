@@ -228,12 +228,13 @@ The optional diagnostics capability. `DiagnosticsAddon` is its public type;
 deprecated aliases of those types under accepted decision N11.
 
 **Rooted file**:
-A path a kernel tool derives under a folder root, opened through
-`kernel/src/shared/rooted-file.ts` after resolving the root's real path,
-walking every folder level with `lstat` to refuse linked folders, opening
-the last part with `O_NOFOLLOW`, requiring a regular file with link count 1,
-and rechecking `dev`/`ino` and parent realpath after open. Every refusal is
-a `RootedRefusal` whose message ends with a `Repair:` line.
+A path derived or given from outside under a folder root, read with
+`readRootedFile` from `agent-cli-kernel/rooted-file` (implemented in
+`kernel/src/shared/rooted-file.ts`). It reads regular files inside the
+resolved root up to a byte limit, and refuses paths outside the root,
+symbolic links, linked folders, hard links, non-regular files, over-limit
+files and post-open swaps, returning a `RootedRefusal` whose message ends
+with a `Repair:` line.
 _Avoid_: safe path, guard (unqualified), helper (for a rooted-file module)
 
 ### Verifying a CLI
