@@ -1,0 +1,10 @@
+--- a/kernel/src/kernel/validation/discovery.ts
++++ b/kernel/src/kernel/validation/discovery.ts
+@@ -14,7 +14,6 @@
+ import { sameJson } from "./json-equality.ts";
+ 
+ const unordered = new Set([
+-  "commands",
+   "options",
+   "stations",
+   "effectExclusions",
