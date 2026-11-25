@@ -1,3 +1,4 @@
+import { jest } from "bun:test";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
 import {
@@ -161,6 +162,7 @@ type HostRun = {
   readonly root: string;
   readonly phase?: (name: Phase) => Promise<void>;
   readonly argv?: readonly string[];
+  readonly onDeadline?: () => void;
   readonly handler: (
     ctx: HostContext,
   ) => Promise<TransactionResult<Effects> | undefined>;
@@ -187,6 +189,10 @@ async function runHost(options: HostRun) {
     run: async (_input, context) => {
       const boundary = holder.boundary;
       if (!boundary) throw new Error("Boundary expected.");
+      if (options.onDeadline)
+        context.signal.addEventListener("abort", options.onDeadline, {
+          once: true,
+        });
       const outcome = await options.handler({
         state,
         capability: context.state,
@@ -586,6 +592,7 @@ type Class2Scenario = {
   readonly mode: "deadline" | "early-return" | "early-throw";
   readonly stop: Stop;
   readonly unflagged?: true;
+  readonly lateStopControl?: true;
 };
 
 function stopName(stop: Stop): string {
@@ -682,16 +689,26 @@ type ClassifiedChange = {
   readonly site: string;
 };
 
+type ScenarioClock = {
+  startedAt: number;
+  deadlineFiredAt: number | undefined;
+};
+
 async function runScenarioHost(
   mode: Class2Scenario["mode"],
   name: string,
   reached: Promise<void>,
-  startedAt: { value: number },
+  clock: ScenarioClock,
   options: HostRun,
 ) {
   const start = () => {
-    startedAt.value = performance.now();
-    return runHost(options);
+    clock.startedAt = performance.now();
+    return runHost({
+      ...options,
+      onDeadline: () => {
+        clock.deadlineFiredAt ??= performance.now() - clock.startedAt;
+      },
+    });
   };
   return mode === "deadline" ? answerAtStop(start, reached, name) : start();
 }
@@ -743,9 +760,14 @@ async function runClass2(scenario: Class2Scenario) {
     workAfterAnswer: false,
     answered: false,
   };
-  const startedAt = { value: performance.now() };
+  const clock: ScenarioClock = {
+    startedAt: performance.now(),
+    deadlineFiredAt: undefined,
+  };
   const hit = async (): Promise<void> => {
-    flags.reachedAt ??= performance.now() - startedAt.value;
+    if (scenario.lateStopControl && flags.reachedAt === undefined)
+      jest.advanceTimersByTime(deadlineMilliseconds);
+    flags.reachedAt ??= performance.now() - clock.startedAt;
     reached.resolve();
     await gate.promise;
   };
@@ -791,7 +813,7 @@ async function runClass2(scenario: Class2Scenario) {
     scenario.mode,
     name,
     reached.promise,
-    startedAt,
+    clock,
     {
       root,
       argv:
@@ -1016,6 +1038,10 @@ async function runClass2(scenario: Class2Scenario) {
   return {
     name,
     answer: ran.kind === "envelope" ? ran.envelope.result.causeCode : ran.kind,
+    deadlineElapsedMs:
+      scenario.mode === "deadline" && flags.reachedAt !== undefined
+        ? (clock.deadlineFiredAt ?? -1)
+        : undefined,
     problems,
     notes,
     recovered,
@@ -1171,6 +1197,8 @@ export type DetectorSummary = {
 
 export type DetectorOutput = {
   readonly summary: DetectorSummary;
+  readonly deadlineAnswersMs: readonly number[];
+  readonly lateStopProblems: readonly string[];
   readonly report: string;
 };
 
@@ -1237,6 +1265,13 @@ async function main(): Promise<void> {
     for (const point of await discoverPhases(targets))
       if (!covered.has(point)) uncovered.push(point);
   const all2 = await runSequential(scenarios, runClass2);
+  const lateStopControl = await runClass2({
+    targets: 0,
+    approval: "none",
+    mode: "deadline",
+    stop: { kind: "phase", phase: "admission-wait", nth: 1 },
+    lateStopControl: true,
+  });
   const class2 = all2.filter((result) => !result.name.startsWith("UNFLAGGED"));
   const info2 = all2.filter((result) => result.name.startsWith("UNFLAGGED"));
 
@@ -1352,7 +1387,16 @@ async function main(): Promise<void> {
   const report = lines.join("\n");
   if (process.env.DETECTOR_OUT)
     fs.writeFileSync(process.env.DETECTOR_OUT, `${report}\n`);
-  const output: DetectorOutput = { summary, report };
+  const deadlineAnswersMs: number[] = [];
+  for (const result of all2)
+    if (result.deadlineElapsedMs !== undefined)
+      deadlineAnswersMs.push(result.deadlineElapsedMs);
+  const output: DetectorOutput = {
+    summary,
+    deadlineAnswersMs,
+    lateStopProblems: lateStopControl.problems,
+    report,
+  };
   process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
