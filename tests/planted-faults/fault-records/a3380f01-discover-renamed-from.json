@@ -1,0 +1,7 @@
+{
+  "id": "a3380f01-discover-renamed-from",
+  "patch": "tests/planted-faults/patches/a3380f01-discover-renamed-from.patch",
+  "testFile": "tests/kernel/renamed-from.test.ts",
+  "title": "^renamedFrom route aliases \\-\\-discover\\-command shows renamedFrom and \\-\\-discover lists the command once$",
+  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
+}

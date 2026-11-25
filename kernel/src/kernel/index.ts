@@ -22,7 +22,12 @@ import {
 import type { StateAddonDescriptor } from "./state-seam.ts";
 import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
-import { invocationTokens, refused, resolveInvocation } from "./routing.ts";
+import {
+  invocationRoute,
+  invocationTokens,
+  refused,
+  resolveInvocation,
+} from "./routing.ts";
 import { recordRuntime } from "./runtime.ts";
 import type { Attach, Enter, KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
@@ -537,13 +542,18 @@ export function contractFor<
           resolved.value.machine,
           selected.commandIdentity,
         );
-      const route = selected?.route ?? [];
-      const tokens = invocationTokens(
-        raw.map((token) => (typeof token === "string" ? token : "")),
+      const argvStrings = raw.map((token) =>
+        typeof token === "string" ? token : "",
       );
+      const matched = invocationRoute(spec.cli, commands, argvStrings);
+      const tokens = invocationTokens(argvStrings);
       return {
         ok: true,
-        value: { ...resolved.value, args: tokens.slice(route.length) },
+        value: {
+          ...resolved.value,
+          args: tokens.slice(matched.routeLength),
+          ...(matched.renamedHelp ? { renamedHelp: true } : {}),
+        },
       };
     },
     navigation: {

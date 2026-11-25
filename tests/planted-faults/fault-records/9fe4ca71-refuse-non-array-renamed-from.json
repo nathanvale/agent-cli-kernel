@@ -1,0 +1,7 @@
+{
+  "id": "9fe4ca71-refuse-non-array-renamed-from",
+  "patch": "tests/planted-faults/patches/9fe4ca71-refuse-non-array-renamed-from.patch",
+  "testFile": "tests/kernel/renamed-from.test.ts",
+  "title": "^renamedFrom route aliases refuses a non-array renamedFrom declaration$",
+  "source": "9fe4ca71 fix(kernel): allow renamedFrom prefix overlap and keep the compiler-lock diagnostics"
+}

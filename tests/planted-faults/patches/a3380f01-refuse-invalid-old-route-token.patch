@@ -1,0 +1,11 @@
+diff --git a/kernel/src/kernel/declarations.ts b/kernel/src/kernel/declarations.ts
+--- a/kernel/src/kernel/declarations.ts
++++ b/kernel/src/kernel/declarations.ts
+@@ -220,7 +220,6 @@ export function validateRenamedFrom(
+       throw new Error(
+         "Renamed route cannot be empty. Repair: list a non-empty old route in renamedFrom, or omit renamedFrom.",
+       );
+-    validateOldRouteTokens(oldRoute);
+     const key = JSON.stringify(oldRoute);
+     if (key === ownKey)
+       throw new Error(

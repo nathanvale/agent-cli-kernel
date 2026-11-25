@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/human.ts b/kernel/src/kernel/human.ts
+--- a/kernel/src/kernel/human.ts
++++ b/kernel/src/kernel/human.ts
+@@ -95,7 +95,7 @@ function commandDiscovery(data: unknown, renamedHelp = false): string[] {
+   return [
+     `${texts(command, "commandIdentity")} (${texts(command, "effectClass")})`,
+     texts(command, "summary"),
+-    ...(renamedHelp ? [`Renamed to \`${currentRoute}\`.`] : []),
++    ...(renamedHelp ? [] : []),
+     `Route: ${currentRoute}`,
+     ...(slotArguments.length > 0
+       ? ["Arguments:", ...slotArguments.map(slot)]
