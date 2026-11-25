@@ -1,9 +1,12 @@
 {
   "schemaVersion": 2,
   "base": {
-    "roots": ["src/kernel", "config/kernel"],
+    "roots": ["src/kernel", "src/shared", "config/kernel"],
     "packages": {},
-    "deadCodeEntries": ["src/kernel/index.ts"]
+    "deadCodeEntries": [
+      "src/kernel/index.ts",
+      "src/shared/rooted-file-entry.ts"
+    ]
   },
   "addons": {
     "approval": {
