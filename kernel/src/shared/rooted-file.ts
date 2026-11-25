@@ -8,7 +8,7 @@ import {
   realpathSync,
 } from "node:fs";
 import type { Stats } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export type RootedRefusal = {
   readonly kind: "refused";
@@ -130,6 +130,29 @@ function relativeInside(
       `${path} is the root folder, not a regular file. Repair: pass a file path inside ${realRoot}.`,
     );
   return rel;
+}
+
+function checkParentSteps(
+  realRoot: string,
+  path: string,
+): { readonly kind: "ok" } | { readonly kind: "missing" } | RootedRefusal {
+  const given = isAbsolute(path) ? path : `${realRoot}${sep}${path}`;
+  const segments = given.split(sep);
+  for (const [index, segment] of segments.entries()) {
+    if (segment !== "..") continue;
+    const before = segments.slice(0, index).join(sep) || sep;
+    const physical = realpathOptional(before);
+    const lexical = realpathOptional(resolve(before, ".."));
+    if (physical === undefined || lexical === undefined)
+      return { kind: "missing" };
+    if (dirname(physical) !== lexical)
+      return refusal(
+        path,
+        "linked-folder",
+        `${path} steps to ".." from linked folder ${before}, which leaves the written path. Repair: pass the path without "..", or replace the symbolic link with a real folder inside ${realRoot}.`,
+      );
+  }
+  return { kind: "ok" };
 }
 
 function walkAncestors(
@@ -300,6 +323,8 @@ export function readRootedFile(
   const { resolvedRoot, realRoot } = resolved;
   const rel = relativeInside(resolvedRoot, realRoot, path);
   if (typeof rel !== "string") return rel;
+  const stepped = checkParentSteps(realRoot, path);
+  if (stepped.kind !== "ok") return stepped;
   const segments = rel.split(sep);
   const parentSegments = segments.slice(0, -1);
   const walked = walkAncestors(realRoot, parentSegments, path);
