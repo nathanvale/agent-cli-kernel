@@ -211,6 +211,7 @@ const runtimeGlobals = {
 };
 const globalHolders = new Set(["globalThis", "global", "self"]);
 const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
+const bunProgramStarts = new Set([...bunStartMembers, "openInEditor"]);
 const chainableProcess = new Set(
   "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
     " ",
@@ -258,7 +259,7 @@ function specifierKey(specifier) {
 function isUnlistedRuntimeMember(owner, key) {
   if (!streamOwners.has(owner) || typeof key !== "string") return false;
   if (key === "default" || streams.has(key)) return false;
-  if (owner === "Bun" && bunStartMembers.has(key)) return false;
+  if (owner === "Bun" && bunProgramStarts.has(key)) return false;
   return !(owner === "process" && chainableProcess.has(key));
 }
 

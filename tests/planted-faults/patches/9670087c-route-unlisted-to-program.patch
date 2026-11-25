@@ -7,7 +7,7 @@ diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint
  function isUnlistedRuntimeMember(owner, key) {
 -  if (!streamOwners.has(owner) || typeof key !== "string") return false;
 -  if (key === "default" || streams.has(key)) return false;
--  if (owner === "Bun" && bunStartMembers.has(key)) return false;
+-  if (owner === "Bun" && bunProgramStarts.has(key)) return false;
 -  return !(owner === "process" && chainableProcess.has(key));
 +  return false;
  }
