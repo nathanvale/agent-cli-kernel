@@ -23,17 +23,32 @@ import {
   text,
 } from "./primitives.ts";
 
+function validCarriesData(value: Record<string, unknown>): boolean {
+  if (!Object.hasOwn(value, "carriesData")) return true;
+  return (
+    value.carriesData === true &&
+    value.outcome === "refused" &&
+    value.transactionState === "unchanged" &&
+    value.failureClass === "domain"
+  );
+}
+
 export function causeRow(value: unknown): value is CauseRow {
   if (
     !record(value) ||
-    !keys(value, [
-      "outcome",
-      "transactionState",
-      "failureClass",
-      "exitCode",
-      "retryable",
-      "guidance",
-    ])
+    !keys(
+      value,
+      [
+        "outcome",
+        "transactionState",
+        "failureClass",
+        "exitCode",
+        "retryable",
+        "guidance",
+      ],
+      ["carriesData"],
+    ) ||
+    !validCarriesData(value)
   )
     return false;
   if (value.outcome === "success") return successRow(value);
@@ -225,6 +240,15 @@ function optionalResult(value: Record<string, unknown>): boolean {
   if ("handoff" in value && !handoff(value.handoff)) return false;
   return "next" in value !== "handoff" in value;
 }
+function wireResultAllowsData(value: Record<string, unknown>): boolean {
+  return (
+    value.outcome === "success" ||
+    (value.outcome === "refused" &&
+      value.transactionState === "unchanged" &&
+      value.failureClass === "domain" &&
+      value.exitCode === exits.domain)
+  );
+}
 function scalarResult(value: Record<string, unknown>): boolean {
   if (
     !text(value.runId) ||
@@ -242,7 +266,8 @@ function scalarResult(value: Record<string, unknown>): boolean {
   if (
     value.outcome === "success"
       ? value.repairAction !== null
-      : !text(value.repairAction) || value.data !== null
+      : !text(value.repairAction) ||
+        (!wireResultAllowsData(value) && value.data !== null)
   )
     return false;
   return causeRow({
@@ -323,6 +348,11 @@ export function typedResult<C extends CauseTable>(
     value.failureClass === row.failureClass &&
     value.exitCode === row.exitCode &&
     value.retryable === row.retryable &&
+    (row.outcome === "success" ||
+      (row.outcome === "refused" &&
+        row.failureClass === "domain" &&
+        row.carriesData === true) ||
+      value.data === null) &&
     (row.guidance === "next"
       ? value.next !== undefined
       : value.handoff !== undefined)

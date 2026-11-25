@@ -28,18 +28,27 @@ export type AddonName =
   | "approval"
   | "diagnostics"
   | "menu";
+function sameCauseRow(
+  actual: Record<string, unknown>,
+  expected: Record<string, unknown>,
+): boolean {
+  return (
+    Object.keys(actual).length === Object.keys(expected).length &&
+    Object.entries(expected).every(
+      ([key, value]) => Reflect.get(actual, key) === value,
+    )
+  );
+}
 export function validateCauses(causes: CauseTable): void {
   for (const [code, row] of Object.entries(causes)) {
-    if (!text(code) || !causeRow(row)) throw new Error("Invalid cause row.");
+    if (!text(code) || !causeRow(row))
+      throw new Error(
+        "Invalid cause row. Repair: declare outcome, transactionState, failureClass, exitCode, retryable and guidance matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.",
+      );
   }
   for (const [code, expected] of Object.entries(commonCauses)) {
     const actual = causes[code];
-    if (
-      !actual ||
-      Object.entries(expected).some(
-        ([key, value]) => Reflect.get(actual, key) !== value,
-      )
-    )
+    if (!actual || !sameCauseRow(actual, expected))
       throw new Error("Common cause rows cannot be replaced.");
   }
 }
@@ -66,11 +75,7 @@ function validateStationSet(
       throw new Error(
         "Station identity is undeclared, duplicated or bound to another command.",
       );
-    if (
-      Object.entries(row).some(
-        ([key, value]) => Reflect.get(station.row, key) !== value,
-      )
-    )
+    if (!sameCauseRow(station.row, row))
       throw new Error("Station disagrees with the CLI cause owner.");
     if (
       command.effectClass === "inspect" &&
@@ -299,7 +304,9 @@ export type FactsForRow<
   readonly message: string;
   readonly data: R["outcome"] extends "success"
     ? import("./types.ts").JsonValue
-    : null;
+    : R extends { readonly carriesData: true }
+      ? import("./types.ts").JsonValue
+      : null;
   readonly bindings?: Readonly<Record<string, string>>;
   readonly idempotencyKey?: string;
 } & (R extends { readonly retryable: true }
