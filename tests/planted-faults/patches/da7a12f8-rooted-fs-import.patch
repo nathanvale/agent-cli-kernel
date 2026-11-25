@@ -1,5 +1,5 @@
 diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
-index 955274c7..066f9a26 100644
+index 955274c7..dcd4ab72 100644
 --- a/config/rooted-file-rules.mjs
 +++ b/config/rooted-file-rules.mjs
 @@ -163,7 +163,7 @@ function createSourceChecker(context, policy, report, judgeLoad) {
@@ -7,7 +7,7 @@ index 955274c7..066f9a26 100644
    const checkFsSpecifier = (value) => (specifier, name) => {
      if (name === undefined)
 -      return report(specifier, "fsImport", {
-+      return void {
++      return void ({
          specifier: JSON.stringify(value),
        });
      if (!allowFsMembers.has(name))
