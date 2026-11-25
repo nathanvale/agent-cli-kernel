@@ -1,0 +1,7 @@
+{
+  "id": "028b9fda-state-no-fs-import-main-module",
+  "patch": "tests/planted-faults/patches/028b9fda-state-no-fs-import-main-module.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^state-no-fs-import loader refuses .*process\\.mainModule",
+  "source": "028b9fda fix(lint): refuse process.mainModule in state-no-fs-import"
+}
