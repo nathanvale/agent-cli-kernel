@@ -1,0 +1,7 @@
+{
+  "id": "ad945959-carries-data-type-failed-unchanged",
+  "patch": "tests/planted-faults/patches/ad945959-carries-data-type-failed-unchanged.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^type checks reject non-null data on a plain refusal and illegal carriesData rows while accepting carriesData domain refusals$",
+  "source": "ad945959 fix(kernel): forbid carriesData on non-opt-in CauseRow arms and add strict-station Repair text"
+}

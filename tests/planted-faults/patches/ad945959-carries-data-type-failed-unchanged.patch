@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/types.ts b/kernel/src/kernel/types.ts
+index b2e33eb8..60a8f6c9 100644
+--- a/kernel/src/kernel/types.ts
++++ b/kernel/src/kernel/types.ts
+@@ -79,7 +79,6 @@ export type CauseRow =
+       readonly transactionState: "unchanged";
+       readonly retryable: false;
+       readonly guidance: "next" | "handoff";
+-      readonly carriesData?: never;
+     } & AttemptExit)
+   | ({
+       readonly outcome: "failed";

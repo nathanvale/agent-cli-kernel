@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/types.ts b/kernel/src/kernel/types.ts
+index b2e33eb8..b0475f19 100644
+--- a/kernel/src/kernel/types.ts
++++ b/kernel/src/kernel/types.ts
+@@ -98,7 +98,6 @@ export type CauseRow =
+       readonly exitCode: 75;
+       readonly retryable: true;
+       readonly guidance: "next";
+-      readonly carriesData?: never;
+     };
+ export type CauseTable = Readonly<Record<string, CauseRow>>;
+ export type CommandStep<Identity extends string = string> = {
