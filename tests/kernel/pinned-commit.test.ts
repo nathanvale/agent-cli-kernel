@@ -290,6 +290,32 @@ export function inspectRooted(
 }
 `;
 
+const xdgBaseCheck = `import {
+  xdgBaseFolder,
+  type XdgBaseOptions,
+  type XdgKind,
+} from "agent-cli-kernel/xdg-base";
+
+const kind: XdgKind = "state";
+const noFallback: XdgBaseOptions = { homeFallback: false };
+console.log(
+  JSON.stringify({
+    configured: xdgBaseFolder(
+      { XDG_STATE_HOME: "/var/opt//app/./state", HOME: "/home/alice" },
+      kind,
+    ),
+    fallback: xdgBaseFolder({ HOME: "/home/alice" }, "config"),
+    ignoredRelative: xdgBaseFolder(
+      { XDG_CACHE_HOME: "rel/cache", HOME: "/home/alice" },
+      "cache",
+    ),
+    runtimeUnset: xdgBaseFolder({ HOME: "/home/alice" }, "runtime") ?? null,
+    fallbackDisabled:
+      xdgBaseFolder({ HOME: "/home/alice" }, "data", noFallback) ?? null,
+  }),
+);
+`;
+
 const consumerLintConfig = `import { kernelLint } from "agent-cli-kernel/lint";
 
 export default kernelLint({
@@ -408,6 +434,7 @@ beforeAll(async () => {
     join(world.consumer, "src/rooted-file-types.ts"),
     rootedFileTypes,
   );
+  writeFileSync(join(world.consumer, "src/xdg-base-check.ts"), xdgBaseCheck);
   writeFileSync(
     join(world.consumer, "tsconfig.rooted-file.json"),
     `${JSON.stringify({
@@ -459,7 +486,7 @@ afterAll(() => {
   if (world.base !== "") rmSync(world.base, { recursive: true, force: true });
 });
 
-test("the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, rooted-file, lint, lint rules, the declaration and itself", () => {
+test("the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, rooted-file, xdg-base, lint, lint rules, the declaration and itself", () => {
   expect(manifest.name).toBe("agent-cli-kernel");
   expect(manifest.type).toBe("module");
   expect(Object.hasOwn(manifest, "version")).toBe(false);
@@ -472,6 +499,7 @@ test("the kernel repository's manifest names agent-cli-kernel, is a module with 
     "./addons/programs",
     "./addons/state",
     "./rooted-file",
+    "./xdg-base",
     "./lint",
     "./lint-rules",
     "./kernel-declaration.json",
@@ -553,6 +581,26 @@ test(
     });
   },
   runBound + buildBound + 30_000,
+);
+
+test(
+  "a repository that installs the kernel imports xdgBaseFolder from agent-cli-kernel/xdg-base and resolves base folders",
+  async () => {
+    const ran = await run(
+      [process.execPath, "src/xdg-base-check.ts"],
+      world.consumer,
+    );
+    expect(ran.stderr).toBe("");
+    expect(ran.exit).toBe(0);
+    expect(record(JSON.parse(ran.stdout))).toEqual({
+      configured: "/var/opt/app/state",
+      fallback: "/home/alice/.config",
+      ignoredRelative: "/home/alice/.cache",
+      runtimeUnset: null,
+      fallbackDisabled: null,
+    });
+  },
+  testBound,
 );
 
 test(

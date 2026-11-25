@@ -242,6 +242,11 @@ What `readRootedFile` returns: `{ kind: "read", bytes, facts }` for a file it
 read, `{ kind: "missing" }` when the path does not exist, or a
 `RootedRefusal`. Exported from `agent-cli-kernel/rooted-file`.
 
+**XDG base folder**:
+A user-scoped base folder for config, data, state, cache or runtime files,
+resolved with `xdgBaseFolder` from `agent-cli-kernel/xdg-base` (implemented in
+`kernel/src/shared/xdg-base.ts`).
+
 ### Verifying a CLI
 
 **verify-cli**:

@@ -7,6 +7,7 @@
     "kernel/src/addons/programs/index.ts",
     "kernel/src/addons/state/index.ts",
     "kernel/src/shared/rooted-file-entry.ts",
+    "kernel/src/shared/xdg-base.ts",
     "kernel/config/kernel/eslint.mjs",
     "kernel/config/kernel/eslint-rules.mjs"
   ],
