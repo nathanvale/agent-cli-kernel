@@ -33,6 +33,7 @@ import type { Validation } from "./types.ts";
 export type CommandSummary<Identity extends string = string> = {
   readonly commandIdentity: Identity;
   readonly route: readonly string[];
+  readonly renamedFrom?: readonly (readonly string[])[];
   readonly summary: string;
   readonly effectClass: "inspect" | "repository-local" | "external";
 };
@@ -187,6 +188,51 @@ export function validateRouteTokens(route: readonly string[]): void {
         `Route token ${JSON.stringify(token)} is empty or option-like and can never be matched.`,
       );
 }
+function validateOldRouteTokens(oldRoute: readonly string[]): void {
+  try {
+    validateRouteTokens(oldRoute);
+  } catch (error) {
+    const detail =
+      error instanceof Error ? error.message : "Invalid route token.";
+    throw new Error(
+      `${detail} Repair: use non-empty words that do not start with "-" in renamedFrom.`,
+      { cause: error },
+    );
+  }
+}
+export function validateRenamedFrom(
+  route: readonly string[],
+  renamedFrom: readonly (readonly string[])[] | undefined,
+): void {
+  if (renamedFrom === undefined) return;
+  if (!Array.isArray(renamedFrom))
+    throw new Error(
+      "Invalid renamedFrom declaration. Repair: pass an array of non-empty string route arrays in renamedFrom.",
+    );
+  const ownKey = JSON.stringify(route);
+  const seen = new Set<string>();
+  for (const oldRoute of renamedFrom) {
+    if (!Array.isArray(oldRoute))
+      throw new Error(
+        "Invalid renamedFrom declaration. Repair: pass an array of non-empty string route arrays in renamedFrom.",
+      );
+    if (oldRoute.length === 0)
+      throw new Error(
+        "Renamed route cannot be empty. Repair: list a non-empty old route in renamedFrom, or omit renamedFrom.",
+      );
+    validateOldRouteTokens(oldRoute);
+    const key = JSON.stringify(oldRoute);
+    if (key === ownKey)
+      throw new Error(
+        "Renamed route duplicates its own command route. Repair: remove the current route from renamedFrom.",
+      );
+    if (seen.has(key))
+      throw new Error(
+        "Duplicate renamedFrom route. Repair: list each old route at most once in renamedFrom.",
+      );
+    seen.add(key);
+  }
+}
 export function validateRootOperation(
   route: readonly string[],
   input: InputSchema,
@@ -207,6 +253,7 @@ export type ApprovalFor<
 function admitSpecification(spec: {
   readonly identity: string;
   readonly route: readonly string[];
+  readonly renamedFrom?: readonly (readonly string[])[];
   readonly input: InputSchema;
 }): void {
   freeze(spec);
@@ -214,6 +261,7 @@ function admitSpecification(spec: {
   validateCommandIdentity(spec.identity);
   validateRootOperation(spec.route, spec.input);
   validateRouteTokens(spec.route);
+  validateRenamedFrom(spec.route, spec.renamedFrom);
 }
 function contextSnapshot(value: unknown): Record<string, unknown> | undefined {
   if (!record(value)) return undefined;
@@ -344,6 +392,7 @@ export function command<
   spec: {
     readonly identity: Identity;
     readonly route: readonly string[];
+    readonly renamedFrom?: readonly (readonly string[])[];
     readonly summary: string;
     readonly input: I;
     readonly futureBindings?: Readonly<
@@ -407,6 +456,9 @@ export function command<
   const declaration = freeze({
     commandIdentity: spec.identity,
     route: [...spec.route],
+    ...(spec.renamedFrom !== undefined && spec.renamedFrom.length > 0
+      ? { renamedFrom: spec.renamedFrom.map((route) => [...route]) }
+      : {}),
     summary: spec.summary,
     effectClass: "inspect" as const,
     input,
@@ -434,6 +486,7 @@ export function changing<
   spec: {
     readonly identity: Identity;
     readonly route: readonly string[];
+    readonly renamedFrom?: readonly (readonly string[])[];
     readonly summary: string;
     readonly input: I;
     readonly futureBindings?: Readonly<
@@ -502,6 +555,9 @@ export function changing<
   const declaration = freeze({
     commandIdentity: spec.identity,
     route: [...spec.route],
+    ...(spec.renamedFrom !== undefined && spec.renamedFrom.length > 0
+      ? { renamedFrom: spec.renamedFrom.map((route) => [...route]) }
+      : {}),
     summary: spec.summary,
     effectClass: spec.effectClass,
     effects: [...spec.effects],

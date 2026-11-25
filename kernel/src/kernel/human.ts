@@ -86,15 +86,17 @@ function slot(item: unknown): string {
   return `  ${texts(item, "name")}${aliases.join("")}${words ? ` <${words}>` : ""}  ${presence}${repeatable}  ${texts(item, "summary")}`;
 }
 
-function commandDiscovery(data: unknown): string[] {
+function commandDiscovery(data: unknown, renamedHelp = false): string[] {
   const command = record(data) ? data.command : undefined;
   const input = record(data) ? data.input : undefined;
   const slotArguments = list(input, "arguments");
   const options = list(input, "options");
+  const currentRoute = route(command);
   return [
     `${texts(command, "commandIdentity")} (${texts(command, "effectClass")})`,
     texts(command, "summary"),
-    `Route: ${route(command)}`,
+    ...(renamedHelp ? [`Renamed to \`${currentRoute}\`.`] : []),
+    `Route: ${currentRoute}`,
     ...(slotArguments.length > 0
       ? ["Arguments:", ...slotArguments.map(slot)]
       : []),
@@ -145,11 +147,19 @@ function diagnosticsLine(
 export function renderHuman(
   cli: string,
   envelope: Envelope,
+  options?: { readonly renamedHelp?: boolean },
 ): readonly HumanWrite[] {
-  return [resultText(cli, envelope), ...diagnosticsLine(envelope.diagnostics)];
+  return [
+    resultText(cli, envelope, options?.renamedHelp === true),
+    ...diagnosticsLine(envelope.diagnostics),
+  ];
 }
 
-function resultText(cli: string, envelope: Envelope): HumanWrite {
+function resultText(
+  cli: string,
+  envelope: Envelope,
+  renamedHelp: boolean,
+): HumanWrite {
   const result = envelope.result;
   if (result.outcome !== "success")
     return {
@@ -162,7 +172,7 @@ function resultText(cli: string, envelope: Envelope): HumanWrite {
       : result.commandIdentity === `${cli}.discovery`
         ? discovery(result.data)
         : result.commandIdentity === `${cli}.command-discovery`
-          ? commandDiscovery(result.data)
+          ? commandDiscovery(result.data, renamedHelp)
           : [
               oneLine(envelope.message),
               ...(result.data === null

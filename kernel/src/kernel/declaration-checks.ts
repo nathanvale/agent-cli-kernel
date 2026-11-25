@@ -11,6 +11,7 @@ import {
   validateInspectShape,
   validateNotInteractiveCause,
   preparerOf,
+  validateRenamedFrom,
   validateRootOperation,
   validateRouteTokens,
 } from "./declarations.ts";
@@ -150,14 +151,70 @@ function validateIfNoResult(
       throw new Error("Coordination refusal requires an unchanged handoff.");
   }
 }
+function sameRoute(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((token, index) => token === right[index])
+  );
+}
+function isRoutePrefix(
+  prefix: readonly string[],
+  route: readonly string[],
+): boolean {
+  return (
+    prefix.length < route.length &&
+    prefix.every((token, index) => token === route[index])
+  );
+}
+function assertRenamedRouteClear(
+  alias: { readonly identity: string; readonly route: readonly string[] },
+  other: { readonly identity: string; readonly route: readonly string[] },
+): void {
+  if (other.identity === alias.identity) return;
+  if (sameRoute(alias.route, other.route))
+    throw new Error(
+      "Renamed route conflicts with another command route. Repair: remove the conflicting route from renamedFrom.",
+    );
+  if (
+    other.route.length > 0 &&
+    (isRoutePrefix(alias.route, other.route) ||
+      isRoutePrefix(other.route, alias.route))
+  )
+    throw new Error(
+      "Renamed route shadows another command route. Repair: remove the shadowing prefix from renamedFrom.",
+    );
+}
+function validateRenamedRoutes(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+): void {
+  const entries = commands.flatMap((item) => {
+    if (item.commandIdentity === `${cli}.dispatch`) return [];
+    const current = {
+      identity: item.commandIdentity,
+      route: item.route,
+      renamed: false,
+    };
+    const aliases = (item.renamedFrom ?? []).map((route) => ({
+      identity: item.commandIdentity,
+      route,
+      renamed: true,
+    }));
+    return [current, ...aliases];
+  });
+  for (const alias of entries.filter((entry) => entry.renamed))
+    for (const other of entries) assertRenamedRouteClear(alias, other);
+}
 function validateRoutes(
   cli: string,
   commands: readonly CommandDeclaration[],
 ): void {
   const builtinIdentities = builtins(cli).map((item) => item.commandIdentity);
   for (const command of commands)
-    if (!builtinIdentities.includes(command.commandIdentity))
+    if (!builtinIdentities.includes(command.commandIdentity)) {
       validateRouteTokens(command.route);
+      validateRenamedFrom(command.route, command.renamedFrom);
+    }
   const hostRoutes = commands.flatMap((item) =>
     item.commandIdentity === `${cli}.dispatch`
       ? []
@@ -165,6 +222,7 @@ function validateRoutes(
   );
   if (new Set(hostRoutes).size !== hostRoutes.length)
     throw new Error("Duplicate command route.");
+  validateRenamedRoutes(cli, commands);
 }
 export function validateCommands(
   cli: string,
