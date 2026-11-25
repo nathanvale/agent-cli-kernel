@@ -1,0 +1,7 @@
+{
+  "id": "6811e22d-unknown-option-display-control-chars",
+  "patch": "tests/planted-faults/patches/6811e22d-unknown-option-display-control-chars.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form unknown option display names 64-character tokens and omits longer or control/whitespace tokens$",
+  "source": "6811e22d test(kernel): assert the full step refusal for a boolean given a value"
+}

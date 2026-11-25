@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/usage.ts b/kernel/src/kernel/usage.ts
+--- a/kernel/src/kernel/usage.ts
++++ b/kernel/src/kernel/usage.ts
+@@ -51,7 +51,7 @@ type Rule = ValueCheck["rule"];
+ type CheckOf<R extends Rule> = Extract<ValueCheck, { readonly rule: R }>;
+ 
+ const label = (slot: Slot) => `${slot.kind} ${slot.name}`;
+-const maxOptionDisplayLength = 64;
++const maxOptionDisplayLength = 65;
+ function unknownOptionSubject(option: string): string {
+   return option.length > 0 &&
+     option.length <= maxOptionDisplayLength &&
