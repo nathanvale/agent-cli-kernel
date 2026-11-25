@@ -211,7 +211,12 @@ const runtimeGlobals = {
 };
 const globalHolders = new Set(["globalThis", "global", "self"]);
 const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
-const bunProgramStarts = new Set([...bunStartMembers, "openInEditor"]);
+const bunProgramStarts = new Set([
+  ...bunStartMembers,
+  "openInEditor",
+  "WebView",
+  "cron",
+]);
 const chainableProcess = new Set(
   "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
     " ",
