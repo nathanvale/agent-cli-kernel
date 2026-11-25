@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/validation/result.ts b/kernel/src/kernel/validation/result.ts
+--- a/kernel/src/kernel/validation/result.ts
++++ b/kernel/src/kernel/validation/result.ts
+@@ -371,7 +371,8 @@ export function envelopeShape(value: unknown): value is Envelope {
+   return (
+     typeof value.contractVersion === "string" &&
+     text(value.message) &&
+-    sortedStrings(value.availablePaths) &&
++    sortedStrings(value.availablePaths) &&
++    value.availablePaths.length > 0 &&
+     wireResult(value.result) &&
+     (value.diagnostics === undefined || diagnostics(value.diagnostics))
+   );

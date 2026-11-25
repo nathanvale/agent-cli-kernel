@@ -1,0 +1,7 @@
+{
+  "id": "4be24c1b-other-results-keep-available-paths",
+  "patch": "tests/planted-faults/patches/4be24c1b-other-results-keep-available-paths.patch",
+  "testFile": "tests/kernel/available-paths.test.ts",
+  "title": "^availablePaths declared command results, invalid invocation, kernel stations and --json carry empty availablePaths$",
+  "source": "4be24c1b feat(kernel): send availablePaths only on help, discovery and unknown-command"
+}
