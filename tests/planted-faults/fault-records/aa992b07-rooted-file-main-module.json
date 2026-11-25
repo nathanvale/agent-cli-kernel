@@ -1,0 +1,7 @@
+{
+  "id": "aa992b07-rooted-file-main-module",
+  "patch": "tests/planted-faults/patches/aa992b07-rooted-file-main-module.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^paths-use-rooted-file refuses .*process\\.mainModule",
+  "source": "aa992b07 fix(lint): refuse process.mainModule in paths-use-rooted-file"
+}
