@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  appendFileSync,
   chmodSync,
   linkSync,
   mkdirSync,
@@ -144,8 +145,29 @@ describe("readRootedFile", () => {
       expect(text(viaOverlappingAliasAbsolute.bytes)).toBe("plain-body");
   });
 
-  test("refuses directories, FIFOs, and files over the byte limit with full Repair messages", async () => {
-    const base = folder("rooted-file-bounds-");
+  test("resolves a root containing a symbolic link followed by .. to its physical folder", () => {
+    const base = folder("rooted-file-physical-root-");
+    const topRoot = join(base, "top", "root");
+    const deep = join(topRoot, "deep");
+    mkdirSync(deep, { recursive: true });
+    writeFileSync(join(topRoot, "f.txt"), "IN_ROOT");
+    writeFileSync(join(base, "f.txt"), "OUTSIDE");
+
+    const alias = join(base, "alias");
+    symlinkSync(deep, alias);
+
+    const physicalViaDotDot = readRootedFile(
+      `${alias}/..`,
+      "f.txt",
+      limitBytes,
+    );
+    expect(physicalViaDotDot.kind).toBe("read");
+    if (physicalViaDotDot.kind === "read")
+      expect(text(physicalViaDotDot.bytes)).toBe("IN_ROOT");
+  });
+
+  test("refuses directories and FIFOs as not-regular with full Repair messages", async () => {
+    const base = folder("rooted-file-not-regular-");
     const root = join(base, "root");
     const realRoot = join(realpathSync.native(base), "root");
     mkdirSync(join(root, "sub"), { recursive: true });
@@ -154,8 +176,6 @@ describe("readRootedFile", () => {
       boundMilliseconds: 3_000,
     });
     expect(madeFifo.exit).toBe(0);
-    writeFileSync(join(root, "exact.txt"), "x".repeat(limitBytes));
-    writeFileSync(join(root, "big.txt"), "x".repeat(limitBytes + 1));
 
     expect(readRootedFile(root, "sub", limitBytes)).toEqual({
       kind: "refused",
@@ -170,6 +190,14 @@ describe("readRootedFile", () => {
       reason: "not-regular",
       message: `pipe is not a regular file. Repair: replace it with a regular file inside ${realRoot}.`,
     });
+  }, 10_000);
+
+  test("refuses a file over the byte limit before reading with its full Repair message", () => {
+    const base = folder("rooted-file-size-limit-");
+    const root = join(base, "root");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "exact.txt"), "x".repeat(limitBytes));
+    writeFileSync(join(root, "big.txt"), "x".repeat(limitBytes + 1));
 
     const exact = readRootedFile(root, "exact.txt", limitBytes);
     expect(exact.kind).toBe("read");
@@ -184,7 +212,28 @@ describe("readRootedFile", () => {
       reason: "over-limit",
       message: `big.txt is ${String(limitBytes + 1)} bytes, above the ${String(limitBytes)} byte limit. Repair: reduce the file size to at most ${String(limitBytes)} bytes.`,
     });
-  }, 10_000);
+  });
+
+  test("refuses a file that grows past the byte limit after open with its full Repair message", () => {
+    const base = folder("rooted-file-growth-limit-");
+    const root = join(base, "root");
+    mkdirSync(root, { recursive: true });
+    const growing = join(root, "growing.txt");
+    writeFileSync(growing, "x".repeat(limitBytes));
+
+    expect(
+      readRootedFile(root, "growing.txt", limitBytes, {
+        afterOpen: () => {
+          appendFileSync(growing, "y");
+        },
+      }),
+    ).toEqual({
+      kind: "refused",
+      path: "growing.txt",
+      reason: "over-limit",
+      message: `growing.txt exceeded the ${String(limitBytes)} byte limit while reading. Repair: reduce the file size to at most ${String(limitBytes)} bytes.`,
+    });
+  });
 
   test("refuses a file replaced between open and verification with its full Repair message", () => {
     const base = folder("rooted-file-swap-file-");
