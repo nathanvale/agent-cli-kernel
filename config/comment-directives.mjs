@@ -32,6 +32,7 @@ const fallowSuppressComment =
 const biomeMetaKeys = new Set(["preset", "recommended"]);
 const biomeSchemaSpecifier = "@biomejs/biome/configuration_schema.json";
 const fallowRegistrySpecifier = "fallow/issue-registry.json";
+const fallowUnparsedRegistryIds = new Set(["unused-optional-dependency"]);
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -95,13 +96,38 @@ function resolveSchemaProperties(prop, defs, seen = new Set()) {
   return undefined;
 }
 
-function addGroupEntries(categories, prefix, entries) {
+function isValidSchemaRef(ref, defs) {
+  if (typeof ref !== "string" || !ref.startsWith("#/$defs/")) return false;
+  const name = ref.slice("#/$defs/".length);
+  if (name.length === 0 || !Object.hasOwn(defs, name)) return false;
+  const def = defs[name];
+  return isRecord(def) && Object.keys(def).length > 0;
+}
+
+function hasValidEntryDefinition(prop, defs) {
+  if (!isRecord(prop)) return false;
+  if (
+    prop.anyOf !== undefined &&
+    (!Array.isArray(prop.anyOf) || !prop.anyOf.every(isRecord))
+  ) {
+    return false;
+  }
+  const refs = collectSchemaRefs(prop);
+  return refs.length > 0 && refs.every((ref) => isValidSchemaRef(ref, defs));
+}
+
+function addGroupEntries(categories, prefix, entries, defs, groupLabel) {
   let added = 0;
-  for (const entry of Object.keys(entries)) {
-    if (!biomeMetaKeys.has(entry)) {
-      categories.add(`${prefix}/${entry}`);
-      added += 1;
+  for (const [entry, prop] of Object.entries(entries)) {
+    if (biomeMetaKeys.has(entry)) continue;
+    if (!hasValidEntryDefinition(prop, defs)) {
+      throw dependencyError(
+        biomeSchemaSpecifier,
+        `invalid ${groupLabel}.${entry}`,
+      );
     }
+    categories.add(`${prefix}/${entry}`);
+    added += 1;
   }
   return added;
 }
@@ -129,7 +155,15 @@ function addSectionCategories(
     }
     const groupPrefix = `${prefix}/${group}`;
     if (includeGroup) categories.add(groupPrefix);
-    if (addGroupEntries(categories, groupPrefix, entries) === 0) {
+    if (
+      addGroupEntries(
+        categories,
+        groupPrefix,
+        entries,
+        defs,
+        `${name}.${group}`,
+      ) === 0
+    ) {
       throw dependencyError(biomeSchemaSpecifier, `empty ${name}.${group}`);
     }
     addedGroups += 1;
@@ -164,16 +198,28 @@ function addFallowAliases(targets, aliases) {
   }
 }
 
+function addFallowRegistryTarget(targets, item) {
+  if (typeof item.registry_index !== "number") return;
+  if (typeof item.id !== "string" || item.id.length === 0) return;
+  if (fallowUnparsedRegistryIds.has(item.id)) return;
+  targets.add(item.id);
+  addFallowAliases(targets, item.aliases);
+}
+
 function addFallowIssueTargets(targets, item) {
-  if (!isRecord(item) || typeof item.suppress_comment !== "string") return;
+  if (!isRecord(item)) return;
+  if (typeof item.suppress_comment !== "string") {
+    addFallowRegistryTarget(targets, item);
+    return;
+  }
   const match = fallowSuppressComment.exec(item.suppress_comment);
   if (match === null) return;
   targets.add(match[1]);
   if (item.id === match[1]) addFallowAliases(targets, item.aliases);
 }
 
-function loadFallowTargets() {
-  const registry = readJsonDependency(fallowRegistrySpecifier);
+export function loadFallowTargets(registryPath) {
+  const registry = readJsonDependency(fallowRegistrySpecifier, registryPath);
   if (!isRecord(registry) || !Array.isArray(registry.issue_types)) {
     throw dependencyError(fallowRegistrySpecifier, "missing issue_types");
   }

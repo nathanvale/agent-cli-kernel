@@ -1,40 +1,124 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { templateSourceFile } from "./template-lint.ts";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readSupportedFallowTargets(): readonly string[] {
-  const require = createRequire(import.meta.url);
-  const parsed: unknown = JSON.parse(
-    readFileSync(require.resolve("fallow/issue-registry.json"), "utf8"),
-  );
-  if (!isRecord(parsed) || !Array.isArray(parsed.issue_types)) {
-    throw new Error("fallow/issue-registry.json missing issue_types array");
-  }
-  const targets = new Set<string>();
-  for (const item of parsed.issue_types) {
-    if (!isRecord(item) || typeof item.suppress_comment !== "string") continue;
-    const match =
-      /^\/\/\s*fallow-ignore-(?:next-line|file)\s+([a-z][a-z0-9-]*)$/.exec(
-        item.suppress_comment,
-      );
-    const target = match?.[1];
-    if (target === undefined) continue;
-    targets.add(target);
-    if (item.id === target && Array.isArray(item.aliases)) {
-      for (const alias of item.aliases) {
-        if (typeof alias === "string" && alias.length > 0) targets.add(alias);
-      }
-    }
-  }
-  return [...targets].sort();
-}
-
-export const supportedFallowTargets: readonly string[] =
-  readSupportedFallowTargets();
+export const supportedFallowTargets = [
+  "absent-component-prop",
+  "absent-component-props",
+  "added-dependency",
+  "added-suppression",
+  "boundary-call-violation",
+  "boundary-call-violations",
+  "boundary-calls",
+  "boundary-violation",
+  "catalog",
+  "circular-dependencies",
+  "circular-dependency",
+  "code-duplication",
+  "complexity",
+  "constant-parameter",
+  "constant-parameters",
+  "coverage-gaps",
+  "css-broken-reference",
+  "css-dead-surface",
+  "css-duplicate-block",
+  "css-selector-complexity",
+  "css-token-drift",
+  "deprecated-export-in-use",
+  "dev-dependency-in-production",
+  "diverged-clone-sibling",
+  "duplicate-export",
+  "duplicate-export-alias",
+  "duplicate-export-aliases",
+  "duplicate-prop-shape",
+  "duplicate-prop-shapes",
+  "dynamic-segment-name-conflict",
+  "dynamic-segment-name-conflicts",
+  "empty-catalog",
+  "empty-catalog-group",
+  "empty-catalog-groups",
+  "feature-flag",
+  "invalid-client-export",
+  "invalid-client-exports",
+  "misconfigured-dependency-override",
+  "misconfigured-dependency-overrides",
+  "misconfigured-override",
+  "misconfigured-overrides",
+  "misplaced-directive",
+  "misplaced-directives",
+  "missing-suppression-reason",
+  "missing-suppression-reasons",
+  "mixed-client-server-barrel",
+  "mixed-client-server-barrels",
+  "package-cycle",
+  "package-cycles",
+  "policy-violation",
+  "policy-violations",
+  "private-type-leak",
+  "prop-drilling",
+  "re-export-cycle",
+  "re-export-cycles",
+  "reexport-cycle",
+  "reexport-cycles",
+  "route-collision",
+  "route-collisions",
+  "security-client-server-leak",
+  "security-sink",
+  "stale-suppression",
+  "test-only-branch",
+  "test-only-dependency",
+  "thin-wrapper",
+  "thin-wrappers",
+  "type-only-dependency",
+  "unlisted-binary",
+  "unlisted-dependency",
+  "unproduced-catch-tag",
+  "unproduced-catch-tags",
+  "unprovided-inject",
+  "unprovided-injects",
+  "unrendered-component",
+  "unrendered-components",
+  "unresolved-catalog",
+  "unresolved-catalog-reference",
+  "unresolved-catalog-references",
+  "unresolved-import",
+  "unused-catalog-entries",
+  "unused-catalog-entry",
+  "unused-class-member",
+  "unused-component-emit",
+  "unused-component-emits",
+  "unused-component-input",
+  "unused-component-inputs",
+  "unused-component-output",
+  "unused-component-outputs",
+  "unused-component-prop",
+  "unused-component-props",
+  "unused-dependency",
+  "unused-dependency-override",
+  "unused-dependency-overrides",
+  "unused-dev-dependencies",
+  "unused-dev-dependency",
+  "unused-dev-deps",
+  "unused-effect-layer",
+  "unused-effect-layers",
+  "unused-enum-member",
+  "unused-export",
+  "unused-file",
+  "unused-load-data-key",
+  "unused-load-data-keys",
+  "unused-namespace-member",
+  "unused-namespace-members",
+  "unused-override",
+  "unused-overrides",
+  "unused-server-action",
+  "unused-server-actions",
+  "unused-store-member",
+  "unused-store-members",
+  "unused-svelte-event",
+  "unused-svelte-events",
+  "unused-tagged-error",
+  "unused-tagged-errors",
+  "unused-type",
+  "weakened-tests",
+] as const;
 
 export const commentCases = [
   [templateSourceFile, "// Loop over the names.\nexport const a = 1;", [1]],

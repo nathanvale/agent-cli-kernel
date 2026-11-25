@@ -1,7 +1,7 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -77,16 +77,7 @@ function isBiomeDirective(text) {
+@@ -257,16 +257,7 @@ function isFallowDirective(text) {
  }
  
  function isFallowBlockPlaced(comment, source) {
@@ -18,4 +18,4 @@ diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 +  return true;
  }
  
- function isDirectiveComment(comment, source) {
+ function isFallowComment(comment, text, source) {

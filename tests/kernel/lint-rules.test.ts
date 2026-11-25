@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import ts from "typescript";
+import { loadFallowTargets } from "../../config/comment-directives.mjs";
 import { supportedFallowTargets } from "../support/lint-comment-cases.ts";
 
 const root = resolve(import.meta.dir, "../..");
@@ -1231,7 +1232,12 @@ const refusedDirectiveLookalikes = [
   "// fallow-ignore-next-line this-is-plain-prose\nexport const a = 1;",
   "// fallow-ignore-file this-is-plain-prose\nexport const a = 1;",
   "// fallow-ignore-next-line unused-exports -- plural is not accepted\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-optional-dependency -- not parsed by fallow\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-optional-deps -- not parsed by fallow\nexport const a = 1;",
+  "// fallow-ignore-next-line boundary-coverage -- not parsed by fallow\nexport const a = 1;",
   "// fallow-ignore-next-line boundary-coverage-violations -- wrong alias\nexport const a = 1;",
+  "// fallow-ignore-next-line sql-injection -- must use security-sink\nexport const a = 1;",
+  "// fallow-ignore-next-line high-complexity -- must use complexity\nexport const a = 1;",
   "// fallow-ignore-next-line unused-export, fake-target -- mixed\nexport const a = 1;",
   "// fallow-ignore-next-line policy-violation:bad -- missing rule\nexport const a = 1;",
   "// fallow-ignore-next-line unused-export --\nexport const a = 1;",
@@ -1273,6 +1279,7 @@ const admittedDirectives = [
 ] as const;
 
 test("no-comments refuses directive-lookalike prose and trailing lines in kernel files, and admits exact directives", async () => {
+  expect([...loadFallowTargets()].sort()).toEqual([...supportedFallowTargets]);
   const filePath = "kernel/src/addons/menu/index.ts";
   for (const code of refusedDirectiveLookalikes) {
     expect(await hits("no-comments", filePath, code)).toEqual([
