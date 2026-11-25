@@ -293,6 +293,52 @@ exec '${realGit}' "$@"
   );
 
   test(
+    "FR.y a copy step that hangs is stopped at the step limit with TIMEOUT, removes the copy, and exits 1",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      const tools = folder("fault-replay-hung-copy-");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = init ]; then
+  exec sleep 20
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      const began = performance.now();
+
+      const run = await faultReplay(root, [], {
+        env: {
+          PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}`,
+          FAULT_REPLAY_STEP_SECONDS: String(stepSeconds),
+        },
+        boundMilliseconds: forcedBound,
+      });
+
+      expect(verdicts(run.lines)).toEqual([`TIMEOUT ${id}`]);
+      expect(lineOf(run.lines, "TIMEOUT")).toMatch(
+        new RegExp(
+          `^TIMEOUT ${id} in [\\d.]+ s\\. git init -q --initial-branch=main did not finish within ${stepSeconds} s, so the planted fault has no verdict\\.$`,
+        ),
+      );
+      expect(run.lines).toContain(
+        `Repair: run that step by hand to see where it hangs, or raise FAULT_REPLAY_STEP_SECONDS. Done when bun run fault-replay ${id} passes.`,
+      );
+      expect(run.exit).toBe(1);
+      expect(performance.now() - began).toBeLessThan(
+        stepSeconds * 1000 + 4_000,
+      );
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
+  );
+
+  test(
     "FR.h a terminal's group SIGINT while preparing the temp copy still removes it, and exits 130",
     async () => {
       const { root } = await repositoryWithFault({});
