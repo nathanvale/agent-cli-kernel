@@ -1,0 +1,7 @@
+{
+  "id": "719b6c6b-discover-all-drops-available-paths",
+  "patch": "tests/planted-faults/patches/719b6c6b-discover-all-drops-available-paths.patch",
+  "testFile": "tests/kernel/available-paths.test.ts",
+  "title": "^availablePaths discover-all carries every declared command identity sorted$",
+  "source": "719b6c6b test(kernel): cover --discover-all in the availablePaths trim"
+}

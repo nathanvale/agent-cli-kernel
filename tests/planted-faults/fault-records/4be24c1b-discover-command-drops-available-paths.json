@@ -1,0 +1,7 @@
+{
+  "id": "4be24c1b-discover-command-drops-available-paths",
+  "patch": "tests/planted-faults/patches/4be24c1b-discover-command-drops-available-paths.patch",
+  "testFile": "tests/kernel/available-paths.test.ts",
+  "title": "^availablePaths discover-command carries every declared command identity sorted$",
+  "source": "4be24c1b feat(kernel): send availablePaths only on help, discovery and unknown-command"
+}

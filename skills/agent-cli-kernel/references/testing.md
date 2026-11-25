@@ -36,6 +36,9 @@ const resultOf = moonsIn(newHome(), "/usr/bin/true");
 - `envelope` is the validated envelope that `--json` would write.
   `envelope.result` holds `causeCode`, `outcome`, `exitCode`, `data`, the
   `repairAction` repair action and the `next` or `handoff` guidance.
+- `envelope.availablePaths` carries the sorted list of command identities on
+  `--help`, `--discover`, `--discover-command` and `USAGE_UNKNOWN_COMMAND`
+  refusals, and `[]` on every other result.
 - Assert the cause, the exit code and the data of each result:
 
 ```ts

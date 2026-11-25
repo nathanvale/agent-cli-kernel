@@ -1,0 +1,19 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -235,12 +235,9 @@ export function contractFor<
+         path: "facts",
+         reason: "invalid run facts",
+       } as const;
+-    const availablePaths =
+-      commandListIdentities.has(station.commandIdentity) ||
+-      station.causeCode ===
+-        ("USAGE_UNKNOWN_COMMAND" satisfies keyof typeof commonCauses)
+-        ? allPaths
+-        : [];
++    const availablePaths = commandListIdentities.has(station.commandIdentity)
++      ? allPaths
++      : [];
+     try {
+       return await validate({
+         contractVersion: "3.0.0",

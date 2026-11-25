@@ -1,0 +1,7 @@
+{
+  "id": "4be24c1b-validator-declines-empty-available-paths",
+  "patch": "tests/planted-faults/patches/4be24c1b-validator-declines-empty-available-paths.patch",
+  "testFile": "tests/kernel/available-paths.test.ts",
+  "title": "^availablePaths validator accepts both full availablePaths and empty availablePaths on every result$",
+  "source": "4be24c1b feat(kernel): send availablePaths only on help, discovery and unknown-command"
+}
