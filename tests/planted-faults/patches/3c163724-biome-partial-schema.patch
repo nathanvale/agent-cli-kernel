@@ -1,0 +1,14 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+index 3c6b5418..046ee70e 100644
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -115,8 +115,7 @@ function addSectionCategories(
+   name,
+ ) {
+   const groups = isRecord(section) ? section.properties : undefined;
+-  if (!isRecord(groups))
+-    throw dependencyError(biomeSchemaSpecifier, `missing ${name}`);
++  if (!isRecord(groups)) return;
+   let addedGroups = 0;
+   for (const [group, prop] of Object.entries(groups)) {
+     if (biomeMetaKeys.has(group)) continue;

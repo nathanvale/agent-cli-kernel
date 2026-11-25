@@ -1,0 +1,7 @@
+{
+  "id": "3c163724-biome-partial-schema",
+  "patch": "tests/planted-faults/patches/3c163724-biome-partial-schema.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^loadBiomeCategories fails closed with a repair message on broken schemas",
+  "source": "3c163724 fix(lint): admit only Fallow's own targets and fail closed when Biome's schema cannot be read"
+}
