@@ -15,7 +15,10 @@ import {
 import { testFolder } from "../support/test-folder.ts";
 import { emptyInput as input, unchanged } from "./kernel-repair/shapes.ts";
 import { readsUnchanged } from "./kernel-repair/handlers.ts";
-import { spawnBounded } from "./kernel-repair/swarm-process.ts";
+import {
+  processWatchdog,
+  spawnBounded,
+} from "./kernel-repair/swarm-process.ts";
 import { probeBatch } from "./locks/lock-probes.ts";
 
 test("handoff objects ignore key order while inspection arrays preserve declaration order", async () => {
@@ -450,6 +453,9 @@ test("binding and idempotency values are rejected consistently at build and wire
 const invalidCauseRowMessage =
   "Invalid cause row. Repair: declare outcome, transactionState, failureClass, exitCode, retryable and guidance matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.";
 
+const invalidStrictStationMessage =
+  "Station is not a strict declared station. Repair: declare a strict station with a cause row matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.";
+
 const carriesDataRow = {
   outcome: "refused",
   transactionState: "unchanged",
@@ -521,6 +527,50 @@ const illegalCauseTableProbes = [
   ),
 }));
 
+const illegalAliasedCauseTableProbes = [
+  {
+    name: "alias-success-unchanged",
+    row: '{ outcome: "success", transactionState: "unchanged", failureClass: null, exitCode: 0, retryable: false, guidance: "next", carriesData: true }',
+  },
+  {
+    name: "alias-success-completed",
+    row: '{ outcome: "success", transactionState: "completed", failureClass: null, exitCode: 0, retryable: false, guidance: "next", carriesData: true }',
+  },
+  {
+    name: "alias-failed-unchanged",
+    row: '{ outcome: "failed", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "next", carriesData: true }',
+  },
+  {
+    name: "alias-failed-completed",
+    row: '{ outcome: "failed", transactionState: "completed", failureClass: "internal", exitCode: 1, retryable: false, guidance: "handoff", carriesData: true }',
+  },
+  {
+    name: "alias-failed-partially-completed",
+    row: '{ outcome: "failed", transactionState: "partially-completed", failureClass: "internal", exitCode: 1, retryable: false, guidance: "handoff", carriesData: true }',
+  },
+  {
+    name: "alias-failed-unknown",
+    row: '{ outcome: "failed", transactionState: "unknown", failureClass: "internal", exitCode: 1, retryable: false, guidance: "handoff", carriesData: true }',
+  },
+  {
+    name: "alias-refused-usage",
+    row: '{ outcome: "refused", transactionState: "unchanged", failureClass: "usage", exitCode: 2, retryable: false, guidance: "next", carriesData: true }',
+  },
+  {
+    name: "alias-refused-schema",
+    row: '{ outcome: "refused", transactionState: "unchanged", failureClass: "schema", exitCode: 4, retryable: false, guidance: "next", carriesData: true }',
+  },
+  {
+    name: "alias-transient",
+    row: '{ outcome: "refused", transactionState: "unchanged", failureClass: "transient", exitCode: 75, retryable: true, guidance: "next", carriesData: true }',
+  },
+].map(({ name, row }) => ({
+  name,
+  probe: typeProbe(
+    `${typeHeader}\nconst row = ${row} as const;\nexport const bad = { ...commonCauses, BAD: row } as const satisfies CauseTable;\n`,
+  ),
+}));
+
 const typeProbeTimeout = typeProbe.timeout();
 
 test("causeRow and contractFor accept carriesData: true only on an unchanged domain refusal and refuse every other row kind", () => {
@@ -566,7 +616,67 @@ test("causeRow and contractFor accept carriesData: true only on an unchanged dom
         { cli: "notes", commands: [], causes: { BAD_ROW: row } },
       ]);
     }).toThrow(invalidCauseRowMessage);
+    expect(() => {
+      Reflect.apply(station, undefined, [
+        { ...commonCauses, BAD_ROW: row },
+        {
+          commandIdentity: "notes.check",
+          causeCode: "BAD_ROW",
+          trigger: "Triggered.",
+          guidance: { next: { kind: "instruction", text: "Fix it." } },
+          repairAction: "Fix it.",
+          retryDelayPolicy: { kind: "none" },
+          reachability: "required",
+          unreachableRationale: null,
+          independentObservable: "obs",
+        },
+      ]);
+    }).toThrow(invalidCauseRowMessage);
   }
+  const plainRefused = station(commonCauses, {
+    commandIdentity: "notes.check",
+    causeCode: "DOMAIN_PRECONDITION_UNMET",
+    trigger: "Precondition failed.",
+    guidance: { next: { kind: "instruction", text: "Fix it." } },
+    repairAction: "Fix it.",
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "precondition-failed",
+  });
+  const baseCommand = command({
+    capabilities: {},
+    identity: "notes.check",
+    route: ["check"],
+    summary: "Check notes.",
+    input,
+    stations: [plainRefused],
+    run: () => Promise.reject(new Error("The handler never runs here.")),
+  });
+  expect(() => {
+    Reflect.apply(contractFor, undefined, [
+      {
+        cli: "notes",
+        commands: [
+          {
+            ...baseCommand,
+            stations: [
+              {
+                ...plainRefused,
+                row: {
+                  ...commonCauses.USAGE_INVALID_INVOCATION,
+                  carriesData: true,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  }).toThrow(invalidStrictStationMessage);
+});
+
+test("contractFor refuses replacing a common cause row with carriesData", () => {
   expect(() => {
     Reflect.apply(contractFor, undefined, [
       {
@@ -578,6 +688,77 @@ test("causeRow and contractFor accept carriesData: true only on an unchanged dom
       },
     ]);
   }).toThrow("Common cause rows cannot be replaced.");
+});
+
+test("contractFor refuses a station whose row disagrees with the CLI cause owner on carriesData", () => {
+  const plainRefused = station(commonCauses, {
+    commandIdentity: "notes.check",
+    causeCode: "DOMAIN_PRECONDITION_UNMET",
+    trigger: "Precondition failed.",
+    guidance: { next: { kind: "instruction", text: "Fix it." } },
+    repairAction: "Fix it.",
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "precondition-failed",
+  });
+  const baseCommand = command({
+    capabilities: {},
+    identity: "notes.check",
+    route: ["check"],
+    summary: "Check notes.",
+    input,
+    stations: [plainRefused],
+    run: () => Promise.reject(new Error("The handler never runs here.")),
+  });
+  expect(() => {
+    Reflect.apply(contractFor, undefined, [
+      {
+        cli: "notes",
+        commands: [
+          {
+            ...baseCommand,
+            stations: [{ ...plainRefused, row: carriesDataRow }],
+          },
+        ],
+      },
+    ]);
+  }).toThrow("Station disagrees with the CLI cause owner.");
+
+  const causes = {
+    ...commonCauses,
+    DOMAIN_FINDINGS: carriesDataRow,
+  } as const;
+  const findingsRefused = station(causes, {
+    commandIdentity: "notes.check",
+    causeCode: "DOMAIN_FINDINGS",
+    trigger: "Findings detected.",
+    guidance: { next: { kind: "instruction", text: "Fix it." } },
+    repairAction: "Fix it.",
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "findings-detected",
+  });
+  expect(() => {
+    Reflect.apply(contractFor, undefined, [
+      {
+        cli: "notes",
+        causes,
+        commands: [
+          {
+            ...baseCommand,
+            stations: [
+              {
+                ...findingsRefused,
+                row: commonCauses.DOMAIN_PRECONDITION_UNMET,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  }).toThrow("Station disagrees with the CLI cause owner.");
 });
 
 test("runtime result builder refuses non-null data on a refused row without carriesData and accepts it when carriesData is true", async () => {
@@ -826,112 +1007,120 @@ test("wire result validation admits non-null data only on success or unchanged d
   });
 });
 
-test("carriesData refusal returns its data with exit 3 through runProcess and appears in --discover-command", async () => {
-  const folder = testFolder("kernel-carries-data-cli-");
-  const script = join(folder, "cli.ts");
-  try {
-    await writeFile(
-      script,
-      [
-        `import { command, commonCauses, contractFor, runProcess, station } from ${JSON.stringify(kernelEntry)};`,
-        `import type { CauseTable } from ${JSON.stringify(kernelEntry)};`,
-        'const causes = { ...commonCauses, DOMAIN_CHECK_FINDINGS: { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "next", carriesData: true } } as const satisfies CauseTable;',
-        "const unchanged = { completed: [], remaining: [], uncertain: [], inventoryComplete: true } as const;",
-        'const baseWords = { retryDelayPolicy: { kind: "none" }, reachability: "required", unreachableRationale: null } as const;',
-        'const ok = station(causes, { ...baseWords, commandIdentity: "notes.check", causeCode: "SUCCESS_UNCHANGED", trigger: "No findings.", guidance: { next: { kind: "done" } }, repairAction: null, independentObservable: "clean" });',
-        'const plain = station(causes, { ...baseWords, commandIdentity: "notes.check", causeCode: "DOMAIN_PRECONDITION_UNMET", trigger: "Missing target.", guidance: { next: { kind: "instruction", text: "Provide target." } }, repairAction: "Provide target.", independentObservable: "missing" });',
-        'const findings = station(causes, { ...baseWords, commandIdentity: "notes.check", causeCode: "DOMAIN_CHECK_FINDINGS", trigger: "Findings detected.", guidance: { next: { kind: "instruction", text: "Fix the reported findings." } }, repairAction: "Fix the reported findings.", independentObservable: "findings" });',
-        'const check = command({ identity: "notes.check", route: ["check"], summary: "Check notes.", capabilities: {}, input: { arguments: [], options: [{ name: "--mode", aliases: [], summary: "Mode.", required: true, repeatable: false, value: { kind: "string", minLength: 1, maxLength: 16, choices: ["ok", "plain", "findings"], pattern: null } }], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false }, stations: [ok, plain, findings], run: (parsed, context) => {',
-        '  if (parsed["--mode"] === "ok") return context.result(ok, { message: "Clean.", data: { checked: true }, effects: unchanged });',
-        '  if (parsed["--mode"] === "plain") return context.result(plain, { message: "Missing target.", data: null, effects: unchanged });',
-        '  return context.result(findings, { message: "1 finding.", data: { findings: ["missing-header"] }, effects: unchanged });',
-        "} });",
-        'await runProcess(contractFor({ cli: "notes", commands: [check], causes }))(process.argv.slice(2));',
-        "",
-      ].join("\n"),
-    );
+test(
+  "carriesData refusal returns its data with exit 3 through runProcess and appears in --discover-command",
+  async () => {
+    const folder = testFolder("kernel-carries-data-cli-");
+    const script = join(folder, "cli.ts");
+    try {
+      await writeFile(
+        script,
+        [
+          `import { command, commonCauses, contractFor, runProcess, station } from ${JSON.stringify(kernelEntry)};`,
+          `import type { CauseTable } from ${JSON.stringify(kernelEntry)};`,
+          'const causes = { ...commonCauses, DOMAIN_CHECK_FINDINGS: { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "next", carriesData: true } } as const satisfies CauseTable;',
+          "const unchanged = { completed: [], remaining: [], uncertain: [], inventoryComplete: true } as const;",
+          'const baseWords = { retryDelayPolicy: { kind: "none" }, reachability: "required", unreachableRationale: null } as const;',
+          'const ok = station(causes, { ...baseWords, commandIdentity: "notes.check", causeCode: "SUCCESS_UNCHANGED", trigger: "No findings.", guidance: { next: { kind: "done" } }, repairAction: null, independentObservable: "clean" });',
+          'const plain = station(causes, { ...baseWords, commandIdentity: "notes.check", causeCode: "DOMAIN_PRECONDITION_UNMET", trigger: "Missing target.", guidance: { next: { kind: "instruction", text: "Provide target." } }, repairAction: "Provide target.", independentObservable: "missing" });',
+          'const findings = station(causes, { ...baseWords, commandIdentity: "notes.check", causeCode: "DOMAIN_CHECK_FINDINGS", trigger: "Findings detected.", guidance: { next: { kind: "instruction", text: "Fix the reported findings." } }, repairAction: "Fix the reported findings.", independentObservable: "findings" });',
+          'const check = command({ identity: "notes.check", route: ["check"], summary: "Check notes.", capabilities: {}, input: { arguments: [], options: [{ name: "--mode", aliases: [], summary: "Mode.", required: true, repeatable: false, value: { kind: "string", minLength: 1, maxLength: 16, choices: ["ok", "plain", "findings"], pattern: null } }], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false }, stations: [ok, plain, findings], run: (parsed, context) => {',
+          '  if (parsed["--mode"] === "ok") return context.result(ok, { message: "Clean.", data: { checked: true }, effects: unchanged });',
+          '  if (parsed["--mode"] === "plain") return context.result(plain, { message: "Missing target.", data: null, effects: unchanged });',
+          '  return context.result(findings, { message: "1 finding.", data: { findings: ["missing-header"] }, effects: unchanged });',
+          "} });",
+          'await runProcess(contractFor({ cli: "notes", commands: [check], causes }))(process.argv.slice(2));',
+          "",
+        ].join("\n"),
+      );
 
-    const run = (...argv: string[]) =>
-      spawnBounded([process.execPath, script, ...argv], { cwd: folder });
+      const run = (...argv: string[]) =>
+        spawnBounded([process.execPath, script, ...argv], { cwd: folder });
 
-    const findingsRun = await run("check", "--mode", "findings", "--json");
-    expect({ exit: findingsRun.exit, stderr: findingsRun.stderr }).toEqual({
-      exit: 3,
-      stderr: "",
-    });
-    expect(JSON.parse(findingsRun.stdout)).toMatchObject({
-      result: {
-        outcome: "refused",
-        exitCode: 3,
-        causeCode: "DOMAIN_CHECK_FINDINGS",
-        repairAction: "Fix the reported findings.",
-        data: { findings: ["missing-header"] },
-      },
-    });
+      const findingsRun = await run("check", "--mode", "findings", "--json");
+      expect({ exit: findingsRun.exit, stderr: findingsRun.stderr }).toEqual({
+        exit: 3,
+        stderr: "",
+      });
+      expect(JSON.parse(findingsRun.stdout)).toMatchObject({
+        result: {
+          outcome: "refused",
+          exitCode: 3,
+          causeCode: "DOMAIN_CHECK_FINDINGS",
+          repairAction: "Fix the reported findings.",
+          data: { findings: ["missing-header"] },
+        },
+      });
 
-    const discoveryRun = await run(
-      "--discover-command",
-      "notes.check",
-      "--json",
-    );
-    expect({ exit: discoveryRun.exit, stderr: discoveryRun.stderr }).toEqual({
-      exit: 0,
-      stderr: "",
-    });
-    const discoveryEnvelope: unknown = JSON.parse(discoveryRun.stdout);
-    const discoveryResult: unknown = Reflect.get(
-      Object(discoveryEnvelope),
-      "result",
-    );
-    const discoveryData: unknown = Reflect.get(Object(discoveryResult), "data");
-    const discoveredStations: unknown = Reflect.get(
-      Object(discoveryData),
-      "stations",
-    );
-    expect(Array.isArray(discoveredStations)).toBe(true);
-    if (!Array.isArray(discoveredStations))
-      throw new Error("Expected discovered stations array.");
-    const byCause = new Map<string, object>(
-      discoveredStations.flatMap((entry: unknown) =>
-        typeof entry === "object" && entry !== null
-          ? [[String(Reflect.get(entry, "causeCode")), entry]]
-          : [],
-      ),
-    );
-    expect(byCause.get("DOMAIN_CHECK_FINDINGS")).toMatchObject({
-      carriesData: true,
-    });
-    expect(
-      Object.hasOwn(
-        byCause.get("DOMAIN_PRECONDITION_UNMET") ?? {},
-        "carriesData",
-      ),
-    ).toBe(false);
-    expect(
-      Object.hasOwn(byCause.get("SUCCESS_UNCHANGED") ?? {}, "carriesData"),
-    ).toBe(false);
+      const discoveryRun = await run(
+        "--discover-command",
+        "notes.check",
+        "--json",
+      );
+      expect({ exit: discoveryRun.exit, stderr: discoveryRun.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      const discoveryEnvelope: unknown = JSON.parse(discoveryRun.stdout);
+      const discoveryResult: unknown = Reflect.get(
+        Object(discoveryEnvelope),
+        "result",
+      );
+      const discoveryData: unknown = Reflect.get(
+        Object(discoveryResult),
+        "data",
+      );
+      const discoveredStations: unknown = Reflect.get(
+        Object(discoveryData),
+        "stations",
+      );
+      expect(Array.isArray(discoveredStations)).toBe(true);
+      if (!Array.isArray(discoveredStations))
+        throw new Error("Expected discovered stations array.");
+      const byCause = new Map<string, object>(
+        discoveredStations.flatMap((entry: unknown) =>
+          typeof entry === "object" && entry !== null
+            ? [[String(Reflect.get(entry, "causeCode")), entry]]
+            : [],
+        ),
+      );
+      expect(byCause.get("DOMAIN_CHECK_FINDINGS")).toMatchObject({
+        carriesData: true,
+      });
+      const plainStation = byCause.get("DOMAIN_PRECONDITION_UNMET");
+      expect(plainStation).toBeDefined();
+      if (!plainStation)
+        throw new Error("Expected DOMAIN_PRECONDITION_UNMET station.");
+      expect(Object.hasOwn(plainStation, "carriesData")).toBe(false);
 
-    const okRun = await run("check", "--mode", "ok", "--json");
-    expect({ exit: okRun.exit, stderr: okRun.stderr }).toEqual({
-      exit: 0,
-      stderr: "",
-    });
-    expect(JSON.parse(okRun.stdout)).toMatchObject({
-      result: { outcome: "success", exitCode: 0, data: { checked: true } },
-    });
+      const okStation = byCause.get("SUCCESS_UNCHANGED");
+      expect(okStation).toBeDefined();
+      if (!okStation) throw new Error("Expected SUCCESS_UNCHANGED station.");
+      expect(Object.hasOwn(okStation, "carriesData")).toBe(false);
 
-    const plainRun = await run("check", "--mode", "plain", "--json");
-    expect({ exit: plainRun.exit, stderr: plainRun.stderr }).toEqual({
-      exit: 3,
-      stderr: "",
-    });
-    expect(JSON.parse(plainRun.stdout)).toMatchObject({
-      result: { outcome: "refused", exitCode: 3, data: null },
-    });
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
-  }
-});
+      const okRun = await run("check", "--mode", "ok", "--json");
+      expect({ exit: okRun.exit, stderr: okRun.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      expect(JSON.parse(okRun.stdout)).toMatchObject({
+        result: { outcome: "success", exitCode: 0, data: { checked: true } },
+      });
+
+      const plainRun = await run("check", "--mode", "plain", "--json");
+      expect({ exit: plainRun.exit, stderr: plainRun.stderr }).toEqual({
+        exit: 3,
+        stderr: "",
+      });
+      expect(JSON.parse(plainRun.stdout)).toMatchObject({
+        result: { outcome: "refused", exitCode: 3, data: null },
+      });
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  },
+  processWatchdog(4),
+);
 
 test(
   "type checks reject non-null data on a plain refusal and illegal carriesData rows while accepting carriesData domain refusals",
@@ -948,7 +1137,10 @@ test(
         stderr: "",
       });
 
-      for (const item of illegalCauseTableProbes) {
+      for (const item of [
+        ...illegalCauseTableProbes,
+        ...illegalAliasedCauseTableProbes,
+      ]) {
         const rejected = await item.probe.compile(compiler);
         expect(rejected.exit).not.toBe(0);
         expect(rejected.stderr).toBe("");
