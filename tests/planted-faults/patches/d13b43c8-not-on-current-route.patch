@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -187,7 +187,7 @@ export function invocationRoute(
+   }
+   const match = selectRouteMatch(cli, commands, tokens);
+   const renamedRoute =
+-    navigation.length === 0 && match?.renamed === true
++    navigation.length === 0 && match !== undefined
+       ? { from: match.route.join(" "), to: match.command.route.join(" ") }
+       : undefined;
+   return {

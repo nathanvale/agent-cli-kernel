@@ -1,0 +1,7 @@
+{
+  "id": "d13b43c8-route-text",
+  "patch": "tests/planted-faults/patches/d13b43c8-route-text.patch",
+  "testFile": "tests/kernel/renamed-notice.test.ts",
+  "title": "^renamedFrom human route notice a command with two old routes prints each matched old route in its Note line$",
+  "source": "d13b43c8 feat(kernel): write a notice when a command runs through its old route"
+}

@@ -1,0 +1,19 @@
+diff --git a/kernel/src/kernel/human.ts b/kernel/src/kernel/human.ts
+--- a/kernel/src/kernel/human.ts
++++ b/kernel/src/kernel/human.ts
+@@ -159,14 +159,7 @@ function diagnosticsLine(
+ function renamedNoticeLine(
+   renamedRoute: RenamedRoute | undefined,
+ ): readonly HumanWrite[] {
+-  return renamedRoute
+-    ? [
+-        {
+-          stream: "stderr",
+-          text: `Note: "${renamedRoute.from}" is now "${renamedRoute.to}".\n`,
+-        },
+-      ]
+-    : [];
++  return renamedRoute ? [] : [];
+ }
+ 
+ export function renderHuman(

@@ -1,0 +1,23 @@
+diff --git a/kernel/src/kernel/writer.ts b/kernel/src/kernel/writer.ts
+--- a/kernel/src/kernel/writer.ts
++++ b/kernel/src/kernel/writer.ts
+@@ -68,7 +68,18 @@ export function createWriter(options: {
+   }
+ 
+   function output(text: string, envelope: Envelope): readonly HumanWrite[] {
+-    if (machine) return [{ stream: "stdout", text: `${text}\n` }];
++    if (machine)
++      return [
++        ...(renamedRoute
++          ? [
++              {
++                stream: "stderr" as const,
++                text: `Note: "${renamedRoute.from}" is now "${renamedRoute.to}".\n`,
++              },
++            ]
++          : []),
++        { stream: "stdout", text: `${text}\n` },
++      ];
+     const humanOptions =
+       renamedHelp === true || renamedRoute !== undefined
+         ? {

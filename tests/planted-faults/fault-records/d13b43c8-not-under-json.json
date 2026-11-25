@@ -1,0 +1,7 @@
+{
+  "id": "d13b43c8-not-under-json",
+  "patch": "tests/planted-faults/patches/d13b43c8-not-under-json.patch",
+  "testFile": "tests/kernel/renamed-notice.test.ts",
+  "title": "^renamedFrom human route notice running through an old route with --json keeps stderr empty and stdout envelope equal to the current route$",
+  "source": "d13b43c8 feat(kernel): write a notice when a command runs through its old route"
+}

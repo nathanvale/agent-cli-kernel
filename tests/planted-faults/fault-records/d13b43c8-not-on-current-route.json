@@ -1,0 +1,7 @@
+{
+  "id": "d13b43c8-not-on-current-route",
+  "patch": "tests/planted-faults/patches/d13b43c8-not-on-current-route.patch",
+  "testFile": "tests/kernel/renamed-notice.test.ts",
+  "title": "^renamedFrom human route notice running through the current route in human mode prints no Note line$",
+  "source": "d13b43c8 feat(kernel): write a notice when a command runs through its old route"
+}
