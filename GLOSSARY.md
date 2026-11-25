@@ -237,6 +237,11 @@ files and post-open swaps, returning a `RootedRefusal` whose message ends
 with a `Repair:` line.
 _Avoid_: safe path, guard (unqualified), helper (for a rooted-file module)
 
+**RootedFileResult**:
+What `readRootedFile` returns: `{ kind: "read", bytes, facts }` for a file it
+read, `{ kind: "missing" }` when the path does not exist, or a
+`RootedRefusal`. Exported from `agent-cli-kernel/rooted-file`.
+
 ### Verifying a CLI
 
 **verify-cli**:
