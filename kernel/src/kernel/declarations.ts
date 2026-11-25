@@ -382,6 +382,19 @@ function executeVia<Identity extends string>(prepare: Prepare<Identity>) {
       : entry;
   };
 }
+function withRenamedFrom<T extends object>(
+  declaration: T,
+  renamedFrom: readonly (readonly string[])[] | undefined,
+): T {
+  return freeze(
+    renamedFrom !== undefined && renamedFrom.length > 0
+      ? {
+          ...declaration,
+          renamedFrom: renamedFrom.map((route) => [...route]),
+        }
+      : declaration,
+  );
+}
 export function command<
   const Identity extends string,
   const I extends InputSchema,
@@ -392,7 +405,6 @@ export function command<
   spec: {
     readonly identity: Identity;
     readonly route: readonly string[];
-    readonly renamedFrom?: readonly (readonly string[])[];
     readonly summary: string;
     readonly input: I;
     readonly futureBindings?: Readonly<
@@ -408,6 +420,8 @@ export function command<
         AbortContext &
         ResultContext<Identity, S, "inspect", C, P>,
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
+  } & {
+    readonly renamedFrom?: readonly (readonly string[])[];
   } & ApprovalFor<C, I>,
 ) {
   admitSpecification(spec);
@@ -453,20 +467,20 @@ export function command<
         ),
     };
   };
-  const declaration = freeze({
-    commandIdentity: spec.identity,
-    route: [...spec.route],
-    ...(spec.renamedFrom !== undefined && spec.renamedFrom.length > 0
-      ? { renamedFrom: spec.renamedFrom.map((route) => [...route]) }
-      : {}),
-    summary: spec.summary,
-    effectClass: "inspect" as const,
-    input,
-    futureBindings: structuredClone(spec.futureBindings ?? {}),
-    stations: structuredClone(spec.stations ?? []),
-    capabilities: capabilities ?? {},
-    execute: executeVia(prepare),
-  });
+  const declaration = withRenamedFrom(
+    {
+      commandIdentity: spec.identity,
+      route: [...spec.route],
+      summary: spec.summary,
+      effectClass: "inspect" as const,
+      input,
+      futureBindings: structuredClone(spec.futureBindings ?? {}),
+      stations: structuredClone(spec.stations ?? []),
+      capabilities: capabilities ?? {},
+      execute: executeVia(prepare),
+    },
+    spec.renamedFrom,
+  );
   if (spec.programStopCause !== undefined)
     recordProgramStop(declaration, spec.programStopCause);
   if (spec.notInteractiveCause !== undefined)
@@ -486,7 +500,6 @@ export function changing<
   spec: {
     readonly identity: Identity;
     readonly route: readonly string[];
-    readonly renamedFrom?: readonly (readonly string[])[];
     readonly summary: string;
     readonly input: I;
     readonly futureBindings?: Readonly<
@@ -507,6 +520,8 @@ export function changing<
           readonly state: StateCapability<Effect>;
         } & ResultContext<Identity, S, "repository-local" | "external">,
     ) => Promise<CommandResult<Identity>>;
+  } & {
+    readonly renamedFrom?: readonly (readonly string[])[];
   } & ApprovalFor<C, I>,
 ) {
   admitSpecification(spec);
@@ -552,24 +567,24 @@ export function changing<
       },
     };
   };
-  const declaration = freeze({
-    commandIdentity: spec.identity,
-    route: [...spec.route],
-    ...(spec.renamedFrom !== undefined && spec.renamedFrom.length > 0
-      ? { renamedFrom: spec.renamedFrom.map((route) => [...route]) }
-      : {}),
-    summary: spec.summary,
-    effectClass: spec.effectClass,
-    effects: [...spec.effects],
-    ifNoResult: spec.ifNoResult,
-    heldLockCause: spec.heldLockCause,
-    unresolvedCaseCause: spec.unresolvedCaseCause,
-    input: structuredClone(spec.input),
-    futureBindings: structuredClone(spec.futureBindings ?? {}),
-    stations: structuredClone(spec.stations),
-    capabilities: spec.capabilities ?? {},
-    execute: executeVia(prepare),
-  });
+  const declaration = withRenamedFrom(
+    {
+      commandIdentity: spec.identity,
+      route: [...spec.route],
+      summary: spec.summary,
+      effectClass: spec.effectClass,
+      effects: [...spec.effects],
+      ifNoResult: spec.ifNoResult,
+      heldLockCause: spec.heldLockCause,
+      unresolvedCaseCause: spec.unresolvedCaseCause,
+      input: structuredClone(spec.input),
+      futureBindings: structuredClone(spec.futureBindings ?? {}),
+      stations: structuredClone(spec.stations),
+      capabilities: spec.capabilities ?? {},
+      execute: executeVia(prepare),
+    },
+    spec.renamedFrom,
+  );
   if (spec.notInteractiveCause !== undefined)
     recordNotInteractiveCause(declaration, spec.notInteractiveCause);
   validateNotInteractiveCause(declaration);

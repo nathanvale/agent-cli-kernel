@@ -1,7 +1,0 @@
-{
-  "id": "a3380f01-refuse-prefix-shadow",
-  "patch": "tests/planted-faults/patches/a3380f01-refuse-prefix-shadow.patch",
-  "testFile": "tests/kernel/renamed-from.test.ts",
-  "title": "^renamedFrom route aliases refuses an old route that is a prefix shadowing another command route or old route$",
-  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
-}

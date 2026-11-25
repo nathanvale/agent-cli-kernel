@@ -157,15 +157,6 @@ function sameRoute(left: readonly string[], right: readonly string[]): boolean {
     left.every((token, index) => token === right[index])
   );
 }
-function isRoutePrefix(
-  prefix: readonly string[],
-  route: readonly string[],
-): boolean {
-  return (
-    prefix.length < route.length &&
-    prefix.every((token, index) => token === route[index])
-  );
-}
 function assertRenamedRouteClear(
   alias: { readonly identity: string; readonly route: readonly string[] },
   other: { readonly identity: string; readonly route: readonly string[] },
@@ -174,14 +165,6 @@ function assertRenamedRouteClear(
   if (sameRoute(alias.route, other.route))
     throw new Error(
       "Renamed route conflicts with another command route. Repair: remove the conflicting route from renamedFrom.",
-    );
-  if (
-    other.route.length > 0 &&
-    (isRoutePrefix(alias.route, other.route) ||
-      isRoutePrefix(other.route, alias.route))
-  )
-    throw new Error(
-      "Renamed route shadows another command route. Repair: remove the shadowing prefix from renamedFrom.",
     );
 }
 function validateRenamedRoutes(

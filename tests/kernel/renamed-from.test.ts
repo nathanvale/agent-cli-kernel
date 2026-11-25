@@ -451,26 +451,7 @@ describe("renamedFrom route aliases", () => {
     ).toThrow(expected);
   });
 
-  test("refuses an old route that is a prefix shadowing another command route or old route", () => {
-    const expected =
-      "Renamed route shadows another command route. Repair: remove the shadowing prefix from renamedFrom.";
-    const nested = command({
-      identity: "gates.nested",
-      route: ["show", "all"],
-      summary: "Show all.",
-      input: emptyInput,
-      capabilities: {},
-      run: readsUnchanged("gates.nested"),
-    });
-    const aliasPrefixOfOther = command({
-      identity: "gates.view",
-      route: ["view"],
-      renamedFrom: [["show"]],
-      summary: "View.",
-      input: emptyInput,
-      capabilities: {},
-      run: readsUnchanged("gates.view"),
-    });
+  test("allows prefix overlap between current and old routes and picks the longest match", async () => {
     const shortRoute = command({
       identity: "gates.short",
       route: ["show"],
@@ -488,33 +469,113 @@ describe("renamedFrom route aliases", () => {
       capabilities: {},
       run: readsUnchanged("gates.view-all"),
     });
-    const aliasOne = command({
-      identity: "gates.one",
-      route: ["one"],
-      renamedFrom: [["legacy"]],
-      summary: "One.",
+    const longerOldContract = contractFor({
+      cli: "gates",
+      commands: [shortRoute, otherPrefixOfAlias],
+    });
+    const show = await runEnvelope(longerOldContract, ["show"]);
+    const showAll = await runEnvelope(longerOldContract, ["show", "all"]);
+    const viewAll = await runEnvelope(longerOldContract, ["view", "all"]);
+    expect(show.exitCode).toBe(0);
+    expect(show.envelope.result.commandIdentity).toBe("gates.short");
+    expect(showAll.exitCode).toBe(0);
+    expect(showAll.envelope.result.commandIdentity).toBe("gates.view-all");
+    expect(showAll).toEqual(viewAll);
+
+    const nested = command({
+      identity: "gates.nested",
+      route: ["show", "all"],
+      summary: "Show all.",
       input: emptyInput,
       capabilities: {},
-      run: readsUnchanged("gates.one"),
+      run: readsUnchanged("gates.nested"),
     });
-    const aliasTwo = command({
-      identity: "gates.two",
-      route: ["two"],
-      renamedFrom: [["legacy", "sub"]],
-      summary: "Two.",
+    const aliasPrefixOfOther = command({
+      identity: "gates.view",
+      route: ["view"],
+      renamedFrom: [["show"]],
+      summary: "View.",
       input: emptyInput,
       capabilities: {},
-      run: readsUnchanged("gates.two"),
+      run: readsUnchanged("gates.view"),
     });
-    expect(() =>
-      contractFor({ cli: "gates", commands: [nested, aliasPrefixOfOther] }),
-    ).toThrow(expected);
-    expect(() =>
-      contractFor({ cli: "gates", commands: [shortRoute, otherPrefixOfAlias] }),
-    ).toThrow(expected);
-    expect(() =>
-      contractFor({ cli: "gates", commands: [aliasOne, aliasTwo] }),
-    ).toThrow(expected);
+    const shorterOldContract = contractFor({
+      cli: "gates",
+      commands: [nested, aliasPrefixOfOther],
+    });
+    const viaShortOld = await runEnvelope(shorterOldContract, ["show"]);
+    const viaShortCurrent = await runEnvelope(shorterOldContract, ["view"]);
+    const viaLongCurrent = await runEnvelope(shorterOldContract, [
+      "show",
+      "all",
+    ]);
+    expect(viaShortOld.exitCode).toBe(0);
+    expect(viaShortOld.envelope.result.commandIdentity).toBe("gates.view");
+    expect(viaShortOld).toEqual(viaShortCurrent);
+    expect(viaLongCurrent.exitCode).toBe(0);
+    expect(viaLongCurrent.envelope.result.commandIdentity).toBe("gates.nested");
+  });
+
+  test("refuses a non-array renamedFrom declaration", () => {
+    const expected =
+      "Invalid renamedFrom declaration. Repair: pass an array of non-empty string route arrays in renamedFrom.";
+    expect(() => {
+      Reflect.apply(command, undefined, [
+        {
+          identity: "gates.bad-shape",
+          route: ["good"],
+          renamedFrom: { old: ["route"] },
+          summary: "Bad shape.",
+          input: emptyInput,
+          capabilities: {},
+          run: readsUnchanged("gates.bad-shape"),
+        },
+      ]);
+    }).toThrow(expected);
+    expect(() => {
+      Reflect.apply(contractFor, undefined, [
+        {
+          cli: "gates",
+          commands: [
+            {
+              ...rawDeclaration("gates.bad-shape", ["good"]),
+              renamedFrom: { old: ["route"] },
+            },
+          ],
+        },
+      ]);
+    }).toThrow(expected);
+  });
+
+  test("refuses a renamedFrom entry that is not an array", () => {
+    const expected =
+      "Invalid renamedFrom declaration. Repair: pass an array of non-empty string route arrays in renamedFrom.";
+    expect(() => {
+      Reflect.apply(command, undefined, [
+        {
+          identity: "gates.bad-entry",
+          route: ["good"],
+          renamedFrom: ["old-route"],
+          summary: "Bad entry.",
+          input: emptyInput,
+          capabilities: {},
+          run: readsUnchanged("gates.bad-entry"),
+        },
+      ]);
+    }).toThrow(expected);
+    expect(() => {
+      Reflect.apply(contractFor, undefined, [
+        {
+          cli: "gates",
+          commands: [
+            {
+              ...rawDeclaration("gates.bad-entry", ["good"]),
+              renamedFrom: ["old-route"],
+            },
+          ],
+        },
+      ]);
+    }).toThrow(expected);
   });
 
   test("allows renamedFrom alongside a root command without false prefix shadowing", async () => {
