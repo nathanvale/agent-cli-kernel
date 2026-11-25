@@ -33,6 +33,10 @@ its record current.
   A faulted run that fails with no failing test matching `title` (including a
   test file that fails to load) gets `UNMATCHED` and exits non-zero; re-plant
   the fault so a matching test fails, or update the record's `title`.
+- A planted fault is "caught" only by the hosted `fault-replay` job at the
+  reviewed head, on a run whose `test` job is green. A local
+  `bun run fault-replay` run is a pre-check and is reported as "replayed
+  locally".
 
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
 [d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914
