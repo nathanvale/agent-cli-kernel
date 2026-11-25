@@ -63,7 +63,9 @@ function validateStationSet(
       !keys(station, declaredStationKeys) ||
       !causeRow(station.row)
     )
-      throw new Error("Station is not a strict declared station.");
+      throw new Error(
+        "Station is not a strict declared station. Repair: declare a strict station with a cause row matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.",
+      );
     if (reservedFallbackCause(station.causeCode))
       throw new Error("Fallback station words are reserved.");
     const row = causes[station.causeCode];

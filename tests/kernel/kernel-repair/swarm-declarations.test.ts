@@ -70,7 +70,7 @@ test("X-K1-5.raw-declaration-admission: contractFor re-checks every constructor 
     [
       "station with an extra key",
       { ...base(), stations: [{ ...unmet, secret: "leaked" }] },
-      "Station is not a strict declared station.",
+      "Station is not a strict declared station. Repair: declare a strict station with a cause row matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.",
     ],
     [
       "unknown reachability",
@@ -193,7 +193,7 @@ test("S2.raw-shape-refusals: each shape rule contractFor re-checks names its own
     [
       "station row with an extra key",
       { ...base(), stations: [{ ...unmet, row: { ...unmet.row, extra: 1 } }] },
-      "Station is not a strict declared station.",
+      "Station is not a strict declared station. Repair: declare a strict station with a cause row matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.",
     ],
   ];
   expect(variants).toHaveLength(5);

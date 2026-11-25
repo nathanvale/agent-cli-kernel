@@ -47,6 +47,7 @@ export type CauseRow =
       readonly exitCode: 0;
       readonly retryable: false;
       readonly guidance: "next";
+      readonly carriesData?: never;
     }
   | {
       readonly outcome: "refused";
@@ -71,12 +72,14 @@ export type CauseRow =
       readonly transactionState: "unchanged";
       readonly retryable: false;
       readonly guidance: "next" | "handoff";
+      readonly carriesData?: never;
     } & Exclude<FailureExit, { readonly failureClass: "domain" }>)
   | ({
       readonly outcome: "failed";
       readonly transactionState: "unchanged";
       readonly retryable: false;
       readonly guidance: "next" | "handoff";
+      readonly carriesData?: never;
     } & AttemptExit)
   | ({
       readonly outcome: "failed";
@@ -86,6 +89,7 @@ export type CauseRow =
         | "unknown";
       readonly retryable: false;
       readonly guidance: "handoff";
+      readonly carriesData?: never;
     } & AttemptExit)
   | {
       readonly outcome: "refused" | "failed";
@@ -94,6 +98,7 @@ export type CauseRow =
       readonly exitCode: 75;
       readonly retryable: true;
       readonly guidance: "next";
+      readonly carriesData?: never;
     };
 export type CauseTable = Readonly<Record<string, CauseRow>>;
 export type CommandStep<Identity extends string = string> = {
