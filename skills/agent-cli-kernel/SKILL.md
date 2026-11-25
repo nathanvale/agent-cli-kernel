@@ -1,7 +1,7 @@
 ---
 
 name: agent-cli-kernel
-description: Write commands on the agent-cli-kernel package. Use when code imports agent-cli-kernel to declare a command or its input, write a command that changes something, declare a result it can produce (a station), build the contract with contractFor, test a command, or read a throw from contractFor when the CLI starts.
+description: Write commands on the agent-cli-kernel package. Use when code imports agent-cli-kernel to declare or name a command or its input, write a command that changes something, declare a result it can produce (a station), build the contract with contractFor, test a command, or read a throw from contractFor when the CLI starts.
 ---
 
 # Writing commands on agent-cli-kernel
@@ -31,8 +31,8 @@ to one commit. This skill ships inside that package, at
 
 ## Routes
 
-- Writing or changing a command, its input, its entry file, or the add-ons
-  a CLI uses (`installedAddons`): read
+- Writing, naming or changing a command, its input, its entry file, or the
+  add-ons a CLI uses (`installedAddons`): read
   [commands](references/commands.md).
 - Declaring a result a command can produce, such as a refusal, or reading a
   throw when the CLI starts: read [stations](references/stations.md).
