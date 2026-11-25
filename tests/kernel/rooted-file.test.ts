@@ -166,6 +166,39 @@ describe("readRootedFile", () => {
       expect(text(physicalViaDotDot.bytes)).toBe("IN_ROOT");
   });
 
+  test("refuses .. after a linked folder, relative and absolute, and admits .. after a real folder", () => {
+    const base = folder("rooted-file-linked-parent-step-");
+    const root = join(base, "root");
+    const realBase = realpathSync.native(base);
+    const realRoot = join(realBase, "root");
+    mkdirSync(join(root, "nested"), { recursive: true });
+    mkdirSync(join(base, "outside"));
+    writeFileSync(join(root, "plain.txt"), "INSIDE");
+    writeFileSync(join(base, "plain.txt"), "OUTSIDE");
+    symlinkSync("../outside", join(root, "middle"));
+
+    const absolute = `${root}/middle/../plain.txt`;
+    for (const [path, linked] of [
+      ["middle/../plain.txt", join(realRoot, "middle")],
+      [absolute, join(root, "middle")],
+    ] as const)
+      expect(readRootedFile(root, path, limitBytes)).toEqual({
+        kind: "refused",
+        path,
+        reason: "linked-folder",
+        message: `${path} steps to ".." from linked folder ${linked}, which leaves the written path. Repair: pass the path without "..", or replace the symbolic link with a real folder inside ${realRoot}.`,
+      });
+
+    for (const path of ["nested/../plain.txt", `${root}/nested/../plain.txt`]) {
+      const read = readRootedFile(root, path, limitBytes);
+      expect(read.kind).toBe("read");
+      if (read.kind === "read") expect(text(read.bytes)).toBe("INSIDE");
+    }
+    expect(readRootedFile(root, "absent/../plain.txt", limitBytes)).toEqual({
+      kind: "missing",
+    });
+  });
+
   test("refuses directories and FIFOs as not-regular with full Repair messages", async () => {
     const base = folder("rooted-file-not-regular-");
     const root = join(base, "root");
