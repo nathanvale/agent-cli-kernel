@@ -1,0 +1,7 @@
+{
+  "id": "0322da60-skip-title-match-check",
+  "patch": "tests/planted-faults/patches/0322da60-skip-title-match-check.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-verdicts-in-process.test.ts",
+  "title": "^replay UNMATCHED when the patched module throws on load and no named test fails$",
+  "source": "0322da60 fix(fault-replay): require patched files to parse and failing test to match title"
+}

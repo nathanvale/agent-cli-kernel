@@ -1,0 +1,7 @@
+{
+  "id": "0322da60-skip-json-parse-check",
+  "patch": "tests/planted-faults/patches/0322da60-skip-json-parse-check.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-verdicts-in-process.test.ts",
+  "title": "^replay UNPARSED when the patch leaves a JSON file unparseable$",
+  "source": "0322da60 fix(fault-replay): require patched files to parse and failing test to match title"
+}
