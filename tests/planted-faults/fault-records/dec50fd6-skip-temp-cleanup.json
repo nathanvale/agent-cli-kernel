@@ -1,0 +1,7 @@
+{
+  "id": "dec50fd6-skip-temp-cleanup",
+  "patch": "tests/planted-faults/patches/dec50fd6-skip-temp-cleanup.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-replay-all-in-process.test.ts",
+  "title": "^replayAll does not write any worktree or git object under the checkout's \\.git, even when dirty$",
+  "source": "dec50fd6 feat(fault-replay): replay in one temp copy with its own .git"
+}
