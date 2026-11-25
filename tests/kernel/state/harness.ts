@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, jest, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -18,6 +18,7 @@ import {
 } from "../../../kernel/src/addons/state/qualification.ts";
 import type { Match } from "../../../kernel/src/addons/state/qualification.ts";
 import { testFolder } from "../../support/test-folder.ts";
+import { turns } from "../lifecycle/recording-host.ts";
 import {
   refuseRunOverrides,
   runOf,
@@ -782,4 +783,35 @@ export function expectCompleted(run: Run): void {
   expect(run.result.outcome).toBe("success");
   expect(run.result.transactionState).toBe("completed");
   expect(run.result.retryable).toBe(false);
+}
+
+export async function answerAtStop<T>(
+  start: () => Promise<T>,
+  parked: Promise<void>,
+  label: string,
+): Promise<T> {
+  const turnBound = 1_000;
+  jest.useFakeTimers();
+  try {
+    const pending = start();
+    const outcome = { answered: false };
+    const answered = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    void answered.then(() => {
+      outcome.answered = true;
+    });
+    await Promise.race([parked, answered]);
+    for (let turn = 0; !outcome.answered && turn < turnBound; turn += 1) {
+      await turns(1);
+      if (!outcome.answered && jest.getTimerCount() > 0)
+        jest.advanceTimersToNextTimer();
+    }
+    if (!outcome.answered)
+      throw new Error(`${label} did not answer in ${turnBound} turns.`);
+    return await pending;
+  } finally {
+    jest.useRealTimers();
+  }
 }

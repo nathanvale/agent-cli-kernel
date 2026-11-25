@@ -1,4 +1,4 @@
-import { afterEach, expect } from "bun:test";
+import { afterEach, expect, jest } from "bun:test";
 import {
   chmodSync,
   mkdirSync,
@@ -41,7 +41,7 @@ import {
 } from "../kernel-repair/shapes.ts";
 import { deferred } from "../lifecycle/recording-host.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { supportingTest } from "./harness.ts";
+import { answerAtStop, supportingTest } from "./harness.ts";
 
 const causes = {
   DOMAIN_SW_LOCK_HELD: refusedHandoff,
@@ -64,6 +64,7 @@ type Effects = (typeof defaultEffects)[number];
 const createdFolders: string[] = [];
 
 afterEach(() => {
+  jest.useRealTimers();
   while (createdFolders.length > 0) {
     const folder = createdFolders.pop();
     if (folder) rmSync(folder, { recursive: true, force: true });
@@ -261,13 +262,17 @@ supportingTest(
   async () => {
     for (const stopPhase of ["admission-wait", "staged"] as const) {
       const root = stateRoot();
+      const parked = deferred();
       const gate = deferred();
       const settled = deferred();
       const state = stateAddonWithTestSeams(
         { root, report: "sw.pending" },
         {
           phase: async (name: Phase) => {
-            if (name === stopPhase) await gate.promise;
+            if (name === stopPhase) {
+              parked.resolve();
+              await gate.promise;
+            }
           },
         },
       );
@@ -287,9 +292,14 @@ supportingTest(
           .finally(() => settled.resolve()),
       );
       try {
-        const ran = await runInProcess(contract, {
-          emergencyRecord: state.emergencyRecord,
-        })(["open", "--deadline-ms", "20"]);
+        const ran = await answerAtStop(
+          () =>
+            runInProcess(contract, {
+              emergencyRecord: state.emergencyRecord,
+            })(["open", "--deadline-ms", "20"]),
+          parked.promise,
+          `SU26a:${stopPhase}`,
+        );
         expect(ran.kind).toBe("envelope");
         if (ran.kind === "envelope")
           expect(ran.envelope.result.causeCode).toBe("DOMAIN_DEADLINE_UNKNOWN");
@@ -408,13 +418,17 @@ supportingTest(
     expect(controlOutcome?.kind).toBe("ran");
     expect(readdirSync(consumedDir).length).toBe(1);
 
+    const parked = deferred();
     const gate = deferred();
     const settled = deferred();
     const state = stateAddonWithTestSeams(
       { root, report: "sw.pending" },
       {
         phase: async (name: Phase) => {
-          if (name === "admission-wait") await gate.promise;
+          if (name === "admission-wait") {
+            parked.resolve();
+            await gate.promise;
+          }
         },
       },
     );
@@ -451,10 +465,15 @@ supportingTest(
       preview,
     );
     try {
-      const ran = await runInProcess(contract, {
-        emergencyRecord: state.emergencyRecord,
-        addons: { approval: makeApprovalAddon(state.descriptor, runBox) },
-      })(["open", "--deadline-ms", "20"]);
+      const ran = await answerAtStop(
+        () =>
+          runInProcess(contract, {
+            emergencyRecord: state.emergencyRecord,
+            addons: { approval: makeApprovalAddon(state.descriptor, runBox) },
+          })(["open", "--deadline-ms", "20"]),
+        parked.promise,
+        "SU26b:admission-wait",
+      );
       expect(ran.kind).toBe("envelope");
       if (ran.kind === "envelope")
         expect(ran.envelope.result.causeCode).toBe("DOMAIN_DEADLINE_UNKNOWN");
@@ -471,6 +490,7 @@ supportingTest(
   "SU26c.effect-started-not-written-after-deadline: record() called after deadline rejects without appending effect-started",
   async () => {
     const root = stateRoot();
+    const parked = deferred();
     const gate = deferred();
     const settled = deferred();
     let recordError = "none";
@@ -481,6 +501,7 @@ supportingTest(
           cap,
           { command: "sw.open", scope: keyScope, supersedeUnresolved: true },
           async (tx) => {
+            parked.resolve();
             await gate.promise;
             try {
               await tx.record(
@@ -497,9 +518,14 @@ supportingTest(
         .finally(() => settled.resolve()),
     );
     try {
-      const ran = await runInProcess(contract, {
-        emergencyRecord: state.emergencyRecord,
-      })(["open", "--deadline-ms", "20"]);
+      const ran = await answerAtStop(
+        () =>
+          runInProcess(contract, {
+            emergencyRecord: state.emergencyRecord,
+          })(["open", "--deadline-ms", "20"]),
+        parked.promise,
+        "SU26c:before-record",
+      );
       expect(ran.kind).toBe("envelope");
       if (ran.kind === "envelope")
         expect(ran.envelope.result.causeCode).toBe("DOMAIN_DEADLINE_UNKNOWN");
@@ -523,6 +549,7 @@ supportingTest(
   "SU26d.delegate-admitted-not-written-after-deadline: admitStart() called after deadline rejects without appending delegate-admitted",
   async () => {
     const root = stateRoot();
+    const parked = deferred();
     const gate = deferred();
     const settled = deferred();
     let admitError = "none";
@@ -537,6 +564,7 @@ supportingTest(
             await tx.record(
               "doc.write",
               async (recorded) => {
+                parked.resolve();
                 await gate.promise;
                 try {
                   await recorded.admitStart(
@@ -559,9 +587,14 @@ supportingTest(
         .finally(() => settled.resolve()),
     );
     try {
-      const ran = await runInProcess(contract, {
-        emergencyRecord: state.emergencyRecord,
-      })(["open", "--deadline-ms", "20"]);
+      const ran = await answerAtStop(
+        () =>
+          runInProcess(contract, {
+            emergencyRecord: state.emergencyRecord,
+          })(["open", "--deadline-ms", "20"]),
+        parked.promise,
+        "SU26d:before-admitStart",
+      );
       expect(ran.kind).toBe("envelope");
       if (ran.kind === "envelope")
         expect(ran.envelope.result.causeCode).toBe("DOMAIN_DEADLINE_UNKNOWN");
@@ -734,6 +767,7 @@ async function assertPostClosureDeadlineRefusalReportsSuperseded(): Promise<void
   const firstId = await seedUnresolvedCase(root, "alpha");
   const secondId = await seedUnresolvedCase(root, "beta");
   const expected = [firstId, secondId].sort();
+  const parked = deferred();
   const gate = deferred();
   const settled = deferred();
   let publishedSeen = 0;
@@ -744,7 +778,10 @@ async function assertPostClosureDeadlineRefusalReportsSuperseded(): Promise<void
       phase: async (name: Phase) => {
         if (name === "closure-published") {
           publishedSeen += 1;
-          if (publishedSeen === 2) await gate.promise;
+          if (publishedSeen === 2) {
+            parked.resolve();
+            await gate.promise;
+          }
         }
       },
     },
@@ -763,9 +800,14 @@ async function assertPostClosureDeadlineRefusalReportsSuperseded(): Promise<void
       .finally(() => settled.resolve()),
   );
   try {
-    const ran = await runInProcess(contract, {
-      emergencyRecord: state.emergencyRecord,
-    })(["open", "--deadline-ms", "20"]);
+    const ran = await answerAtStop(
+      () =>
+        runInProcess(contract, {
+          emergencyRecord: state.emergencyRecord,
+        })(["open", "--deadline-ms", "20"]),
+      parked.promise,
+      "SU26e:closure-published#2",
+    );
     expect(ran.kind).toBe("envelope");
   } finally {
     gate.resolve();
