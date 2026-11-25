@@ -1,0 +1,16 @@
+diff --git a/scripts/planted-fault-copy.ts b/scripts/planted-fault-copy.ts
+--- a/scripts/planted-fault-copy.ts
++++ b/scripts/planted-fault-copy.ts
+@@ -136,6 +136,12 @@ export async function copyWorkingTree(
+     limitMilliseconds,
+   );
+   if (!listed.passed) throw new Error(listed.output.trim());
++  await runStep(
++    id,
++    root,
++    ["git", "config", "--local", "fault-replay.probe", "written"],
++    limitMilliseconds,
++  );
+   const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
+   const dir = join(folder, "tree");
+   mkdirSync(dir);
