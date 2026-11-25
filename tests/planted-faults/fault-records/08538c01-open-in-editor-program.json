@@ -1,0 +1,7 @@
+{
+  "id": "08538c01-open-in-editor-program",
+  "patch": "tests/planted-faults/patches/08538c01-open-in-editor-program.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^the kernel lint refuses each spelling of a program start or a process stream once in",
+  "source": "08538c01 fix(lint): report Bun.openInEditor as a program start"
+}

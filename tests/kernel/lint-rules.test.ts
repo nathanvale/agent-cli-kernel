@@ -1387,6 +1387,8 @@ const streamMessage =
   "Return domain data to the CLI output owner instead of accessing process streams.";
 const program = `repository/no-process-reach: ${startMessage}`;
 const output = `repository/no-process-reach: ${streamMessage}`;
+const unlisted = (member: string) =>
+  `repository/no-process-reach: ${member} is not on the kernel's runtime allowlist. Repair: use a listed member, or propose adding a pure member to the allowlist in the kernel.`;
 const domainOutput = `repository/no-domain-output: ${streamMessage}`;
 const restricted = (name: string) =>
   `no-restricted-properties: '${name}' is restricted from being used.`;
@@ -1427,9 +1429,27 @@ const runtimeSpellings = [
   ['export const run = import.meta.require("node:child_process");', program],
   ['export const run = require("bun");', program],
   ["export const run = Bun.openInEditor;", program],
+  ["const { openInEditor } = Bun; export const run = openInEditor;", program],
+  [
+    'import { openInEditor } from "bun"; export const run = openInEditor;',
+    program,
+  ],
+  ['export { openInEditor } from "bun";', program],
+  ["export const run = Bun.WebView;", program],
+  ["const { WebView } = Bun; export const run = WebView;", program],
+  ['import { WebView } from "bun"; export const run = WebView;', program],
+  ['export { WebView } from "bun";', program],
+  ["export const run = Bun.cron;", program],
+  ["const { cron } = Bun; export const run = cron;", program],
+  ['import { cron } from "bun"; export const run = cron;', program],
+  ['export { cron } from "bun";', program],
+  ["export const run = () => Bun.gc();", unlisted("Bun.gc")],
+  ["const { gc } = Bun; export const run = gc;", unlisted("Bun.gc")],
+  ['import { gc } from "bun"; export const run = gc;', unlisted("Bun.gc")],
+  ['export { gc } from "bun";', unlisted("Bun.gc")],
   [
     'export const run = process.getBuiltinModule("node:child_process");',
-    output,
+    unlisted("process.getBuiltinModule"),
   ],
   ['export const out = () => Bun.write(Bun.stdout, "x");', domainOutput],
   ["const { stderr } = Bun; export const out = stderr;", domainOutput],
@@ -1447,7 +1467,10 @@ const runtimeSpellings = [
     'import { stdout } from "node:process"; export const out = stdout;',
     domainOutput,
   ],
-  ['export const out = process.getBuiltinModule("node:process");', output],
+  [
+    'export const out = process.getBuiltinModule("node:process");',
+    unlisted("process.getBuiltinModule"),
+  ],
   ['export const out = () => globalThis.console.log("x");', output],
   ['export const out = () => globalThis.process.stderr.write("x");', output],
   ["const { process: host } = globalThis; export const out = host;", output],
@@ -1471,19 +1494,25 @@ const runtimeSpellings = [
   ],
   [
     'import { getBuiltinModule } from "node:process"; export const out = getBuiltinModule;',
-    output,
+    unlisted("process.getBuiltinModule"),
   ],
   [
     "const { getBuiltinModule } = process; export const out = getBuiltinModule;",
-    output,
+    unlisted("process.getBuiltinModule"),
   ],
   ['import c from "node:console"; export const out = c;', output],
   ['import { log } from "console"; export const out = log;', output],
   ['export { stdout } from "node:process";', output],
   ['export * as proc from "node:process";', output],
   ['export const out = import.meta.require("node:process");', output],
-  ['export const out = () => process.emitWarning("x");', output],
-  ['export const out = () => process._rawDebug("x");', output],
+  [
+    'export const out = () => process.emitWarning("x");',
+    unlisted("process.emitWarning"),
+  ],
+  [
+    'export const out = () => process._rawDebug("x");',
+    unlisted("process._rawDebug"),
+  ],
   [
     'export const out = () => process.on("exit", () => {}).stdout.write("x");',
     output,
@@ -1660,6 +1689,14 @@ const honestRuntime = [
   'import type { Subprocess } from "bun"; export type Child = Subprocess;',
   'import { type Subprocess } from "bun"; export type Child = Subprocess;',
   "export const read = (path: string) => Bun.file(path).text();",
+  'export const parsedYaml = Bun.YAML.parse("a: 1");',
+  "export const dumpedYaml = Bun.YAML.stringify({ a: 1 });",
+  'export const markdownHtml = Bun.markdown.html("# hi");',
+  'export const markdownRender = Bun.markdown.render("# hi", {});',
+  "export const markdownNamespace = Bun.markdown;",
+  'import { YAML, markdown } from "bun"; export const parsers = [YAML.parse("a: 1"), markdown.html("# hi")];',
+  'export const otherParsers = [Bun.JSON5.parse("{a:1}"), Bun.JSONC.parse("{}"), Bun.JSONL.parse("{}"), Bun.XML.parse("<a/>"), Bun.stripANSI("x")];',
+  'export const parsedToml = Bun.TOML.parse("a = 1");',
   'export const home = () => process.env["HOME"];',
   "const { argv } = process; export const args = argv;",
   "export const tag = { process: 1, Bun: 2, console: 3 };",

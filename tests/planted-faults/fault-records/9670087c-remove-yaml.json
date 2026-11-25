@@ -1,0 +1,7 @@
+{
+  "id": "9670087c-remove-yaml",
+  "patch": "tests/planted-faults/patches/9670087c-remove-yaml.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^the kernel lint refuses each spelling of a program start or a process stream once in",
+  "source": "9670087c fix(lint): admit Bun's pure parsers and say when a runtime member is not on the allowlist"
+}

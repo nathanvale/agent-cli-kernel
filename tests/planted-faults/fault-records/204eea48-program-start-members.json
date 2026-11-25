@@ -1,0 +1,7 @@
+{
+  "id": "204eea48-program-start-members",
+  "patch": "tests/planted-faults/patches/204eea48-program-start-members.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^the kernel lint refuses each spelling of a program start or a process stream once in",
+  "source": "204eea48 fix(lint): report Bun.WebView and Bun.cron as program starts"
+}
