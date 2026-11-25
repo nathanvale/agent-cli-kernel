@@ -17,31 +17,68 @@ export function refused(
     ...usageRefusal(fault, cli),
   } as const;
 }
+const booleanSwitches = [
+  "--json",
+  "--help",
+  "--discover",
+  "--discover-all",
+] as const;
 const navigationSwitches = [
   "--help",
   "--discover",
   "--discover-all",
   "--discover-command",
 ];
-function globalSwitches(argv: readonly unknown[]) {
-  const tokens: string[] = [];
-  let literal = false,
-    machine = false;
-  for (const token of argv) {
-    if (token === "--") literal = true;
-    if (!literal && token === "--json") machine = true;
-    else tokens.push(String(token));
+const discoverCommandPrefix = "--discover-command=";
+type SwitchScan = {
+  readonly tokens: string[];
+  literal: boolean;
+  machine: boolean;
+  unexpectedValue?: string;
+};
+function unexpectedBooleanSwitch(token: string): string | undefined {
+  return booleanSwitches.find((name) => token.startsWith(`${name}=`));
+}
+function scanGlobalToken(state: SwitchScan, token: string): void {
+  if (token === "--") state.literal = true;
+  if (state.literal) {
+    state.tokens.push(token);
+    return;
   }
-  const separator = tokens.indexOf("--");
-  const globalTokens = separator < 0 ? tokens : tokens.slice(0, separator);
+  if (token === "--json") {
+    state.machine = true;
+    return;
+  }
+  const bad = unexpectedBooleanSwitch(token);
+  if (bad !== undefined) state.unexpectedValue ??= bad;
+  if (token.startsWith(discoverCommandPrefix)) {
+    state.tokens.push(
+      "--discover-command",
+      token.slice(discoverCommandPrefix.length),
+    );
+    return;
+  }
+  state.tokens.push(token);
+}
+function globalSwitches(argv: readonly unknown[]) {
+  const state: SwitchScan = { tokens: [], literal: false, machine: false };
+  for (const item of argv) scanGlobalToken(state, String(item));
+  const separator = state.tokens.indexOf("--");
+  const globalTokens =
+    separator < 0 ? state.tokens : state.tokens.slice(0, separator);
   const navigation = globalTokens.filter((token) =>
     navigationSwitches.includes(token),
   );
-  return { tokens, machine, navigation };
+  return {
+    tokens: state.tokens,
+    machine: state.machine,
+    navigation,
+    unexpectedValue: state.unexpectedValue,
+  };
 }
 export function carriesGlobalSwitch(argv: readonly unknown[]): boolean {
-  const { machine, navigation } = globalSwitches(argv);
-  return machine || navigation.length > 0;
+  const { machine, navigation, unexpectedValue } = globalSwitches(argv);
+  return machine || navigation.length > 0 || unexpectedValue !== undefined;
 }
 export function asksMachineOutput(argv: unknown): boolean {
   return (
@@ -216,9 +253,10 @@ export function routedIdentity(
   commands: readonly CommandDeclaration[],
   vector: readonly string[],
 ): string | undefined {
-  const { tokens, navigation } = globalSwitches(vector);
+  const { tokens, navigation, unexpectedValue } = globalSwitches(vector);
   const deadline = splitDeadlineTokens(tokens);
-  if (!deadline.ok || navigation.length > 0) return undefined;
+  if (!deadline.ok || navigation.length > 0 || unexpectedValue !== undefined)
+    return undefined;
   return selectCommand(cli, commands, deadline.value.tokens)?.commandIdentity;
 }
 export type ResolveFacts = {
@@ -236,7 +274,21 @@ export async function resolveInvocation(
     !argv.every((token: unknown) => typeof token === "string")
   )
     return refused(cli, { kind: "invalid" }, false);
-  const { tokens: globalTokens, machine, navigation } = globalSwitches(argv);
+  const {
+    tokens: globalTokens,
+    machine,
+    navigation,
+    unexpectedValue,
+  } = globalSwitches(argv);
+  if (unexpectedValue !== undefined)
+    return refused(
+      cli,
+      {
+        kind: "unexpected-value",
+        slot: { kind: "option", name: unexpectedValue },
+      },
+      machine,
+    );
   const deadline = splitDeadline(globalTokens);
   if (!deadline.ok) return refused(cli, { kind: "deadline" }, machine);
   const { tokens, deadlineMilliseconds } = deadline.value;

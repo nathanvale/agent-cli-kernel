@@ -21,7 +21,12 @@ export type ValueCheck =
   | { readonly rule: "pattern invalid" }
   | { readonly rule: "pattern budget" };
 export type InputFault =
-  | { readonly kind: "unknown-option"; readonly closest: Slot | null }
+  | {
+      readonly kind: "unknown-option";
+      readonly option: string;
+      readonly closest: Slot | null;
+    }
+  | { readonly kind: "unexpected-value"; readonly slot: Slot }
   | { readonly kind: "extra-argument" }
   | { readonly kind: "missing-value"; readonly slot: Slot }
   | { readonly kind: "repeated"; readonly slot: Slot }
@@ -46,6 +51,14 @@ type Rule = ValueCheck["rule"];
 type CheckOf<R extends Rule> = Extract<ValueCheck, { readonly rule: R }>;
 
 const label = (slot: Slot) => `${slot.kind} ${slot.name}`;
+const maxOptionDisplayLength = 64;
+function unknownOptionSubject(option: string): string {
+  return option.length > 0 &&
+    option.length <= maxOptionDisplayLength &&
+    !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]/u.test(option)
+    ? `${option}, an option`
+    : "an option";
+}
 
 const checkWords: {
   readonly [R in Rule]: (check: CheckOf<R>, slot: string) => string;
@@ -86,10 +99,13 @@ const words: {
   "root-input": () => "This command needs at least one option or argument.",
   "later-step": () =>
     "A value in this invocation cannot be passed on to this command's next step.",
-  "unknown-option": (fault) =>
-    fault.closest === null
-      ? "The invocation uses an option this command does not declare."
-      : `The invocation uses an option this command does not declare. Did you mean ${fault.closest.name}?`,
+  "unknown-option": (fault) => {
+    const subject = unknownOptionSubject(fault.option);
+    return fault.closest === null
+      ? `The invocation uses ${subject} this command does not declare.`
+      : `The invocation uses ${subject} this command does not declare. Did you mean ${fault.closest.name}?`;
+  },
+  "unexpected-value": (fault) => `The ${label(fault.slot)} takes no value.`,
   "extra-argument": () =>
     "The invocation has more arguments than this command accepts.",
   missing: (fault) => `The required ${label(fault.slot)} is missing.`,

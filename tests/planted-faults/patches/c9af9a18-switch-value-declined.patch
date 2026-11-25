@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -254,7 +254,7 @@ export async function resolveInvocation(
+     navigation,
+     unexpectedValue,
+   } = globalSwitches(argv);
+-  if (unexpectedValue !== undefined)
++  if (false && unexpectedValue !== undefined)
+     return refused(
+       cli,
+       {

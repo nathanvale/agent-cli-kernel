@@ -1,0 +1,7 @@
+{
+  "id": "c96f6c8a-discover-all-value-declined",
+  "patch": "tests/planted-faults/patches/c96f6c8a-discover-all-value-declined.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form --discover-all=x --json refuses like --discover=x and never runs full discovery$",
+  "source": "c96f6c8a test(kernel): cover --discover-all=x in the option equals form"
+}

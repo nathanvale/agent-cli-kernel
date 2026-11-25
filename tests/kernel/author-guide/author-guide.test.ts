@@ -1135,7 +1135,7 @@ describe("kernel behaviour the author skill states in words", () => {
       await kernel.runInProcess(readContract())(["read", "--wat"]),
     ).toMatchObject(
       usageRefusal(
-        "The invocation uses an option this command does not declare.",
+        "The invocation uses --wat, an option this command does not declare.",
       ),
     );
     const show = kernel.command({
@@ -1179,7 +1179,7 @@ describe("kernel behaviour the author skill states in words", () => {
     );
   });
 
-  test("commands.md: an option's value is the next word, and the same value after an equals sign is refused as an undeclared option", async () => {
+  test("commands.md: a long option accepts both space and equals forms, a boolean flag refuses a value, and a one-dash alias takes its value as the next word only", async () => {
     const count = kernel.command({
       identity: "guide.count",
       route: ["count"],
@@ -1189,11 +1189,19 @@ describe("kernel behaviour the author skill states in words", () => {
         options: [
           {
             name: "--to",
-            aliases: [],
+            aliases: ["-t"],
             summary: "Where to stop.",
             required: false,
             repeatable: false,
             value: { kind: "integer", minimum: 0, maximum: 9 },
+          },
+          {
+            name: "--verbose",
+            aliases: [],
+            summary: "Verbose.",
+            required: false,
+            repeatable: false,
+            value: null,
           },
         ],
       },
@@ -1216,11 +1224,89 @@ describe("kernel behaviour the author skill states in words", () => {
       exitCode: 0,
       envelope: { result: { data: 3 } },
     });
-    expect(await run(["count", "--to=3"])).toMatchObject(
+    expect(await run(["count", "--to=3"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: 3 } },
+    });
+    expect(await run(["count", "--verbose=yes"])).toMatchObject(
+      usageRefusal("The option --verbose takes no value."),
+    );
+    expect(await run(["count", "-t=3"])).toMatchObject(
       usageRefusal(
-        "The invocation uses an option this command does not declare.",
+        "The invocation uses -t, an option this command does not declare. Did you mean --to?",
       ),
     );
+  });
+
+  test("commands.md: kernel switches take precedence over option values, so --name=--help=x passes the value while --name --help=x is refused", async () => {
+    const show = kernel.command({
+      identity: "guide.show",
+      route: ["show"],
+      summary: "Show.",
+      input: {
+        ...emptyInput,
+        arguments: [
+          {
+            name: "item",
+            summary: "Item.",
+            required: false,
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 32,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
+        options: [
+          {
+            name: "--name",
+            aliases: [],
+            summary: "Name.",
+            required: false,
+            repeatable: false,
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 32,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
+      },
+      capabilities: {},
+      run: (input, context) =>
+        context.result(
+          { commandIdentity: "guide.show", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Shown.",
+            data: {
+              name: input["--name"] ?? null,
+              item: input.item ?? null,
+            },
+            effects: unchanged,
+          },
+        ),
+    });
+    const run = kernel.runInProcess(
+      kernel.contractFor({ cli: "guide", commands: [show] }),
+    );
+    expect(await run(["show", "--name=--help=x"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: { name: "--help=x", item: null } } },
+    });
+    expect(await run(["show", "--name", "--help=x"])).toMatchObject(
+      usageRefusal("The option --help takes no value."),
+    );
+    expect(await run(["show", "--", "--help=x"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: { name: null, item: "--help=x" } } },
+    });
   });
 
   test("menu.md: a menu command requires notInteractiveCause, refuses before handler entry when not interactive, and picks or cancels with scriptedTerminal", async () => {

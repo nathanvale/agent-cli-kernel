@@ -1,0 +1,7 @@
+{
+  "id": "6811e22d-step-vector-boolean-value-declined",
+  "patch": "tests/planted-faults/patches/6811e22d-step-vector-boolean-value-declined.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form step vector validation accepts long option equals form and refuses boolean option equals form$",
+  "source": "6811e22d test(kernel): assert the full step refusal for a boolean given a value"
+}

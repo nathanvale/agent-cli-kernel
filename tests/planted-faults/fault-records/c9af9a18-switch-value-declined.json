@@ -1,0 +1,7 @@
+{
+  "id": "c9af9a18-switch-value-declined",
+  "patch": "tests/planted-faults/patches/c9af9a18-switch-value-declined.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form --json=true, --help=x and --discover=x refuse as switches that take no value and never enable --json$",
+  "source": "c9af9a18 feat(kernel): accept --name=value option form"
+}
