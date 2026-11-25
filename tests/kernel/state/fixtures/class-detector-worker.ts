@@ -32,6 +32,7 @@ import {
 } from "../../kernel-repair/shapes.ts";
 import { deferred } from "../../lifecycle/recording-host.ts";
 import { testFolder } from "../../../support/test-folder.ts";
+import { answerAtStop } from "../harness.ts";
 import { getFsTrace } from "./trace-fs-preload.ts";
 
 const trace = getFsTrace();
@@ -681,6 +682,20 @@ type ClassifiedChange = {
   readonly site: string;
 };
 
+async function runScenarioHost(
+  mode: Class2Scenario["mode"],
+  name: string,
+  reached: Promise<void>,
+  startedAt: { value: number },
+  options: HostRun,
+) {
+  const start = () => {
+    startedAt.value = performance.now();
+    return runHost(options);
+  };
+  return mode === "deadline" ? answerAtStop(start, reached, name) : start();
+}
+
 async function runClass2(scenario: Class2Scenario) {
   const name = scenarioName(scenario);
   const folder = testFolder("c94-c2-");
@@ -728,9 +743,9 @@ async function runClass2(scenario: Class2Scenario) {
     workAfterAnswer: false,
     answered: false,
   };
-  const startedAt = performance.now();
+  const startedAt = { value: performance.now() };
   const hit = async (): Promise<void> => {
-    flags.reachedAt ??= performance.now() - startedAt;
+    flags.reachedAt ??= performance.now() - startedAt.value;
     reached.resolve();
     await gate.promise;
   };
@@ -772,85 +787,92 @@ async function runClass2(scenario: Class2Scenario) {
       () => Promise.resolve(true),
     );
   };
-  const { ran } = await runHost({
-    root,
-    argv:
-      scenario.mode === "deadline"
-        ? ["open", "--deadline-ms", String(deadlineMilliseconds)]
-        : ["open"],
-    phase: async (phase) => {
-      if (stop.kind === "phase" && phase === stop.phase) {
-        seen += 1;
-        if (seen === stop.nth) await hit();
-      }
-    },
-    handler: async ({ state, capability, boundary }) => {
-      const approvalSpec =
-        scenario.approval === "none"
-          ? undefined
-          : {
-              runtime: {
-                check: () => Promise.resolve(true),
-                revalidateAndConsume: async (
-                  request: Parameters<
-                    ReturnType<
-                      ReturnType<typeof approval>["runtime"]
-                    >["revalidateAndConsume"]
-                  >[0],
-                  coordination: Parameters<
-                    ReturnType<
-                      ReturnType<typeof approval>["runtime"]
-                    >["revalidateAndConsume"]
-                  >[1],
-                ) => {
-                  if (stop.kind === "approval") await hit();
-                  if (scenario.approval === "custom") return { consumed: true };
-                  return approval({
-                    operation: "su.open",
-                    runId: coordination.runId,
-                    store,
-                  })
-                    .runtime(state.descriptor)
-                    .revalidateAndConsume(request, coordination);
+  const { ran } = await runScenarioHost(
+    scenario.mode,
+    name,
+    reached.promise,
+    startedAt,
+    {
+      root,
+      argv:
+        scenario.mode === "deadline"
+          ? ["open", "--deadline-ms", String(deadlineMilliseconds)]
+          : ["open"],
+      phase: async (phase) => {
+        if (stop.kind === "phase" && phase === stop.phase) {
+          seen += 1;
+          if (seen === stop.nth) await hit();
+        }
+      },
+      handler: async ({ state, capability, boundary }) => {
+        const approvalSpec =
+          scenario.approval === "none"
+            ? undefined
+            : {
+                runtime: {
+                  check: () => Promise.resolve(true),
+                  revalidateAndConsume: async (
+                    request: Parameters<
+                      ReturnType<
+                        ReturnType<typeof approval>["runtime"]
+                      >["revalidateAndConsume"]
+                    >[0],
+                    coordination: Parameters<
+                      ReturnType<
+                        ReturnType<typeof approval>["runtime"]
+                      >["revalidateAndConsume"]
+                    >[1],
+                  ) => {
+                    if (stop.kind === "approval") await hit();
+                    if (scenario.approval === "custom")
+                      return { consumed: true };
+                    return approval({
+                      operation: "su.open",
+                      runId: coordination.runId,
+                      store,
+                    })
+                      .runtime(state.descriptor)
+                      .revalidateAndConsume(request, coordination);
+                  },
                 },
-              },
-              request: {
-                authority: boundary.authority("operator"),
-                resource: boundary.resource("doc"),
-                resourceRevision: "v1",
-                effects: [...defaultEffects],
-                preview: "preview-c2",
-              },
-            };
-      const declaration: Declaration = {
-        command: "su.open",
-        scope: {
-          resources: [
-            { resource: "doc", key: "alpha" },
-            { resource: "doc", key: "beta" },
-          ],
-        },
-        ...(scenario.unflagged ? {} : { supersedeUnresolved: true }),
-        ...(approvalSpec ? { approval: approvalSpec } : {}),
-      };
-      const running = state
-        .transaction(capability, declaration, work)
-        .finally(() => settled.resolve());
-      if (scenario.mode === "deadline") return running;
-      const finished = running.then(
-        (outcome) => ({ outcome }),
-        () => ({ outcome: undefined }),
-      );
-      const first = await Promise.race([
-        reached.promise.then(() => undefined),
-        finished,
-      ]);
-      if (first !== undefined) return first.outcome;
-      if (scenario.mode === "early-throw")
-        throw new Error("handler threw with its transaction still open");
-      return undefined;
+                request: {
+                  authority: boundary.authority("operator"),
+                  resource: boundary.resource("doc"),
+                  resourceRevision: "v1",
+                  effects: [...defaultEffects],
+                  preview: "preview-c2",
+                },
+              };
+        const declaration: Declaration = {
+          command: "su.open",
+          scope: {
+            resources: [
+              { resource: "doc", key: "alpha" },
+              { resource: "doc", key: "beta" },
+            ],
+          },
+          ...(scenario.unflagged ? {} : { supersedeUnresolved: true }),
+          ...(approvalSpec ? { approval: approvalSpec } : {}),
+        };
+        const running = state
+          .transaction(capability, declaration, work)
+          .finally(() => settled.resolve());
+        if (scenario.mode === "deadline") return running;
+        const finished = running.then(
+          (outcome) => ({ outcome }),
+          () => ({ outcome: undefined }),
+        );
+        const first = await Promise.race([
+          reached.promise.then(() => undefined),
+          finished,
+        ]);
+        if (first !== undefined) return first.outcome;
+        if (scenario.mode === "early-throw")
+          throw new Error("handler threw with its transaction still open");
+        return undefined;
+      },
     },
-  });
+  );
   flags.answered = true;
   const answerSeq = trace.seq();
   const before = snapshotTree(folder);
@@ -1129,23 +1151,12 @@ async function discoverPhases(targets: 0 | 2 | "fresh"): Promise<string[]> {
   return seen;
 }
 
-async function pool<T, R>(
+async function runSequential<T, R>(
   items: readonly T[],
-  size: number,
   body: (item: T) => Promise<R>,
 ): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: size }, async () => {
-      while (next < items.length) {
-        const index = next;
-        next += 1;
-        const item = items[index];
-        if (item !== undefined) out[index] = await body(item);
-      }
-    }),
-  );
+  const out: R[] = [];
+  for (const item of items) out.push(await body(item));
   return out;
 }
 
@@ -1225,7 +1236,7 @@ async function main(): Promise<void> {
   for (const targets of [0, 2, "fresh"] as const)
     for (const point of await discoverPhases(targets))
       if (!covered.has(point)) uncovered.push(point);
-  const all2 = await pool(scenarios, 10, runClass2);
+  const all2 = await runSequential(scenarios, runClass2);
   const class2 = all2.filter((result) => !result.name.startsWith("UNFLAGGED"));
   const info2 = all2.filter((result) => result.name.startsWith("UNFLAGGED"));
 
