@@ -1,0 +1,7 @@
+{
+  "id": "c9af9a18-global-switch-check-sees-equals",
+  "patch": "tests/planted-faults/patches/c9af9a18-global-switch-check-sees-equals.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form ifNoResult step check refuses global switches in equals form before -- and admits them after --$",
+  "source": "c9af9a18 feat(kernel): accept --name=value option form"
+}

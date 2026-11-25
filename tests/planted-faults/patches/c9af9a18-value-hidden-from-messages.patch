@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
+--- a/kernel/src/kernel/input.ts
++++ b/kernel/src/kernel/input.ts
+@@ -253,7 +253,7 @@ function selectOption(
+     (slot) => slot.name === split.name || slot.aliases.includes(split.name),
+   );
+   if (!option) {
+-    const name = optionNameOnly(token);
++    const name = token;
+     return {
+       ok: false,
+       fault: {

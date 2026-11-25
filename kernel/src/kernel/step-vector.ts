@@ -1,5 +1,6 @@
 import { parseDeadlineValue, splitDeadlineTokens } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { splitLongOption } from "./input.ts";
 import type {
   ArgumentSchema,
   InputSchema,
@@ -38,26 +39,58 @@ function deadlineProblem(
     : "its literal deadline is not a positive integer";
 }
 type Occurrence = { operand: number; readonly present: Set<string> };
+type SelectedStepSlot = {
+  readonly slot: ArgumentSchema | OptionSchema;
+  readonly inlineValue?: string;
+};
+function optionSlotFor(
+  input: InputSchema,
+  token: string,
+  state: Occurrence,
+): SelectedStepSlot | string {
+  const split = splitLongOption(token);
+  const option = input.options.find(
+    (slot) => slot.name === split.name || slot.aliases.includes(split.name),
+  );
+  if (!option)
+    return templated(split.name)
+      ? `a run value in ${split.name} would select an option the step does not name`
+      : `${split.name} is not an option of the target`;
+  if (option.value === null && split.value !== undefined)
+    return `${option.name} takes no value`;
+  if (state.present.has(option.name) && !option.repeatable)
+    return `${option.name} repeats`;
+  return split.value === undefined
+    ? { slot: option }
+    : { slot: option, inlineValue: split.value };
+}
 function slotFor(
   input: InputSchema,
   token: string,
   literal: boolean,
   state: Occurrence,
-): ArgumentSchema | OptionSchema | string {
-  if (!literal && token.startsWith("-")) {
-    const option = input.options.find(
-      (slot) => slot.name === token || slot.aliases.includes(token),
-    );
-    if (!option)
-      return templated(token)
-        ? `a run value in ${token} would select an option the step does not name`
-        : `${token} is not an option of the target`;
-    if (state.present.has(option.name) && !option.repeatable)
-      return `${option.name} repeats`;
-    return option;
-  }
+): SelectedStepSlot | string {
+  if (!literal && token.startsWith("-"))
+    return optionSlotFor(input, token, state);
   const argument = input.arguments[state.operand++];
-  return argument ?? "it has an additional operand";
+  return argument ? { slot: argument } : "it has an additional operand";
+}
+function checkSelectedValue(
+  selected: SelectedStepSlot,
+  token: string,
+  tokens: readonly string[],
+  index: number,
+): { readonly nextIndex: number; readonly error?: string } {
+  const { slot, inlineValue } = selected;
+  if (slot.value === null) return { nextIndex: index };
+  const takesNext = inlineValue === undefined && "aliases" in slot;
+  const raw = inlineValue ?? (takesNext ? tokens[index + 1] : token);
+  const nextIndex = takesNext ? index + 1 : index;
+  if (raw === undefined)
+    return { nextIndex, error: `${slot.name} has no value` };
+  return literalValue(raw, slot.value)
+    ? { nextIndex }
+    : { nextIndex, error: `its literal value for ${slot.name} is invalid` };
 }
 function occurrences(
   input: InputSchema,
@@ -71,14 +104,12 @@ function occurrences(
       literal = true;
       continue;
     }
-    const slot = slotFor(input, token, literal, state);
-    if (typeof slot === "string") return slot;
-    state.present.add(slot.name);
-    if (slot.value === null) continue;
-    const raw = "aliases" in slot ? tokens[++index] : token;
-    if (raw === undefined) return `${slot.name} has no value`;
-    if (!literalValue(raw, slot.value))
-      return `its literal value for ${slot.name} is invalid`;
+    const selected = slotFor(input, token, literal, state);
+    if (typeof selected === "string") return selected;
+    state.present.add(selected.slot.name);
+    const checked = checkSelectedValue(selected, token, tokens, index);
+    if (checked.error !== undefined) return checked.error;
+    index = checked.nextIndex;
   }
   return state.present;
 }

@@ -1,0 +1,7 @@
+{
+  "id": "c9af9a18-value-hidden-from-messages",
+  "patch": "tests/planted-faults/patches/c9af9a18-value-hidden-from-messages.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form --wikki=\\. names the undeclared option without its value and suggests --wiki$",
+  "source": "c9af9a18 feat(kernel): accept --name=value option form"
+}

@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
+--- a/kernel/src/kernel/input.ts
++++ b/kernel/src/kernel/input.ts
+@@ -229,7 +229,7 @@ export type SplitOption = {
+   readonly value?: string;
+ };
+ export function splitLongOption(token: string): SplitOption {
+-  const equals = token.startsWith("--") ? token.indexOf("=") : -1;
++  const equals = token.startsWith("-") ? token.indexOf("=") : -1;
+   return equals < 0
+     ? { name: token }
+     : { name: token.slice(0, equals), value: token.slice(equals + 1) };

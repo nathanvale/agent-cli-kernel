@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/usage.ts b/kernel/src/kernel/usage.ts
+--- a/kernel/src/kernel/usage.ts
++++ b/kernel/src/kernel/usage.ts
+@@ -55,7 +55,7 @@ const maxOptionDisplayLength = 64;
+ function unknownOptionSubject(option: string): string {
+   return option.length > 0 &&
+     option.length <= maxOptionDisplayLength &&
+-    !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]/u.test(option)
++    true
+     ? `${option}, an option`
+     : "an option";
+ }

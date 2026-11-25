@@ -1,0 +1,7 @@
+{
+  "id": "c9af9a18-split-first-equals",
+  "patch": "tests/planted-faults/patches/c9af9a18-split-first-equals.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form --name=a=b splits at the first equals sign only$",
+  "source": "c9af9a18 feat(kernel): accept --name=value option form"
+}

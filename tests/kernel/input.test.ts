@@ -66,9 +66,16 @@ test("one executable declaration projects input and strictly parses literal case
     ok: true,
     value: { item: "alpha", "--count": -2, "--detail": true },
   });
+  expect(
+    await contract.parse("items.show", ["alpha", "--count=2", "--detail"]),
+  ).toEqual({
+    ok: true,
+    value: { item: "alpha", "--count": 2, "--detail": true },
+  });
   const refusals = [
     [[], "input", "required slot or constraint"],
-    [["alpha", "--count=2"], "argv", "unknown option"],
+    [["alpha", "-n=2"], "argv", "unknown option"],
+    [["alpha", "--detail=true"], "--detail", "unexpected value"],
     [["alpha", "--count", "01"], "input", "integer syntax"],
     [["alpha", "--count", "6"], "input", "integer bounds"],
     [["alpha", "--detail", "true"], "argv", "additional argument"],
@@ -76,7 +83,7 @@ test("one executable declaration projects input and strictly parses literal case
     [["alpha", "--unknown"], "argv", "unknown option"],
     [["-item"], "argv", "unknown option"],
   ] as const;
-  expect(refusals).toHaveLength(8);
+  expect(refusals).toHaveLength(9);
   for (const [args, path, reason] of refusals)
     expect(await contract.parse("items.show", args)).toEqual({
       ok: false,

@@ -224,36 +224,74 @@ function closestOption(schema: InputSchema, token: string): Slot | null {
     }
   return closest;
 }
+export type SplitOption = {
+  readonly name: string;
+  readonly value?: string;
+};
+export function splitLongOption(token: string): SplitOption {
+  const equals = token.startsWith("--") ? token.indexOf("=") : -1;
+  return equals < 0
+    ? { name: token }
+    : { name: token.slice(0, equals), value: token.slice(equals + 1) };
+}
+function optionNameOnly(token: string): string {
+  const equals = token.indexOf("=");
+  return equals < 0 ? token : token.slice(0, equals);
+}
+type SelectedSlot = {
+  readonly slot: ArgumentSchema | OptionSchema;
+  readonly consumesValue: boolean;
+  readonly inlineValue?: string;
+};
+function selectOption(
+  schema: InputSchema,
+  state: ParseState,
+  token: string,
+): Slots<SelectedSlot> {
+  const split = splitLongOption(token);
+  const option = schema.options.find(
+    (slot) => slot.name === split.name || slot.aliases.includes(split.name),
+  );
+  if (!option) {
+    const name = optionNameOnly(token);
+    return {
+      ok: false,
+      fault: {
+        kind: "unknown-option",
+        option: name,
+        closest: closestOption(schema, name),
+      },
+    };
+  }
+  if (option.value === null && split.value !== undefined)
+    return {
+      ok: false,
+      fault: { kind: "unexpected-value", slot: slotOf(schema, option.name) },
+    };
+  if (Object.hasOwn(state.values, option.name) && !option.repeatable)
+    return {
+      ok: false,
+      fault: { kind: "repeated", slot: slotOf(schema, option.name) },
+    };
+  return {
+    ok: true,
+    value: {
+      slot: option,
+      consumesValue: option.value !== null && split.value === undefined,
+      ...(split.value === undefined ? {} : { inlineValue: split.value }),
+    },
+  };
+}
 function selectSlot(
   schema: InputSchema,
   state: ParseState,
   token: string,
-): Slots<{ slot: ArgumentSchema | OptionSchema; consumesValue: boolean }> {
-  const option =
-    !state.literal && token.startsWith("-")
-      ? schema.options.find(
-          (slot) => slot.name === token || slot.aliases.includes(token),
-        )
-      : undefined;
-  if (!state.literal && token.startsWith("-") && !option)
-    return {
-      ok: false,
-      fault: { kind: "unknown-option", closest: closestOption(schema, token) },
-    };
-  const slot = option ?? schema.arguments[state.operand++];
+): Slots<SelectedSlot> {
+  if (!state.literal && token.startsWith("-"))
+    return selectOption(schema, state, token);
+  const slot = schema.arguments[state.operand++];
   if (!slot) return { ok: false, fault: { kind: "extra-argument" } };
-  if (
-    Object.hasOwn(state.values, slot.name) &&
-    !("repeatable" in slot && slot.repeatable)
-  )
-    return {
-      ok: false,
-      fault: { kind: "repeated", slot: slotOf(schema, slot.name) },
-    };
-  return {
-    ok: true,
-    value: { slot, consumesValue: option !== undefined && slot.value !== null },
-  };
+  return { ok: true, value: { slot, consumesValue: false } };
 }
 function saveValue(
   state: ParseState,
@@ -278,8 +316,13 @@ async function parseToken(
 ): Promise<Slots<null>> {
   const selected = selectSlot(schema, state, token);
   if (!selected.ok) return selected;
-  const { slot, consumesValue } = selected.value;
-  const raw = consumesValue ? tokens[++state.index] : token;
+  const { slot, consumesValue, inlineValue } = selected.value;
+  const raw =
+    inlineValue !== undefined
+      ? inlineValue
+      : consumesValue
+        ? tokens[++state.index]
+        : token;
   if (raw === undefined)
     return {
       ok: false,
@@ -314,6 +357,10 @@ const validations: {
   };
 } = {
   "unknown-option": () => ({ path: "argv", reason: "unknown option" }),
+  "unexpected-value": (fault) => ({
+    path: fault.slot.name,
+    reason: "unexpected value",
+  }),
   "extra-argument": () => ({ path: "argv", reason: "additional argument" }),
   "missing-value": (fault) => ({
     path: fault.slot.name,

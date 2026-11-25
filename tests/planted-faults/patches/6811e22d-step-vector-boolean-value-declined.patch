@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/step-vector.ts b/kernel/src/kernel/step-vector.ts
+--- a/kernel/src/kernel/step-vector.ts
++++ b/kernel/src/kernel/step-vector.ts
+@@ -56,7 +56,7 @@ function optionSlotFor(
+     return templated(split.name)
+       ? `a run value in ${split.name} would select an option the step does not name`
+       : `${split.name} is not an option of the target`;
+-  if (option.value === null && split.value !== undefined)
++  if (false && option.value === null && split.value !== undefined)
+     return `${option.name} takes no value`;
+   if (state.present.has(option.name) && !option.repeatable)
+     return `${option.name} repeats`;

@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -68,7 +68,7 @@ function globalSwitches(argv: readonly unknown[]) {
+ }
+ export function carriesGlobalSwitch(argv: readonly unknown[]): boolean {
+   const { machine, navigation, unexpectedValue } = globalSwitches(argv);
+-  return machine || navigation.length > 0 || unexpectedValue !== undefined;
++  return machine || navigation.length > 0;
+ }
+ export function asksMachineOutput(argv: unknown): boolean {
+   return (

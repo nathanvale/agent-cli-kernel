@@ -33,6 +33,27 @@ export function splitDeadline(
     ? { ok: true, value: { tokens, deadlineMilliseconds: parsed.value } }
     : parsed;
 }
+const deadlinePrefix = `${deadlineOption.name}=`;
+const deadlineValueError = {
+  ok: false,
+  path: deadlineOption.name,
+  reason: "expected one deadline value",
+} as const;
+function deadlineTokenValue(
+  argv: readonly unknown[],
+  index: number,
+  token: string,
+): { readonly value: string; readonly nextIndex: number } | "invalid" | null {
+  if (token === deadlineOption.name) {
+    const value = argv[index + 1];
+    return typeof value === "string"
+      ? { value, nextIndex: index + 1 }
+      : "invalid";
+  }
+  if (token.startsWith(deadlinePrefix))
+    return { value: token.slice(deadlinePrefix.length), nextIndex: index };
+  return null;
+}
 export function splitDeadlineTokens(argv: readonly unknown[]): Validation<{
   readonly tokens: readonly string[];
   readonly deadlineValue?: string;
@@ -45,18 +66,15 @@ export function splitDeadlineTokens(argv: readonly unknown[]): Validation<{
     if (typeof token !== "string")
       return { ok: false, path: "argv", reason: "expected string tokens" };
     if (token === "--") literal = true;
-    if (literal || token !== deadlineOption.name) {
+    const found = literal ? null : deadlineTokenValue(argv, index, token);
+    if (found === null) {
       tokens.push(token);
       continue;
     }
-    const value = argv[++index];
-    if (deadlineValue !== undefined || typeof value !== "string")
-      return {
-        ok: false,
-        path: deadlineOption.name,
-        reason: "expected one deadline value",
-      };
-    deadlineValue = value;
+    if (found === "invalid" || deadlineValue !== undefined)
+      return deadlineValueError;
+    deadlineValue = found.value;
+    index = found.nextIndex;
   }
   return {
     ok: true,

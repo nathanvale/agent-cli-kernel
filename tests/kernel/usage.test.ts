@@ -230,7 +230,7 @@ const rows: readonly (readonly [string, readonly string[], Expected])[] = [
     ["show", "--title", "a", "--nope"],
     refusal(
       "x.show",
-      "The invocation uses an option this command does not declare.",
+      "The invocation uses --nope, an option this command does not declare.",
       showNext,
     ),
   ],
@@ -537,7 +537,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["show", "--title", "a", "--titel"],
       refusal(
         "x.show",
-        "The invocation uses an option this command does not declare. Did you mean --title?",
+        "The invocation uses --titel, an option this command does not declare. Did you mean --title?",
         showNext,
       ),
     ],
@@ -546,7 +546,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["pair", "a", "--lfet"],
       refusal(
         "x.pair",
-        "The invocation uses an option this command does not declare. Did you mean --left?",
+        "The invocation uses --lfet, an option this command does not declare. Did you mean --left?",
         pairNext,
       ),
     ],
@@ -555,7 +555,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["show", "--title", "a", "--cont"],
       refusal(
         "x.show",
-        "The invocation uses an option this command does not declare. Did you mean --count?",
+        "The invocation uses --cont, an option this command does not declare. Did you mean --count?",
         showNext,
       ),
     ],
@@ -564,7 +564,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["pair", "a", "--reviewr"],
       refusal(
         "x.pair",
-        "The invocation uses an option this command does not declare. Did you mean --reviewer-name?",
+        "The invocation uses --reviewr, an option this command does not declare. Did you mean --reviewer-name?",
         pairNext,
       ),
     ],
@@ -573,7 +573,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["pair", "a", "--reviewer-nazz"],
       refusal(
         "x.pair",
-        "The invocation uses an option this command does not declare. Did you mean --reviewer-name?",
+        "The invocation uses --reviewer-nazz, an option this command does not declare. Did you mean --reviewer-name?",
         pairNext,
       ),
     ],
@@ -582,7 +582,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["pair", "a", "--reviewer-nzzz"],
       refusal(
         "x.pair",
-        "The invocation uses an option this command does not declare.",
+        "The invocation uses --reviewer-nzzz, an option this command does not declare.",
         pairNext,
       ),
     ],
@@ -591,7 +591,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["pair", "a", "--lefx"],
       refusal(
         "x.pair",
-        "The invocation uses an option this command does not declare. Did you mean --left?",
+        "The invocation uses --lefx, an option this command does not declare. Did you mean --left?",
         pairNext,
       ),
     ],
@@ -600,7 +600,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["pair", "a", "--lexx"],
       refusal(
         "x.pair",
-        "The invocation uses an option this command does not declare.",
+        "The invocation uses --lexx, an option this command does not declare.",
         pairNext,
       ),
     ],
@@ -609,7 +609,7 @@ const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
       ["show", "--title", "a", "--tlag"],
       refusal(
         "x.show",
-        "The invocation uses an option this command does not declare. Did you mean --tag?",
+        "The invocation uses --tlag, an option this command does not declare. Did you mean --tag?",
         showNext,
       ),
     ],
