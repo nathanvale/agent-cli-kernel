@@ -2242,7 +2242,7 @@ const rootedBunReach = (line: number, member: string) =>
 const rootedLoader = (line: number) =>
   [
     line,
-    'Files in kernel/src outside the rooted-file owners may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
+    'Files in kernel/src outside the rooted-file owners may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, process.mainModule, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
   ] as const;
 
 const pathsUseRootedFileCases = [

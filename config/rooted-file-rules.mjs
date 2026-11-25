@@ -41,6 +41,8 @@ const loaderModules = new Set([
 ]);
 const moduleOnlyLoader = new Set(["module", "node:module"]);
 const loaderNames = new Set(["require", "createRequire", "getBuiltinModule"]);
+const noLoaderHolders = new Set();
+const processLoaderHolders = new Set(["mainModule"]);
 const checkedGlobals = new Set([
   ...globalHolders,
   "Bun",
@@ -80,8 +82,11 @@ const isUnboundValueReference = (reference) =>
   checkedGlobals.has(reference.identifier.name) &&
   !reference.init &&
   !isTypePosition(reference);
-const isLoaderSpecifier = (value, name) =>
-  moduleOnlyLoader.has(value) || name === undefined || loaderNames.has(name);
+const isLoaderSpecifier = (value, name, loaderHolders) =>
+  moduleOnlyLoader.has(value) ||
+  name === undefined ||
+  loaderNames.has(name) ||
+  loaderHolders.has(name);
 
 function createLoadJudges(context) {
   const report = (node, messageId, data) =>
@@ -105,7 +110,7 @@ function createLoadJudges(context) {
   return { report, judgeLoad, checkLoad };
 }
 
-function createGlobalChecker(report, checkLoad) {
+function createGlobalChecker(report, checkLoad, loaderHolders) {
   const checkBunGlobal = (node, member) => {
     if (member === undefined) return report(node, "dynamicBunReach");
     if (!allowedBunMembers.has(member))
@@ -113,6 +118,7 @@ function createGlobalChecker(report, checkLoad) {
   };
   const checkProcessOrMeta = (node, member) => {
     if (member === undefined) return report(node, "loaderReach");
+    if (loaderHolders.has(member)) return report(node.parent, "loaderReach");
     if (loaderNames.has(member)) checkLoad(node.parent);
   };
   const directGlobals = {
@@ -148,7 +154,8 @@ function walkSpecifiers(node, each) {
   visitNamedSpecifiers(node.specifiers, each);
 }
 
-function createSourceChecker(context, allowFsMembers, report, judgeLoad) {
+function createSourceChecker(context, policy, report, judgeLoad) {
+  const { allowFsMembers, loaderHolders } = policy;
   const checkBunSpecifier = (specifier, name) => {
     if (name === undefined) return report(specifier, "dynamicBunReach");
     if (!allowedBunMembers.has(name))
@@ -173,7 +180,8 @@ function createSourceChecker(context, allowFsMembers, report, judgeLoad) {
     if (value === "bun") return walkSpecifiers(node, checkBunSpecifier);
     if (loaderModules.has(value))
       return walkSpecifiers(node, (specifier, name) => {
-        if (isLoaderSpecifier(value, name)) report(specifier, "loaderReach");
+        if (isLoaderSpecifier(value, name, loaderHolders))
+          report(specifier, "loaderReach");
       });
     if (isFsSpecifier(value)) checkFsSource(node, value);
   };
@@ -182,15 +190,14 @@ function createSourceChecker(context, allowFsMembers, report, judgeLoad) {
   };
 }
 
-function createFsReachVisitor(context, allowFsMembers) {
+function createFsReachVisitor(context, policy) {
   const { report, judgeLoad, checkLoad } = createLoadJudges(context);
-  const checkGlobal = createGlobalChecker(report, checkLoad);
-  const checkSource = createSourceChecker(
-    context,
-    allowFsMembers,
+  const checkGlobal = createGlobalChecker(
     report,
-    judgeLoad,
+    checkLoad,
+    policy.loaderHolders,
   );
+  const checkSource = createSourceChecker(context, policy, report, judgeLoad);
   const checkReferences = (references) => {
     for (const reference of references)
       if (isUnboundValueReference(reference))
@@ -246,7 +253,10 @@ export const rootedFileRules = {
       },
     },
     create(context) {
-      return createFsReachVisitor(context, undefined);
+      return createFsReachVisitor(context, {
+        allowFsMembers: undefined,
+        loaderHolders: noLoaderHolders,
+      });
     },
   },
   "paths-use-rooted-file": {
@@ -265,11 +275,14 @@ export const rootedFileRules = {
         dynamicBunReach:
           'Files in kernel/src outside the rooted-file owners may use the Bun object only as Bun.<member> with a plain member name, read from Bun, globalThis.Bun, global.Bun or self.Bun, or as a named import from "bun". An alias, destructuring, spread, computed key, whole-module load of "bun", or bare globalThis, global or self hides which member is used. Repair: write Bun.<member> in place, or read paths through readRootedFile from kernel/src/shared/rooted-file.ts.',
         loaderReach:
-          'Files in kernel/src outside the rooted-file owners may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
+          'Files in kernel/src outside the rooted-file owners may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, process.mainModule, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
       },
     },
     create(context) {
-      return createFsReachVisitor(context, allowedNonOpeningFsMembers);
+      return createFsReachVisitor(context, {
+        allowFsMembers: allowedNonOpeningFsMembers,
+        loaderHolders: processLoaderHolders,
+      });
     },
   },
 };
