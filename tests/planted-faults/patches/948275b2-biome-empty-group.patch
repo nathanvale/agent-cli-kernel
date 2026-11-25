@@ -1,7 +1,8 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -156,16 +156,12 @@ function addSectionCategories(
+@@ -249,18 +249,14 @@
+     }
      const groupPrefix = `${prefix}/${group}`;
      if (includeGroup) categories.add(groupPrefix);
 -    if (
@@ -11,6 +12,7 @@ diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 -        entries,
 -        defs,
 -        `${name}.${group}`,
+-        validated,
 -      ) === 0
 -    ) {
 -      throw dependencyError(biomeSchemaSpecifier, `empty ${name}.${group}`);
@@ -21,6 +23,7 @@ diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 +      entries,
 +      defs,
 +      `${name}.${group}`,
++      validated,
 +    );
      addedGroups += 1;
    }

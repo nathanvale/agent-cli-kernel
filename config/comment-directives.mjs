@@ -30,6 +30,15 @@ const fallowSuppressComment =
   /^\/\/\s*fallow-ignore-(?:next-line|file)\s+([a-z][a-z0-9-]*)$/;
 
 const biomeMetaKeys = new Set(["preset", "recommended"]);
+const biomeSchemaTypes = new Set([
+  "string",
+  "object",
+  "boolean",
+  "array",
+  "null",
+  "integer",
+  "number",
+]);
 const biomeSchemaSpecifier = "@biomejs/biome/configuration_schema.json";
 const fallowRegistrySpecifier = "fallow/issue-registry.json";
 const fallowUnparsedRegistryIds = new Set(["unused-optional-dependency"]);
@@ -96,31 +105,115 @@ function resolveSchemaProperties(prop, defs, seen = new Set()) {
   return undefined;
 }
 
-function isValidSchemaRef(ref, defs) {
-  if (typeof ref !== "string" || !ref.startsWith("#/$defs/")) return false;
-  const name = ref.slice("#/$defs/".length);
-  if (name.length === 0 || !Object.hasOwn(defs, name)) return false;
-  const def = defs[name];
-  return isRecord(def) && Object.keys(def).length > 0;
+function isValidSchemaType(type) {
+  if (typeof type === "string") return biomeSchemaTypes.has(type);
+  return (
+    Array.isArray(type) &&
+    type.length > 0 &&
+    type.every((item) => typeof item === "string" && biomeSchemaTypes.has(item))
+  );
 }
 
-function hasValidEntryDefinition(prop, defs) {
-  if (!isRecord(prop)) return false;
+function isValidSchemaList(list, defs, seen, validated) {
+  return (
+    Array.isArray(list) &&
+    list.length > 0 &&
+    list.every((item) => isValidSchemaNode(item, defs, seen, validated))
+  );
+}
+
+function isValidSchemaCombinators(node, defs, seen, validated) {
   if (
-    prop.anyOf !== undefined &&
-    (!Array.isArray(prop.anyOf) || !prop.anyOf.every(isRecord))
+    node.oneOf !== undefined &&
+    !isValidSchemaList(node.oneOf, defs, seen, validated)
   ) {
     return false;
   }
-  const refs = collectSchemaRefs(prop);
-  return refs.length > 0 && refs.every((ref) => isValidSchemaRef(ref, defs));
+  return (
+    node.anyOf === undefined ||
+    isValidSchemaList(node.anyOf, defs, seen, validated)
+  );
 }
 
-function addGroupEntries(categories, prefix, entries, defs, groupLabel) {
+function isValidSchemaChildren(node, defs, seen, validated) {
+  if (
+    node.properties !== undefined &&
+    (!isRecord(node.properties) ||
+      !Object.values(node.properties).every((child) =>
+        isValidSchemaNode(child, defs, seen, validated),
+      ))
+  ) {
+    return false;
+  }
+  if (
+    node.items !== undefined &&
+    !isValidSchemaNode(node.items, defs, seen, validated)
+  ) {
+    return false;
+  }
+  return (
+    node.additionalProperties === undefined ||
+    typeof node.additionalProperties === "boolean" ||
+    isValidSchemaNode(node.additionalProperties, defs, seen, validated)
+  );
+}
+
+function hasSchemaKeyword(node) {
+  return (
+    node.oneOf !== undefined ||
+    node.anyOf !== undefined ||
+    node.$ref !== undefined ||
+    node.type !== undefined
+  );
+}
+
+function isValidSchemaNode(node, defs, seen, validated) {
+  if (!isRecord(node) || !hasSchemaKeyword(node)) return false;
+  if (!isValidSchemaCombinators(node, defs, seen, validated)) return false;
+  if (
+    node.$ref !== undefined &&
+    !isValidSchemaRef(node.$ref, defs, seen, validated)
+  ) {
+    return false;
+  }
+  if (node.type !== undefined && !isValidSchemaType(node.type)) return false;
+  return isValidSchemaChildren(node, defs, seen, validated);
+}
+
+function isValidSchemaRef(ref, defs, seen = new Set(), validated = new Set()) {
+  if (typeof ref !== "string" || !ref.startsWith("#/$defs/")) return false;
+  const name = ref.slice("#/$defs/".length);
+  if (name.length === 0 || !Object.hasOwn(defs, name)) return false;
+  if (validated.has(name)) return true;
+  if (seen.has(name)) return false;
+  seen.add(name);
+  const valid = isValidSchemaNode(defs[name], defs, seen, validated);
+  seen.delete(name);
+  if (valid) validated.add(name);
+  return valid;
+}
+
+function hasValidEntryDefinition(prop, defs, validated) {
+  if (!isValidSchemaNode(prop, defs, new Set(), validated)) return false;
+  const refs = collectSchemaRefs(prop);
+  return (
+    refs.length > 0 &&
+    refs.every((ref) => isValidSchemaRef(ref, defs, new Set(), validated))
+  );
+}
+
+function addGroupEntries(
+  categories,
+  prefix,
+  entries,
+  defs,
+  groupLabel,
+  validated,
+) {
   let added = 0;
   for (const [entry, prop] of Object.entries(entries)) {
     if (biomeMetaKeys.has(entry)) continue;
-    if (!hasValidEntryDefinition(prop, defs)) {
+    if (!hasValidEntryDefinition(prop, defs, validated)) {
       throw dependencyError(
         biomeSchemaSpecifier,
         `invalid ${groupLabel}.${entry}`,
@@ -143,6 +236,7 @@ function addSectionCategories(
   const groups = isRecord(section) ? section.properties : undefined;
   if (!isRecord(groups))
     throw dependencyError(biomeSchemaSpecifier, `missing ${name}`);
+  const validated = new Set();
   let addedGroups = 0;
   for (const [group, prop] of Object.entries(groups)) {
     if (biomeMetaKeys.has(group)) continue;
@@ -162,6 +256,7 @@ function addSectionCategories(
         entries,
         defs,
         `${name}.${group}`,
+        validated,
       ) === 0
     ) {
       throw dependencyError(biomeSchemaSpecifier, `empty ${name}.${group}`);
