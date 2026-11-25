@@ -92,8 +92,7 @@ function resolveRealRoot(root: string):
     }
   | { readonly kind: "missing" }
   | RootedRefusal {
-  const resolvedRoot = resolve(root);
-  const realRoot = realpathOptional(resolvedRoot);
+  const realRoot = realpathOptional(root);
   if (realRoot === undefined) return { kind: "missing" };
   const status = lstatOptional(realRoot);
   if (status === undefined) return { kind: "missing" };
@@ -103,6 +102,9 @@ function resolveRealRoot(root: string):
       "not-regular",
       `${root} is not a folder. Repair: pass an existing folder as the root.`,
     );
+  const lexicalRoot = resolve(root);
+  const resolvedRoot =
+    realpathOptional(lexicalRoot) === realRoot ? lexicalRoot : realRoot;
   return { kind: "ok", resolvedRoot, realRoot };
 }
 
