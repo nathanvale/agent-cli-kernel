@@ -33,6 +33,12 @@ its record current.
   A faulted run that fails with no failing test matching `title` (including a
   test file that fails to load) gets `UNMATCHED` and exits non-zero; re-plant
   the fault so a matching test fails, or update the record's `title`.
+- `bun run fault-replay` copies the working tree once into a temporary folder
+  under the system temp directory, gives that copy its own `.git` (`git init`
+  and one commit) so tests that call `git` work without writing to the
+  checkout's `.git`, installs dependencies once, then replays each fault in
+  turn and restores the patched files between faults. The temporary copy is
+  removed on every exit.
 
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
 [d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914
