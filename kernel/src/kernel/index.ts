@@ -130,9 +130,10 @@ export function contractFor<
   });
   freeze(causes);
   validateCauses(causes);
+  const builtinCommands = builtins(spec.cli);
   const commands: CommandDeclaration[] = [
     ...hostCommands,
-    ...builtins(spec.cli),
+    ...builtinCommands,
   ].sort((a, b) => (a.commandIdentity < b.commandIdentity ? -1 : 1));
   validateCommands(spec.cli, commands, causes, installed);
   const defaultCommand =
@@ -151,6 +152,12 @@ export function contractFor<
       "A changing command's ifNoResult step comes from a different state add-on descriptor.",
     );
   freeze(commands);
+  const commandListIdentities = new Set(
+    builtinCommands
+      .map((item) => item.commandIdentity)
+      .filter((identity) => identity !== `${spec.cli}.dispatch`),
+  );
+  const allPaths = commands.map((item) => item.commandIdentity);
   const inputTable = buildInputTable(commands);
   const stationMap = new Map(
     commands.map((item) => [
@@ -228,11 +235,17 @@ export function contractFor<
         path: "facts",
         reason: "invalid run facts",
       } as const;
+    const availablePaths =
+      commandListIdentities.has(station.commandIdentity) ||
+      station.causeCode ===
+        ("USAGE_UNKNOWN_COMMAND" satisfies keyof typeof commonCauses)
+        ? allPaths
+        : [];
     try {
       return await validate({
         contractVersion: "3.0.0",
         message,
-        availablePaths: commands.map((item) => item.commandIdentity),
+        availablePaths,
         result: { ...result, ...renderGuidance(station, result) },
       });
     } catch {

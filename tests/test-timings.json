@@ -8,6 +8,7 @@
     "tests/kernel/approval/cases.test.ts": 12598,
     "tests/kernel/approval/process.test.ts": 12082,
     "tests/kernel/author-guide/author-guide.test.ts": 17932,
+    "tests/kernel/available-paths.test.ts": 43,
     "tests/kernel/compiler-locks.test.ts": 2961,
     "tests/kernel/contract.test.ts": 26,
     "tests/kernel/correlations.test.ts": 76,
