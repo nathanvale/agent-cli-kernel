@@ -1,0 +1,14 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -220,9 +220,7 @@ function addFallowIssueTargets(targets, item) {
+ 
+ export function loadFallowTargets(registryPath) {
+   const registry = readJsonDependency(fallowRegistrySpecifier, registryPath);
+-  if (!isRecord(registry) || !Array.isArray(registry.issue_types)) {
+-    throw dependencyError(fallowRegistrySpecifier, "missing issue_types");
+-  }
++  if (!isRecord(registry) || !Array.isArray(registry.issue_types)) return new Set();
+   const targets = new Set();
+   for (const item of registry.issue_types) {
+     addFallowIssueTargets(targets, item);

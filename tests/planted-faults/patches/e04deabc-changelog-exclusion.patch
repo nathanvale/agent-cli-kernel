@@ -1,0 +1,11 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -54,7 +54,6 @@ const generatedHooks = new Set([
+ 
+ function excluded(path: string): boolean {
+   return (
+-    path === "CHANGELOG.md" ||
+     basename(path) === "bun.lock" ||
+     generatedHooks.has(path) ||
+     path.split("/").slice(0, -1).includes("vendor") ||
