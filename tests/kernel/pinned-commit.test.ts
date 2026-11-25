@@ -191,7 +191,13 @@ const deep = await import("agent-cli-kernel/kernel/src/kernel/index.ts").then(
 console.log(JSON.stringify({ loaded, deep }));
 `;
 
-const rootedFileCheck = `import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+const rootedFileCheck = `import {
+  linkSync,
+  mkdirSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   readRootedFile,
@@ -200,13 +206,32 @@ import {
   type RootedRefusal,
 } from "agent-cli-kernel/rooted-file";
 
-const root = process.argv[2] ?? "";
+const base = process.argv[2] ?? "";
+const root = join(base, "root");
+const outside = join(base, "outside");
 mkdirSync(root, { recursive: true });
+mkdirSync(outside, { recursive: true });
 writeFileSync(join(root, "plain.txt"), "hello");
 symlinkSync(join(root, "plain.txt"), join(root, "link.txt"));
+writeFileSync(join(outside, "secret.txt"), "secret");
+symlinkSync(outside, join(root, "linked-dir"));
+linkSync(join(outside, "secret.txt"), join(root, "hard-link.txt"));
+writeFileSync(join(root, "big.txt"), "x".repeat(1025));
 
 const plain: RootedFileResult = readRootedFile(root, "plain.txt", 1024);
 const linked: RootedFileResult = readRootedFile(root, "link.txt", 1024);
+const linkedFolder: RootedFileResult = readRootedFile(
+  root,
+  "linked-dir/secret.txt",
+  1024,
+);
+const outsideRoot: RootedFileResult = readRootedFile(
+  root,
+  "../outside/secret.txt",
+  1024,
+);
+const hardLink: RootedFileResult = readRootedFile(root, "hard-link.txt", 1024);
+const overLimit: RootedFileResult = readRootedFile(root, "big.txt", 1024);
 let seamCalled = false;
 Reflect.apply(readRootedFile, undefined, [
   root,
@@ -221,7 +246,8 @@ Reflect.apply(readRootedFile, undefined, [
 
 const readFacts: RootedFacts | null =
   plain.kind === "read" ? plain.facts : null;
-const refusal: RootedRefusal | null = linked.kind === "refused" ? linked : null;
+const asRefusal = (result: RootedFileResult): RootedRefusal | null =>
+  result.kind === "refused" ? result : null;
 console.log(
   JSON.stringify({
     arity: readRootedFile.length,
@@ -235,7 +261,11 @@ console.log(
             size: readFacts?.size ?? -1,
           }
         : plain,
-    linked: refusal,
+    linked: asRefusal(linked),
+    linkedFolder: asRefusal(linkedFolder),
+    outsideRoot: asRefusal(outsideRoot),
+    hardLink: asRefusal(hardLink),
+    overLimit: asRefusal(overLimit),
   }),
 );
 `;
@@ -454,11 +484,11 @@ test("the kernel repository's manifest names agent-cli-kernel, is a module with 
 });
 
 test(
-  "a repository that installs the kernel imports readRootedFile from agent-cli-kernel/rooted-file, reads a plain file, refuses a symbolic link, and sees no seam parameter",
+  "a repository that installs the kernel imports readRootedFile from agent-cli-kernel/rooted-file, reads a plain file, refuses link, escape and size violations, and sees no seam parameter",
   async () => {
-    const root = join(world.base, "rooted-file-consumer-root");
+    const base = join(world.base, "rooted-file-consumer");
     const ran = await run(
-      [process.execPath, "src/rooted-file-check.ts", root],
+      [process.execPath, "src/rooted-file-check.ts", base],
       world.consumer,
     );
     expect(ran.stderr).toBe("");
@@ -475,6 +505,32 @@ test(
         path: "link.txt",
         reason: "symbolic-link",
         message: `link.txt is a symbolic link. Repair: replace the link with a regular file inside ${realRoot}.`,
+      },
+      linkedFolder: {
+        kind: "refused",
+        path: "linked-dir/secret.txt",
+        reason: "linked-folder",
+        message: `linked-dir/secret.txt crosses linked folder ${join(realRoot, "linked-dir")}. Repair: replace the symbolic link with a real folder inside ${realRoot}.`,
+      },
+      outsideRoot: {
+        kind: "refused",
+        path: "../outside/secret.txt",
+        reason: "outside-root",
+        message: `../outside/secret.txt is outside root ${realRoot}. Repair: pass a path inside ${realRoot}.`,
+      },
+      hardLink: {
+        kind: "refused",
+        path: "hard-link.txt",
+        reason: "hard-link",
+        message:
+          "hard-link.txt is a hard link (link count 2). Repair: replace it with a copy, or remove the other link.",
+      },
+      overLimit: {
+        kind: "refused",
+        path: "big.txt",
+        reason: "over-limit",
+        message:
+          "big.txt is 1025 bytes, above the 1024 byte limit. Repair: reduce the file size to at most 1024 bytes.",
       },
     });
     const checked = await run(
