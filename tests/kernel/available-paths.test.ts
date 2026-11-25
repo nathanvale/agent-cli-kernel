@@ -18,6 +18,7 @@ const expectedAllPaths = [
   "specimen.command-discovery",
   "specimen.discovery",
   "specimen.dispatch",
+  "specimen.full-discovery",
   "specimen.help",
   "specimen.list",
   "specimen.read",
@@ -187,6 +188,14 @@ describe("availablePaths", () => {
       expect(envelope.result.causeCode).toBe("SUCCESS_UNCHANGED");
       expect(envelope.availablePaths).toEqual([...expectedAllPaths]);
     }
+  });
+
+  test("discover-all carries every declared command identity sorted", async () => {
+    const envelope = await envelopeFor(["--discover-all", "--json"]);
+    expect(envelope.contractVersion).toBe("3.0.0");
+    expect(envelope.result.commandIdentity).toBe("specimen.full-discovery");
+    expect(envelope.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(envelope.availablePaths).toEqual([...expectedAllPaths]);
   });
 
   test("unknown-command refusal carries every declared command identity sorted", async () => {
