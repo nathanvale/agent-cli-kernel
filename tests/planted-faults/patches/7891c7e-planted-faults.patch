@@ -5,10 +5,9 @@ diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
  import { snapshotWorkingTree } from "./planted-fault-snapshot.ts";
 -import {
 -  runWithOwnTools,
--  startChild,
 -  withoutRepositoryLocation,
 -} from "./process-runner.ts";
-+import { runWithOwnTools, startChild } from "./process-runner.ts";
++import { runWithOwnTools } from "./process-runner.ts";
  
  export const recordsPath = "tests/planted-faults/fault-records";
  const patchFolder = "tests/planted-faults/patches";

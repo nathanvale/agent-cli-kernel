@@ -1,7 +1,0 @@
-{
-  "id": "64b57bc-planted-faults",
-  "patch": "tests/planted-faults/patches/64b57bc-planted-faults.patch",
-  "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
-  "title": "FR\\.y ",
-  "source": "64b57bc fix(faults): stop a worktree removal at the step limit (GREEN)"
-}

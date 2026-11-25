@@ -1,7 +1,0 @@
-{
-  "id": "c6d01d9-planted-fault-snapshot-clean",
-  "patch": "tests/planted-faults/patches/c6d01d9-planted-fault-snapshot-clean.patch",
-  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
-  "title": "commitWorkingTreeInScratchIndex returns HEAD on a clean working tree without running git add or read-tree",
-  "source": "c6d01d9 fix(faults): skip full index rehash on clean trees and reuse stat-cached index when dirty"
-}
