@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -155,7 +155,11 @@ export function contractFor<
+   const commandListIdentities = new Set(
+     builtinCommands
+       .map((item) => item.commandIdentity)
+-      .filter((identity) => identity !== `${spec.cli}.dispatch`),
++      .filter(
++        (identity) =>
++          identity !== `${spec.cli}.dispatch` &&
++          identity !== `${spec.cli}.command-discovery`,
++      ),
+   );
+   const allPaths = commands.map((item) => item.commandIdentity);
+   const inputTable = buildInputTable(commands);
