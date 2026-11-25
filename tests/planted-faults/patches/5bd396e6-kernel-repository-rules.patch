@@ -1,8 +1,8 @@
 diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
-index 4c7240e6..3a8dcbdb 100644
+index 955274c7..c82478ae 100644
 --- a/config/rooted-file-rules.mjs
 +++ b/config/rooted-file-rules.mjs
-@@ -74,14 +74,14 @@ const identifierText = (node) => node.name ?? node.value;
+@@ -76,14 +76,13 @@ const identifierText = (node) => node.name ?? node.value;
  const specifierName = ({ type, imported, local }) => {
    if (isWholeSpecifier(type)) return undefined;
    const name = identifierText(imported ?? local);
@@ -13,14 +13,13 @@ index 4c7240e6..3a8dcbdb 100644
    checkedGlobals.has(reference.identifier.name) &&
    !reference.init &&
    !isTypePosition(reference);
--const isLoaderSpecifier = (value, name) =>
--  moduleOnlyLoader.has(value) || name === undefined || loaderNames.has(name);
-+const isLoaderSpecifier = (_value, name) =>
-+  name === undefined || loaderNames.has(name);
- 
- function createLoadJudges(context) {
-   const report = (node, messageId, data) =>
-@@ -134,8 +134,7 @@ function createGlobalChecker(report, checkLoad) {
+-const isLoaderSpecifier = (value, name, loaderHolders) =>
+-  moduleOnlyLoader.has(value) ||
++const isLoaderSpecifier = (_value, name, loaderHolders) =>
+   name === undefined ||
+   loaderNames.has(name) ||
+   loaderHolders.has(name);
+@@ -140,8 +139,7 @@ function createGlobalChecker(report, checkLoad, loaderHolders) {
    return checkGlobal;
  }
  
