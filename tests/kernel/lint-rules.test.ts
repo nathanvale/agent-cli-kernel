@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import ts from "typescript";
+import { supportedFallowTargets } from "../support/lint-comment-cases.ts";
 
 const root = resolve(import.meta.dir, "../..");
 const eslint = new ESLint({ cwd: root });
@@ -1225,6 +1226,15 @@ const refusedDirectiveLookalikes = [
   "// biome-ignore lint/style/fakeRule: prose\nexport const a = 1;",
   "// biome-ignore assist/source: prose\nexport const a = 1;",
   "// biome-ignore assist/source/fakeAction: prose\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst lint/style/fakeRule: prose\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst prose: reason\nexport const a = 1;",
+  "// fallow-ignore-next-line this-is-plain-prose\nexport const a = 1;",
+  "// fallow-ignore-file this-is-plain-prose\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-exports -- plural is not accepted\nexport const a = 1;",
+  "// fallow-ignore-next-line boundary-coverage-violations -- wrong alias\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export, fake-target -- mixed\nexport const a = 1;",
+  "// fallow-ignore-next-line policy-violation:bad -- missing rule\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export --\nexport const a = 1;",
 ] as const;
 
 const admittedDirectives = [
@@ -1235,11 +1245,22 @@ const admittedDirectives = [
   "// @ts-check\nexport const a = 1;",
   "// biome-ignore format: keep table\nexport const a = 1;",
   "// biome-ignore lint/style/useConst: keep binding mutable\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst lint/suspicious/noExplicitAny: reason\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst(foo) lint/suspicious/noExplicitAny: reason\nexport const a = 1;",
   "// biome-ignore assist/source/organizeImports: preserve order\nexport const a = 1;",
+  "// fallow-ignore-next-line -- blanket reason\nexport const a = 1;",
+  "// fallow-ignore-next-line complexity -- kept complex\nexport const a = 1;",
+  "// fallow-ignore-file complexity -- kept complex\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export, complexity -- combined\nexport const a = 1;",
+  "// fallow-ignore-next-line policy-violation:pack/rule -- scoped rule\nexport const a = 1;",
   "// fallow-ignore-next-line unused-export -- kept for api\nexport const a = 1;",
   "// fallow-ignore-file unused-export -- kept for api\nexport const a = 1;",
   "/* fallow-ignore-file unused-export -- kept for api */\nexport const a = 1;",
   "  /* fallow-ignore-next-line unused-export -- kept for api */\nexport const a = 1;",
+  ...supportedFallowTargets.map(
+    (target) =>
+      `// fallow-ignore-next-line ${target} -- supported\nexport const a = 1;`,
+  ),
   "// eslint-disable-next-line no-console\nexport const a = 1;",
   "// eslint-disable-next-line @typescript-eslint/consistent-type-assertions\nexport const a = 1;",
   "export const a = 1; // eslint-disable-line no-console",

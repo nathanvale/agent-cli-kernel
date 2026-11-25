@@ -1,14 +1,18 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -18,9 +18,7 @@ const biomeDirective =
-   /^biome-ignore(?:-all|-start|-end)?\s+([a-z]+(?:\/[A-Za-z][A-Za-z0-9]*){0,2})(?:\([^()]+\))?:\s*\S/;
- const fallowTarget =
-   "(?:policy-violation:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*|[a-z]+(?:-[a-z]+)+)";
--const fallowDirective = new RegExp(
--  `^fallow-ignore-(?:next-line|file)(?:\\s+${fallowTarget}(?:(?:\\s*,\\s*|\\s+)${fallowTarget})*)?(?:\\s+--\\s+\\S.*)?$`,
--);
-+const fallowDirective = /^fallow-ignore(?:-next-line|-file)?(?:\s|$)/;
+@@ -194,13 +194,6 @@ function isBiomeDirective(text) {
  
- function loadBiomeCategories() {
-   const require = createRequire(import.meta.url);
+ function isFallowDirective(text) {
+-  const match = fallowDirective.exec(text);
+-  if (match === null) return false;
+-  if (match[1] === undefined) return true;
+-  return match[1]
+-    .split(/[\s,]+/)
+-    .every(
+-      (target) => fallowTargets.has(target) || fallowPolicyRule.test(target),
+-    );
++  return /^fallow-ignore(?:-next-line|-file)?(?:\s|$)/.test(text);
+ }
+ 
+ function isFallowBlockPlaced(comment, source) {

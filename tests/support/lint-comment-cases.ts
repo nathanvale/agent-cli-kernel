@@ -1,4 +1,40 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { templateSourceFile } from "./template-lint.ts";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readSupportedFallowTargets(): readonly string[] {
+  const require = createRequire(import.meta.url);
+  const parsed: unknown = JSON.parse(
+    readFileSync(require.resolve("fallow/issue-registry.json"), "utf8"),
+  );
+  if (!isRecord(parsed) || !Array.isArray(parsed.issue_types)) {
+    throw new Error("fallow/issue-registry.json missing issue_types array");
+  }
+  const targets = new Set<string>();
+  for (const item of parsed.issue_types) {
+    if (!isRecord(item) || typeof item.suppress_comment !== "string") continue;
+    const match =
+      /^\/\/\s*fallow-ignore-(?:next-line|file)\s+([a-z][a-z0-9-]*)$/.exec(
+        item.suppress_comment,
+      );
+    const target = match?.[1];
+    if (target === undefined) continue;
+    targets.add(target);
+    if (item.id === target && Array.isArray(item.aliases)) {
+      for (const alias of item.aliases) {
+        if (typeof alias === "string" && alias.length > 0) targets.add(alias);
+      }
+    }
+  }
+  return [...targets].sort();
+}
+
+export const supportedFallowTargets: readonly string[] =
+  readSupportedFallowTargets();
 
 export const commentCases = [
   [templateSourceFile, "// Loop over the names.\nexport const a = 1;", [1]],
