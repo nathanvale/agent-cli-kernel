@@ -226,7 +226,7 @@ describe("renamedFrom human route notice", () => {
       exit: 2,
       stdout: "",
       stderr:
-        'Note: "show all" is now "list".\nx: The invocation uses an option this command does not declare. [USAGE_INVALID_INVOCATION]\n',
+        'Note: "show all" is now "list".\nx: The invocation uses --unknown, an option this command does not declare. [USAGE_INVALID_INVOCATION]\n',
     });
     expect(usageViaOld.exit).toBe(usageViaCurrent.exit);
   });
