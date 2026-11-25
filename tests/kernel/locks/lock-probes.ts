@@ -1,4 +1,5 @@
 import { afterAll } from "bun:test";
+import { realpathSync } from "node:fs";
 import { appendFile, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import ts from "typescript";
@@ -30,7 +31,7 @@ type Registered = {
   readonly alone: boolean;
 };
 
-const root = resolve(import.meta.dir, "../../..");
+const root = realpathSync(resolve(import.meta.dir, "../../.."));
 const executables = {
   native: "node_modules/@typescript/native/bin/tsc",
   "lint-view": "node_modules/typescript/bin/tsc6",
@@ -96,11 +97,12 @@ export function readRun(
     throw new Error(
       `${compiler} did not complete normally (exit ${run.exit}, stderr ${JSON.stringify(run.stderr)}), so no probe has a result.`,
     );
+  const realDirectory = realpathSync(directory);
   const owned = new Map<string, Parsed[]>(files.map((file) => [file, []]));
   const shared: Parsed[] = [];
   let checked = false;
   for (const text of records(run.stdout)) {
-    const parsed = parse(directory, text);
+    const parsed = parse(realDirectory, text);
     const file = parsed.diagnostic?.file;
     if (file === sentinel.file && parsed.diagnostic?.code === sentinel.code)
       checked = true;
@@ -203,7 +205,7 @@ export function probeBatch(
         "-p",
         config,
       ],
-      { cwd: root },
+      { cwd: root, env: { ...process.env, PWD: root } },
     );
     const { settled, together, apart } = readRun(compiler, base, files, run);
     const results = [settled];
