@@ -1,0 +1,7 @@
+{
+  "id": "8d0b229c-package-drops-xdg-base-export",
+  "patch": "tests/planted-faults/patches/8d0b229c-package-drops-xdg-base-export.patch",
+  "testFile": "tests/template/names-check/symbol-gate.test.ts",
+  "title": "^the kernel public surface follows package\\.json TypeScript and JavaScript entry points$",
+  "source": "8d0b229c feat(xdg-base): publish agent-cli-kernel/xdg-base"
+}

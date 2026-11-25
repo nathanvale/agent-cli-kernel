@@ -1,0 +1,13 @@
+diff --git a/kernel/src/shared/xdg-base.ts b/kernel/src/shared/xdg-base.ts
+--- a/kernel/src/shared/xdg-base.ts
++++ b/kernel/src/shared/xdg-base.ts
+@@ -39,7 +39,8 @@
+ ): string | undefined {
+   const configured = absoluteValue(environment, envNames[kind]);
+   if (configured !== undefined) return configured;
+-  if (kind === "runtime" || options?.homeFallback === false) return undefined;
++  if (kind === "runtime") return absoluteValue(environment, "HOME");
++  if (options?.homeFallback === false) return undefined;
+   const home = absoluteValue(environment, "HOME");
+   if (home === undefined) return undefined;
+   return join(home, ...homeSubfolders[kind]);

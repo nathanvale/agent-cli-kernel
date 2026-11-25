@@ -1,0 +1,12 @@
+diff --git a/kernel/src/shared/xdg-base.ts b/kernel/src/shared/xdg-base.ts
+--- a/kernel/src/shared/xdg-base.ts
++++ b/kernel/src/shared/xdg-base.ts
+@@ -19,7 +19,7 @@
+ > = {
+   config: [".config"],
+   data: [".local", "share"],
+-  state: [".local", "state"],
++  state: [".state"],
+   cache: [".cache"],
+ };
+ 

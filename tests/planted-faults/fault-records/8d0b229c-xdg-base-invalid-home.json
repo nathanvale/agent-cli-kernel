@@ -1,0 +1,7 @@
+{
+  "id": "8d0b229c-xdg-base-invalid-home",
+  "patch": "tests/planted-faults/patches/8d0b229c-xdg-base-invalid-home.patch",
+  "testFile": "tests/kernel/xdg-base.test.ts",
+  "title": "^xdgBaseFolder rule 8: relative HOME returns undefined when XDG variable is unset$",
+  "source": "8d0b229c feat(xdg-base): publish agent-cli-kernel/xdg-base"
+}

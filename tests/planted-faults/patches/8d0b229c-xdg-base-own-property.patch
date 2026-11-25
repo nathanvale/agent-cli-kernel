@@ -1,0 +1,12 @@
+diff --git a/kernel/src/shared/xdg-base.ts b/kernel/src/shared/xdg-base.ts
+--- a/kernel/src/shared/xdg-base.ts
++++ b/kernel/src/shared/xdg-base.ts
+@@ -26,7 +26,6 @@
+ function absoluteValue(
+   environment: Readonly<Record<string, string | undefined>>,
+   key: string,
+ ): string | undefined {
+-  if (!Object.hasOwn(environment, key)) return undefined;
+   const value = environment[key];
+   if (typeof value !== "string" || value.length === 0 || !isAbsolute(value))
+     return undefined;
