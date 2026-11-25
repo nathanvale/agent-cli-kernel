@@ -1,0 +1,7 @@
+{
+  "id": "3c163724-fallow-unknown-target",
+  "patch": "tests/planted-faults/patches/3c163724-fallow-unknown-target.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^no-comments refuses directive-lookalike prose and trailing lines in template files",
+  "source": "3c163724 fix(lint): admit only Fallow's own targets and fail closed when Biome's schema cannot be read"
+}

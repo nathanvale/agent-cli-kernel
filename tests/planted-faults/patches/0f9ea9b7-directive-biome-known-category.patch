@@ -1,11 +1,18 @@
 diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 --- a/config/comment-directives.mjs
 +++ b/config/comment-directives.mjs
-@@ -74,5 +74,4 @@ const biomeCategories = loadBiomeCategories();
+@@ -183,13 +183,6 @@ const fallowTargets = loadFallowTargets();
+ 
  function isBiomeDirective(text) {
 -  const match = biomeDirective.exec(text);
--  return match !== null && biomeCategories.has(match[1]);
+-  const entries = match === null ? null : match[1].match(biomeCategoryToken);
+-  return (
+-    entries !== null &&
+-    entries.every((entry) =>
+-      biomeCategories.has(entry.replace(/\([^()]+\)$/, "")),
+-    )
+-  );
 +  return biomeDirective.test(text);
  }
  
- function isFallowBlockPlaced(comment, source) {
+ function isFallowDirective(text) {

@@ -1,0 +1,13 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -234,8 +234,7 @@
+   name,
+ ) {
+   const groups = isRecord(section) ? section.properties : undefined;
+-  if (!isRecord(groups))
+-    throw dependencyError(biomeSchemaSpecifier, `missing ${name}`);
++  if (!isRecord(groups)) return;
+   const validated = new Set();
+   let addedGroups = 0;
+   for (const [group, prop] of Object.entries(groups)) {

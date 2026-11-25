@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { join, resolve } from "node:path";
 import { ESLint } from "eslint";
 import ts from "typescript";
+import { loadFallowTargets } from "../../config/comment-directives.mjs";
+import { supportedFallowTargets } from "../support/lint-comment-cases.ts";
 import { qualifiedSourceFiles } from "./state/capability-qualification-record.ts";
 
 const root = resolve(import.meta.dir, "../..");
@@ -1226,6 +1228,20 @@ const refusedDirectiveLookalikes = [
   "// biome-ignore lint/style/fakeRule: prose\nexport const a = 1;",
   "// biome-ignore assist/source: prose\nexport const a = 1;",
   "// biome-ignore assist/source/fakeAction: prose\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst lint/style/fakeRule: prose\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst prose: reason\nexport const a = 1;",
+  "// fallow-ignore-next-line this-is-plain-prose\nexport const a = 1;",
+  "// fallow-ignore-file this-is-plain-prose\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-exports -- plural is not accepted\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-optional-dependency -- not parsed by fallow\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-optional-deps -- not parsed by fallow\nexport const a = 1;",
+  "// fallow-ignore-next-line boundary-coverage -- not parsed by fallow\nexport const a = 1;",
+  "// fallow-ignore-next-line boundary-coverage-violations -- wrong alias\nexport const a = 1;",
+  "// fallow-ignore-next-line sql-injection -- must use security-sink\nexport const a = 1;",
+  "// fallow-ignore-next-line high-complexity -- must use complexity\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export, fake-target -- mixed\nexport const a = 1;",
+  "// fallow-ignore-next-line policy-violation:bad -- missing rule\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export --\nexport const a = 1;",
 ] as const;
 
 const admittedDirectives = [
@@ -1236,11 +1252,22 @@ const admittedDirectives = [
   "// @ts-check\nexport const a = 1;",
   "// biome-ignore format: keep table\nexport const a = 1;",
   "// biome-ignore lint/style/useConst: keep binding mutable\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst lint/suspicious/noExplicitAny: reason\nexport const a = 1;",
+  "// biome-ignore lint/style/useConst(foo) lint/suspicious/noExplicitAny: reason\nexport const a = 1;",
   "// biome-ignore assist/source/organizeImports: preserve order\nexport const a = 1;",
+  "// fallow-ignore-next-line -- blanket reason\nexport const a = 1;",
+  "// fallow-ignore-next-line complexity -- kept complex\nexport const a = 1;",
+  "// fallow-ignore-file complexity -- kept complex\nexport const a = 1;",
+  "// fallow-ignore-next-line unused-export, complexity -- combined\nexport const a = 1;",
+  "// fallow-ignore-next-line policy-violation:pack/rule -- scoped rule\nexport const a = 1;",
   "// fallow-ignore-next-line unused-export -- kept for api\nexport const a = 1;",
   "// fallow-ignore-file unused-export -- kept for api\nexport const a = 1;",
   "/* fallow-ignore-file unused-export -- kept for api */\nexport const a = 1;",
   "  /* fallow-ignore-next-line unused-export -- kept for api */\nexport const a = 1;",
+  ...supportedFallowTargets.map(
+    (target) =>
+      `// fallow-ignore-next-line ${target} -- supported\nexport const a = 1;`,
+  ),
   "// eslint-disable-next-line no-console\nexport const a = 1;",
   "// eslint-disable-next-line @typescript-eslint/consistent-type-assertions\nexport const a = 1;",
   "export const a = 1; // eslint-disable-line no-console",
@@ -1253,6 +1280,7 @@ const admittedDirectives = [
 ] as const;
 
 test("no-comments refuses directive-lookalike prose and trailing lines in kernel files, and admits exact directives", async () => {
+  expect([...loadFallowTargets()].sort()).toEqual([...supportedFallowTargets]);
   const filePath = "kernel/src/addons/menu/index.ts";
   for (const code of refusedDirectiveLookalikes) {
     expect(await hits("no-comments", filePath, code)).toEqual([
@@ -1360,6 +1388,8 @@ const streamMessage =
   "Return domain data to the CLI output owner instead of accessing process streams.";
 const program = `repository/no-process-reach: ${startMessage}`;
 const output = `repository/no-process-reach: ${streamMessage}`;
+const unlisted = (member: string) =>
+  `repository/no-process-reach: ${member} is not on the kernel's runtime allowlist. Repair: use a listed member, or propose adding a pure member to the allowlist in the kernel.`;
 const domainOutput = `repository/no-domain-output: ${streamMessage}`;
 const restricted = (name: string) =>
   `no-restricted-properties: '${name}' is restricted from being used.`;
@@ -1400,9 +1430,27 @@ const runtimeSpellings = [
   ['export const run = import.meta.require("node:child_process");', program],
   ['export const run = require("bun");', program],
   ["export const run = Bun.openInEditor;", program],
+  ["const { openInEditor } = Bun; export const run = openInEditor;", program],
+  [
+    'import { openInEditor } from "bun"; export const run = openInEditor;',
+    program,
+  ],
+  ['export { openInEditor } from "bun";', program],
+  ["export const run = Bun.WebView;", program],
+  ["const { WebView } = Bun; export const run = WebView;", program],
+  ['import { WebView } from "bun"; export const run = WebView;', program],
+  ['export { WebView } from "bun";', program],
+  ["export const run = Bun.cron;", program],
+  ["const { cron } = Bun; export const run = cron;", program],
+  ['import { cron } from "bun"; export const run = cron;', program],
+  ['export { cron } from "bun";', program],
+  ["export const run = () => Bun.gc();", unlisted("Bun.gc")],
+  ["const { gc } = Bun; export const run = gc;", unlisted("Bun.gc")],
+  ['import { gc } from "bun"; export const run = gc;', unlisted("Bun.gc")],
+  ['export { gc } from "bun";', unlisted("Bun.gc")],
   [
     'export const run = process.getBuiltinModule("node:child_process");',
-    output,
+    unlisted("process.getBuiltinModule"),
   ],
   ['export const out = () => Bun.write(Bun.stdout, "x");', domainOutput],
   ["const { stderr } = Bun; export const out = stderr;", domainOutput],
@@ -1420,7 +1468,10 @@ const runtimeSpellings = [
     'import { stdout } from "node:process"; export const out = stdout;',
     domainOutput,
   ],
-  ['export const out = process.getBuiltinModule("node:process");', output],
+  [
+    'export const out = process.getBuiltinModule("node:process");',
+    unlisted("process.getBuiltinModule"),
+  ],
   ['export const out = () => globalThis.console.log("x");', output],
   ['export const out = () => globalThis.process.stderr.write("x");', output],
   ["const { process: host } = globalThis; export const out = host;", output],
@@ -1444,19 +1495,25 @@ const runtimeSpellings = [
   ],
   [
     'import { getBuiltinModule } from "node:process"; export const out = getBuiltinModule;',
-    output,
+    unlisted("process.getBuiltinModule"),
   ],
   [
     "const { getBuiltinModule } = process; export const out = getBuiltinModule;",
-    output,
+    unlisted("process.getBuiltinModule"),
   ],
   ['import c from "node:console"; export const out = c;', output],
   ['import { log } from "console"; export const out = log;', output],
   ['export { stdout } from "node:process";', output],
   ['export * as proc from "node:process";', output],
   ['export const out = import.meta.require("node:process");', output],
-  ['export const out = () => process.emitWarning("x");', output],
-  ['export const out = () => process._rawDebug("x");', output],
+  [
+    'export const out = () => process.emitWarning("x");',
+    unlisted("process.emitWarning"),
+  ],
+  [
+    'export const out = () => process._rawDebug("x");',
+    unlisted("process._rawDebug"),
+  ],
   [
     'export const out = () => process.on("exit", () => {}).stdout.write("x");',
     output,
@@ -1633,6 +1690,14 @@ const honestRuntime = [
   'import type { Subprocess } from "bun"; export type Child = Subprocess;',
   'import { type Subprocess } from "bun"; export type Child = Subprocess;',
   "export const read = (path: string) => Bun.file(path).text();",
+  'export const parsedYaml = Bun.YAML.parse("a: 1");',
+  "export const dumpedYaml = Bun.YAML.stringify({ a: 1 });",
+  'export const markdownHtml = Bun.markdown.html("# hi");',
+  'export const markdownRender = Bun.markdown.render("# hi", {});',
+  "export const markdownNamespace = Bun.markdown;",
+  'import { YAML, markdown } from "bun"; export const parsers = [YAML.parse("a: 1"), markdown.html("# hi")];',
+  'export const otherParsers = [Bun.JSON5.parse("{a:1}"), Bun.JSONC.parse("{}"), Bun.JSONL.parse("{}"), Bun.XML.parse("<a/>"), Bun.stripANSI("x")];',
+  'export const parsedToml = Bun.TOML.parse("a = 1");',
   'export const home = () => process.env["HOME"];',
   "const { argv } = process; export const args = argv;",
   "export const tag = { process: 1, Bun: 2, console: 3 };",

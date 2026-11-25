@@ -8,5 +8,5 @@ diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 -const tsLineOnlyDirective = /^@ts-(?:no)?check$/;
 +const tsLineOnlyDirective = /^@ts-(?:no)?check(?:\s|$)/;
  const tsCommentDirective = /^@ts-(?:expect-error|ignore)(?:$|[\s:])/;
- const biomeDirective =
-   /^biome-ignore(?:-all|-start|-end)?\s+([a-z]+(?:\/[A-Za-z][A-Za-z0-9]*){0,2})(?:\([^()]+\))?:\s*\S/;
+ const biomeCategory = "[a-z]+(?:/[A-Za-z][A-Za-z0-9]*){0,2}(?:\\([^()]+\\))?";
+ const biomeCategoryToken = new RegExp(biomeCategory, "g");

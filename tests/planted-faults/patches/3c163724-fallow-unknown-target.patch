@@ -1,0 +1,13 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+index 3c6b5418..d54b63f0 100644
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -207,7 +207,7 @@ function isFallowDirective(text) {
+   return match[1]
+     .split(/[\s,]+/)
+     .every(
+-      (target) => fallowTargets.has(target) || fallowPolicyRule.test(target),
++      (target) => true,
+     );
+ }
+ 

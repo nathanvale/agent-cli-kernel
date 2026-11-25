@@ -196,6 +196,8 @@ const programStartMessage =
   "Contract 3 source starts programs only through the programs add-on.";
 const outputMessage =
   "Return domain data to the CLI output owner instead of accessing process streams.";
+const unlistedMemberMessage =
+  "{{owner}}.{{member}} is not on the kernel's runtime allowlist. Repair: use a listed member, or propose adding a pure member to the allowlist in the kernel.";
 const streams = new Set(["stdout", "stderr"]);
 const streamOwners = new Set(["process", "Bun"]);
 const runtimeGlobals = {
@@ -209,9 +211,20 @@ const runtimeGlobals = {
 };
 const globalHolders = new Set(["globalThis", "global", "self"]);
 const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
+const bunProgramStarts = new Set([
+  ...bunStartMembers,
+  "openInEditor",
+  "WebView",
+  "cron",
+]);
+const chainableProcess = new Set(
+  "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
+    " ",
+  ),
+);
 const allowedRuntimeMembers = {
   Bun: new Set(
-    "version revision main env argv which file write stdin sleep sleepSync nanoseconds hash CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth escapeHTML randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color TOML isMainThread".split(
+    "version version_with_sha revision main env argv which file write stdin sleep sleepSync nanoseconds hash sha SHA1 SHA224 SHA256 SHA384 SHA512 SHA512_256 MD4 MD5 CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth stripANSI sliceAnsi wrapAnsi escapeHTML indexOfLine concatArrayBuffers randomUUIDv5 randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync zstdCompress zstdCompressSync zstdDecompress zstdDecompressSync readableStreamToArray readableStreamToBlob readableStreamToFormData readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color Cookie CookieMap CSRF TOML YAML markdown JSON5 JSONC JSONL XML enableANSIColors isMainThread isStandaloneExecutable".split(
       " ",
     ),
   ),
@@ -239,6 +252,20 @@ function staticKey(node, computed = true) {
   if (node.type === "TemplateLiteral" && node.expressions.length === 0)
     return node.quasis[0].value.cooked;
   return undefined;
+}
+
+function specifierKey(specifier) {
+  if (!["ImportSpecifier", "ExportSpecifier"].includes(specifier.type))
+    return undefined;
+  const name = specifier.imported ?? specifier.local;
+  return name.name ?? name.value;
+}
+
+function isUnlistedRuntimeMember(owner, key) {
+  if (!streamOwners.has(owner) || typeof key !== "string") return false;
+  if (key === "default" || streams.has(key)) return false;
+  if (owner === "Bun" && bunProgramStarts.has(key)) return false;
+  return !(owner === "process" && chainableProcess.has(key));
 }
 
 function isAllowedRuntimeMember(owner, key, route) {
@@ -484,19 +511,31 @@ export default {
       meta: {
         type: "problem",
         schema: [],
-        messages: { program: programStartMessage, output: outputMessage },
+        messages: {
+          program: programStartMessage,
+          output: outputMessage,
+          unlistedMember: unlistedMemberMessage,
+        },
       },
       create(context) {
-        const chainableProcess = new Set(
-          "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
-            " ",
-          ),
-        );
-        const report = (node, owner) =>
+        const report = (node, owner, member) => {
+          if (isUnlistedRuntimeMember(owner, member)) {
+            context.report({
+              node,
+              messageId: "unlistedMember",
+              data: { owner, member },
+            });
+            return;
+          }
           context.report({
             node,
             messageId: (owner && runtimeGlobals[owner]) || "program",
           });
+        };
+        const reportTarget = (node, name, key) =>
+          globalHolders.has(name)
+            ? report(node, key || name)
+            : report(node, name, key);
         const ownerOf = (source) => {
           const name = source && staticKey(source);
           return typeof name === "string"
@@ -506,11 +545,10 @@ export default {
         const typeOnly = (node) =>
           node.importKind === "type" || node.exportKind === "type";
         const specifierAdmitted = (specifier, owner, route) => {
-          const name = specifier.imported ?? specifier.local;
+          const key = specifierKey(specifier);
           return (
             typeOnly(specifier) ||
-            (["ImportSpecifier", "ExportSpecifier"].includes(specifier.type) &&
-              isAllowedRuntimeMember(owner, name.name ?? name.value, route))
+            (key !== undefined && isAllowedRuntimeMember(owner, key, route))
           );
         };
         const specifiersUse = (node, route) => {
@@ -525,7 +563,7 @@ export default {
             return report(node, owner);
           for (const specifier of node.specifiers)
             if (!specifierAdmitted(specifier, owner, route))
-              report(specifier, owner);
+              report(specifier, owner, specifierKey(specifier));
         };
         const load = (node, source) => {
           const owner = ownerOf(source);
@@ -570,7 +608,7 @@ export default {
             (ambient && name === "console") ||
             refused(name, key, "member")
           )
-            report(member, globalHolders.has(name) && key ? key : name);
+            reportTarget(member, name, key);
         };
         const patternUse = (properties, name) => {
           for (const property of properties) {
@@ -583,7 +621,7 @@ export default {
                 ? property.computed || key === "require"
                 : refused(name, key, "pattern"))
             )
-              report(property, globalHolders.has(name) && key ? key : name);
+              reportTarget(property, name, key);
           }
         };
         const typeUse = (parent) =>

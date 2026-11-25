@@ -1,0 +1,15 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -148,10 +148,7 @@ function addSectionCategories(
+     if (biomeMetaKeys.has(group)) continue;
+     const entries = resolveSchemaProperties(prop, defs);
+     if (!isRecord(entries)) {
+-      throw dependencyError(
+-        biomeSchemaSpecifier,
+-        `unresolved ${name}.${group}`,
+-      );
++      continue;
+     }
+     const groupPrefix = `${prefix}/${group}`;
+     if (includeGroup) categories.add(groupPrefix);

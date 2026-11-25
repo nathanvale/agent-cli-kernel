@@ -1,0 +1,7 @@
+{
+  "id": "948275b2-biome-unresolved-group",
+  "patch": "tests/planted-faults/patches/948275b2-biome-unresolved-group.patch",
+  "testFile": "tests/template/lint/directive-metadata.test.ts",
+  "title": "^loadBiomeCategories fails closed with a repair message on broken schemas",
+  "source": "948275b2 fix(lint): admit every Fallow target its parser accepts and refuse a Biome schema with any missing definition"
+}

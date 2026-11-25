@@ -1,8 +1,8 @@
 diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
-index a302ead0..87eebdd8 100644
+index 94692028..4665bfe2 100644
 --- a/kernel/config/kernel/eslint-rules.mjs
 +++ b/kernel/config/kernel/eslint-rules.mjs
-@@ -205,7 +205,6 @@ const runtimeGlobals = {
+@@ -207,7 +207,6 @@ const runtimeGlobals = {
    globalThis: "output",
    global: "output",
    self: "output",
@@ -10,7 +10,7 @@ index a302ead0..87eebdd8 100644
  };
  const globalHolders = new Set(["globalThis", "global", "self"]);
  const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
-@@ -216,13 +215,12 @@ const allowedRuntimeMembers = {
+@@ -223,13 +222,12 @@ const allowedRuntimeMembers = {
      ),
    ),
    process: new Set(
@@ -25,7 +25,7 @@ index a302ead0..87eebdd8 100644
  };
  const runtimeModules = new Map(
    Object.keys(allowedRuntimeMembers).map((owner) => [
-@@ -232,10 +230,8 @@ const runtimeModules = new Map(
+@@ -239,10 +237,8 @@ const runtimeModules = new Map(
  );
  
  function staticKey(node, computed = true) {
@@ -38,7 +38,7 @@ index a302ead0..87eebdd8 100644
    if (node.type === "TemplateLiteral" && node.expressions.length === 0)
      return node.quasis[0].value.cooked;
    return undefined;
-@@ -246,7 +242,7 @@ function isAllowedRuntimeMember(owner, key, route) {
+@@ -267,7 +263,7 @@ function isAllowedRuntimeMember(owner, key, route) {
    if (route === "export") return false;
    if (owner === "console") return route === "member";
    return (
@@ -47,19 +47,7 @@ index a302ead0..87eebdd8 100644
      (route !== "import" && owner === "Bun" && bunStartMembers.has(key))
    );
  }
-@@ -487,11 +483,6 @@ export default {
-         messages: { program: programStartMessage, output: outputMessage },
-       },
-       create(context) {
--        const chainableProcess = new Set(
--          "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
--            " ",
--          ),
--        );
-         const report = (node, owner) =>
-           context.report({
-             node,
-@@ -515,15 +506,9 @@ export default {
+@@ -547,15 +543,9 @@ export default {
          };
          const specifiersUse = (node, route) => {
            const owner = ownerOf(node.source);
@@ -76,9 +64,9 @@ index a302ead0..87eebdd8 100644
 +          if (!node.specifiers) report(node, owner);
 +          for (const specifier of node.specifiers ?? [])
              if (!specifierAdmitted(specifier, owner, route))
-               report(specifier, owner);
+               report(specifier, owner, specifierKey(specifier));
          };
-@@ -533,43 +518,19 @@ export default {
+@@ -565,44 +555,20 @@ export default {
              report(node, owner);
          };
          const pattern = (parent, identifier) =>
@@ -122,11 +110,13 @@ index a302ead0..87eebdd8 100644
 -            (ambient && name === "console") ||
 -            refused(name, key, "member")
 -          )
+-            reportTarget(member, name, key);
 +          if (key === undefined || refused(name, key, "member"))
-             report(member, globalHolders.has(name) && key ? key : name);
++            report(member, globalHolders.has(name) && key ? key : name);
          };
          const patternUse = (properties, name) => {
-@@ -579,38 +540,22 @@ export default {
+           for (const property of properties) {
+@@ -611,38 +577,22 @@ export default {
              if (
                property.type === "RestElement" ||
                key === undefined ||
@@ -135,7 +125,7 @@ index a302ead0..87eebdd8 100644
 -                : refused(name, key, "pattern"))
 +              refused(name, key, "pattern")
              )
-               report(property, globalHolders.has(name) && key ? key : name);
+               reportTarget(property, name, key);
            }
          };
          const typeUse = (parent) =>
@@ -171,7 +161,7 @@ index a302ead0..87eebdd8 100644
            else if (destructured) patternUse(destructured.properties, name);
            else if (!typeUse(parent)) report(identifier, name);
          };
-@@ -620,36 +565,18 @@ export default {
+@@ -652,36 +602,18 @@ export default {
              node.source && specifiersUse(node, "export"),
            ExportAllDeclaration: (node) => specifiersUse(node, "export"),
            ImportExpression: (node) => load(node, node.source),

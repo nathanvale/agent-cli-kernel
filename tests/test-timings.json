@@ -150,6 +150,7 @@
     "tests/template/kernel-trial/kernel-trial-workflow.test.ts": 8,
     "tests/template/lint/anti-slop-gate.test.ts": 4120,
     "tests/template/lint/anti-slop-rules.test.ts": 5034,
+    "tests/template/lint/directive-metadata.test.ts": 100,
     "tests/template/lint/lint-comments.test.ts": 4097,
     "tests/template/lint/lint-rule-bypasses.test.ts": 6821,
     "tests/template/lint/lint-rules.test.ts": 10181,

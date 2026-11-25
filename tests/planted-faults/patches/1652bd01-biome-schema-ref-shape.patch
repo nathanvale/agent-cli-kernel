@@ -1,0 +1,12 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -187,7 +187,7 @@ function isValidSchemaRef(ref, defs, seen = new Set(), validated = new Set()) {
+   if (validated.has(name)) return true;
+   if (seen.has(name)) return false;
+   seen.add(name);
+-  const valid = isValidSchemaNode(defs[name], defs, seen, validated);
++  const valid = isRecord(defs[name]) && Object.keys(defs[name]).length > 0;
+   seen.delete(name);
+   if (valid) validated.add(name);
+   return valid;

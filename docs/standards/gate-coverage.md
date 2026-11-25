@@ -16,8 +16,8 @@ gates and their witnesses.
   includes the gate, and the tokenizer stays in
   `devDependencies`. See [Fallow entry settings](https://fallow.tools/docs/configuration/overview/#supportentry).
 - The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
-  directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
-  `.claude/hooks/` and `.codex/hooks/`.
+  directories, the root `CHANGELOG.md`, every `bun.lock`, and the generated
+  `fallow-gate.sh` at exactly `.claude/hooks/` and `.codex/hooks/`.
 - [The gate's recorded hits](../../scripts/file-size-recorded-hits.json) name each
   exception, its reason, and its lifetime. The standing fault-replay record
   reports its token count whenever scanned. Remove a temporary record in the
@@ -95,16 +95,21 @@ the kernel. They are plugin rules, so a host block that sets its own
 - Lint `repository/no-process-reach` works from an allowlist,
   `allowedRuntimeMembers` in `kernel/config/kernel/eslint-rules.mjs`:
   - A member that source reads or destructures from `Bun` or `process`
-    passes when the list names it, or when another rule judges it: the
-    stream names (`no-domain-output`) and `Bun.spawn`, `Bun.spawnSync`
-    and `Bun.$` (`no-restricted-properties`). Chainable `process` listener
-    methods (`on`, `once`, `off`, `addListener`, `removeListener`,
-    `removeAllListeners`, `prependListener`, `prependOnceListener`,
-    `setMaxListeners`) pass only as a call on `process` whose result is
-    discarded (an expression statement or under `void`); importing or
-    destructuring them is refused. A `console` member read passes to
-    `no-console`. Every other member, a destructured `console` name, a
-    rest element and a key that is not fixed are refused.
+    passes when the list names it (including Bun's pure parsers and formatters
+    such as `TOML`, `YAML`, `markdown`, `JSON5`, `JSONC`, `JSONL` and `XML`),
+    or when another rule judges it: the stream names (`no-domain-output`) and
+    `Bun.spawn`, `Bun.spawnSync` and `Bun.$` (`no-restricted-properties`).
+    Chainable `process` listener methods (`on`, `once`, `off`, `addListener`,
+    `removeListener`, `removeAllListeners`, `prependListener`,
+    `prependOnceListener`, `setMaxListeners`) pass only as a call on `process`
+    whose result is discarded (an expression statement or under `void`);
+    importing or destructuring them is refused with the stream message. A
+    `console` member read passes to `no-console`. An unlisted static member of
+    `Bun` or `process` (not a program start, stream, chainable `process` method
+    or `default`) is refused with `unlistedMember`, naming the allowlist and
+    repair. A real program start (`spawn`, `spawnSync`, `$`, `child_process`),
+    a stream, a destructured `console` name, a rest element and a key that is
+    not fixed keep the program-start or stream message.
   - An import from `"bun"`, `process` or `console`, with or without
     `node:`, passes when it is type-only or names a listed member.
     `"node:module"` and `"module"` admit only type-only imports; every
@@ -220,11 +225,14 @@ file extensions in those directories.
     line terminator (`LF`, `CR`, `U+2028`, `U+2029`) and with every comment in
     the block judged on its own (never admitting following prose lines):
     `@ts-expect-error`, `@ts-ignore`, line-only `@ts-nocheck` and `@ts-check`,
-    `biome-ignore` (`-all`, `-start`, `-end`) with a valid category and `: reason`,
-    `fallow-ignore-next-line` and `fallow-ignore-file` with valid targets and
-    optional `-- reason`, `eslint-disable-next-line` and `eslint-disable-line`,
-    plus block-only `eslint`, `eslint-disable`, `eslint-enable`, `global`,
-    `globals` and `exported`. `eslint.config.mjs` sets
+    `biome-ignore` (`-all`, `-start`, `-end`) with one or more valid categories
+    and `: reason`, `fallow-ignore-next-line` and `fallow-ignore-file` with
+    valid targets from the installed Fallow registry and optional `-- reason`,
+    `eslint-disable-next-line` and `eslint-disable-line`, plus block-only
+    `eslint`, `eslint-disable`, `eslint-enable`, `global`, `globals` and
+    `exported`. Biome category and Fallow target loaders fail closed with a
+    dependency-reinstall repair if their package metadata is missing,
+    unreadable, malformed or incomplete. `eslint.config.mjs` sets
     `linterOptions.noInlineConfig: true` across every linted path, so ESLint
     refuses every inline ESLint directive.
   - `SAFETY:` and a justification on its first line, on its own lines

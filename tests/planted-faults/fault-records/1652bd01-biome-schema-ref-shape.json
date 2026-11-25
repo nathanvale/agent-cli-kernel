@@ -1,0 +1,7 @@
+{
+  "id": "1652bd01-biome-schema-ref-shape",
+  "patch": "tests/planted-faults/patches/1652bd01-biome-schema-ref-shape.patch",
+  "testFile": "tests/template/lint/directive-metadata.test.ts",
+  "title": "^loadBiomeCategories fails closed with a repair message on broken schemas and admits valid schemas$",
+  "source": "1652bd01 fix(lint): accept a referenced Biome definition only in the shapes the installed schema uses"
+}

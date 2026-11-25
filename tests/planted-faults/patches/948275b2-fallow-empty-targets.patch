@@ -1,0 +1,12 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -227,8 +227,6 @@ export function loadFallowTargets(registryPath) {
+   for (const item of registry.issue_types) {
+     addFallowIssueTargets(targets, item);
+   }
+-  if (targets.size === 0)
+-    throw dependencyError(fallowRegistrySpecifier, "empty targets");
+   return targets;
+ }
+ 

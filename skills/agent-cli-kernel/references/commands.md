@@ -231,11 +231,14 @@ ignores inline `eslint-disable` comments. In `src/` it refuses:
 - `Bun.spawn`, `Bun.spawnSync`, `Bun.$` and `node:child_process`. Starting a
   program belongs to the programs add-on.
 - The same streams and program starts by another route. From `Bun` and
-  `process`, read or import only common members such as `Bun.file(path)`,
-  `Bun.which`, `process.env`, `process.argv` and `process.exit`, and call
-  chainable `process` listener methods such as `process.on` only when
-  discarding the result; the lint refuses others, such as `Bun.stdout` or
-  `process.emitWarning`. It also refuses a default, namespace or
+  `process`, read or import only allowlisted members such as `Bun.file(path)`,
+  `Bun.which`, `Bun.YAML`, `Bun.markdown`, `process.env`, `process.argv` and
+  `process.exit`, and call chainable `process` listener methods such as
+  `process.on` only when discarding the result; the lint refuses streams such
+  as `Bun.stdout` with the stream message, program starts with the
+  program-start message, and unlisted `Bun` or `process` members such as
+  `Bun.gc` or `process.emitWarning` as not on the kernel's runtime allowlist.
+  It also refuses a default, namespace or
   side-effect import of `"bun"`, `node:process` or `node:console`, any
   non-type import or re-export of `node:module`, `globalThis.process`,
   `stdout` destructured from `process`, a dynamic `import()`, `require()`

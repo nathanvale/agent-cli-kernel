@@ -12,4 +12,4 @@ diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
 +  /^(?:eslint(?:-disable|-enable)?|globals?|exported)(?:\s|$)/;
  const tsLineOnlyDirective = /^@ts-(?:no)?check$/;
  const tsCommentDirective = /^@ts-(?:expect-error|ignore)(?:$|[\s:])/;
- const biomeDirective =
+ const biomeCategory = "[a-z]+(?:/[A-Za-z][A-Za-z0-9]*){0,2}(?:\\([^()]+\\))?";

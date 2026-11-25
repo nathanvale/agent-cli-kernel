@@ -1,0 +1,7 @@
+{
+  "id": "e04deabc-changelog-exclusion",
+  "patch": "tests/planted-faults/patches/e04deabc-changelog-exclusion.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the scan skips the root CHANGELOG.md",
+  "source": "e04deabc fix(file-size): skip the root CHANGELOG.md"
+}

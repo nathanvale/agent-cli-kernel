@@ -1,0 +1,12 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -218,7 +218,7 @@ const chainableProcess = new Set(
+ );
+ const allowedRuntimeMembers = {
+   Bun: new Set(
+-    "version version_with_sha revision main env argv which file write stdin sleep sleepSync nanoseconds hash sha SHA1 SHA224 SHA256 SHA384 SHA512 SHA512_256 MD4 MD5 CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth stripANSI sliceAnsi wrapAnsi escapeHTML indexOfLine concatArrayBuffers randomUUIDv5 randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync zstdCompress zstdCompressSync zstdDecompress zstdDecompressSync readableStreamToArray readableStreamToBlob readableStreamToFormData readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color Cookie CookieMap CSRF TOML YAML markdown JSON5 JSONC JSONL XML enableANSIColors isMainThread isStandaloneExecutable".split(
++    "version version_with_sha revision main env argv which file write stdin sleep sleepSync nanoseconds hash sha SHA1 SHA224 SHA256 SHA384 SHA512 SHA512_256 MD4 MD5 CryptoHasher password deepEquals deepMatch inspect peek semver Glob Transpiler fileURLToPath pathToFileURL resolveSync stringWidth stripANSI sliceAnsi wrapAnsi escapeHTML indexOfLine concatArrayBuffers randomUUIDv5 randomUUIDv7 gzipSync gunzipSync deflateSync inflateSync zstdCompress zstdCompressSync zstdDecompress zstdDecompressSync readableStreamToArray readableStreamToBlob readableStreamToFormData readableStreamToText readableStreamToJSON readableStreamToBytes readableStreamToArrayBuffer ArrayBufferSink color Cookie CookieMap CSRF TOML YAML JSON5 JSONC JSONL XML enableANSIColors isMainThread isStandaloneExecutable".split(
+       " ",
+     ),
+   ),
