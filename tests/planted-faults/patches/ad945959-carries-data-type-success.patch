@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/types.ts b/kernel/src/kernel/types.ts
+index b2e33eb8..76e6dfe0 100644
+--- a/kernel/src/kernel/types.ts
++++ b/kernel/src/kernel/types.ts
+@@ -47,7 +47,6 @@ export type CauseRow =
+       readonly exitCode: 0;
+       readonly retryable: false;
+       readonly guidance: "next";
+-      readonly carriesData?: never;
+     }
+   | {
+       readonly outcome: "refused";

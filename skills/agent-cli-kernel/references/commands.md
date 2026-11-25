@@ -134,9 +134,10 @@ before the handler runs.
 `causeCode`. The facts of a read-only command are:
 
 - `message`: one line for a person.
-- `data`: a JSON value on a success, `null` on every other result. Build it
-  from a literal or a `type` alias. An `interface` compiles there only when
-  it declares a string index signature of `JsonValue`.
+- `data`: a JSON value on a success, or on a refusal whose cause row has
+  `carriesData: true`; `null` otherwise. Build it from a literal or a `type`
+  alias. An `interface` compiles there only when it declares a string index
+  signature of `JsonValue`.
 - `effects`: always this constant, because a read-only command changes
   nothing.
 

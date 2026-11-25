@@ -1,0 +1,7 @@
+{
+  "id": "d7b87cb6-carries-data-typed-result",
+  "patch": "tests/planted-faults/patches/d7b87cb6-carries-data-typed-result.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^wire result validation admits non-null data only on success or unchanged domain refusal and rejects failed or non-domain refusals$",
+  "source": "d7b87cb6 feat(kernel): allow carriesData on unchanged domain refusal cause rows"
+}

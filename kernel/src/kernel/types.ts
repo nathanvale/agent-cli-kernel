@@ -47,18 +47,39 @@ export type CauseRow =
       readonly exitCode: 0;
       readonly retryable: false;
       readonly guidance: "next";
+      readonly carriesData?: never;
+    }
+  | {
+      readonly outcome: "refused";
+      readonly transactionState: "unchanged";
+      readonly failureClass: "domain";
+      readonly exitCode: 3;
+      readonly retryable: false;
+      readonly guidance: "next" | "handoff";
+      readonly carriesData?: never;
+    }
+  | {
+      readonly outcome: "refused";
+      readonly transactionState: "unchanged";
+      readonly failureClass: "domain";
+      readonly exitCode: 3;
+      readonly retryable: false;
+      readonly guidance: "next" | "handoff";
+      readonly carriesData: true;
     }
   | ({
       readonly outcome: "refused";
       readonly transactionState: "unchanged";
       readonly retryable: false;
       readonly guidance: "next" | "handoff";
-    } & FailureExit)
+      readonly carriesData?: never;
+    } & Exclude<FailureExit, { readonly failureClass: "domain" }>)
   | ({
       readonly outcome: "failed";
       readonly transactionState: "unchanged";
       readonly retryable: false;
       readonly guidance: "next" | "handoff";
+      readonly carriesData?: never;
     } & AttemptExit)
   | ({
       readonly outcome: "failed";
@@ -68,6 +89,7 @@ export type CauseRow =
         | "unknown";
       readonly retryable: false;
       readonly guidance: "handoff";
+      readonly carriesData?: never;
     } & AttemptExit)
   | {
       readonly outcome: "refused" | "failed";
@@ -76,6 +98,7 @@ export type CauseRow =
       readonly exitCode: 75;
       readonly retryable: true;
       readonly guidance: "next";
+      readonly carriesData?: never;
     };
 export type CauseTable = Readonly<Record<string, CauseRow>>;
 export type CommandStep<Identity extends string = string> = {
@@ -174,12 +197,16 @@ export type StateResult<
   Identity extends string,
   InspectIdentity extends string,
 > = S extends TransactionState
-  ? Omit<R, "guidance" | "transactionState"> & {
+  ? Omit<R, "guidance" | "transactionState" | "carriesData"> & {
       readonly transactionState: S;
       readonly runId: string;
       readonly commandIdentity: Identity;
       readonly causeCode: K;
-      readonly data: R["outcome"] extends "success" ? JsonValue : null;
+      readonly data: R["outcome"] extends "success"
+        ? JsonValue
+        : R extends { readonly carriesData: true }
+          ? JsonValue
+          : null;
       readonly repairAction: R["outcome"] extends "success" ? null : string;
       readonly bindings?: Readonly<Record<string, string>>;
       readonly idempotencyKey?: string;

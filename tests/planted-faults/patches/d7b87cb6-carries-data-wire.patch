@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/validation/result.ts b/kernel/src/kernel/validation/result.ts
+--- a/kernel/src/kernel/validation/result.ts
++++ b/kernel/src/kernel/validation/result.ts
+@@ -243,10 +243,7 @@ function optionalResult(value: Record<string, unknown>): boolean {
+ function wireResultAllowsData(value: Record<string, unknown>): boolean {
+   return (
+     value.outcome === "success" ||
+-    (value.outcome === "refused" &&
+-      value.transactionState === "unchanged" &&
+-      value.failureClass === "domain" &&
+-      value.exitCode === exits.domain)
++    value.outcome === "refused"
+   );
+ }
+ function scalarResult(value: Record<string, unknown>): boolean {

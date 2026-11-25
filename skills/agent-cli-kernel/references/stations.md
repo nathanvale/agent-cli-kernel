@@ -62,6 +62,8 @@ const causes = {
 - `failureClass` and `exitCode` go together: `usage` 2, `domain` 3,
   `schema` 4, `internal` 1, `transient` 75. A success has `null` and 0.
 - `guidance` names the arm its stations must use: `next` or `handoff`.
+- `carriesData: true` is optional and legal only on a refused, unchanged,
+  domain row. It lets that station carry a JSON value in `data`.
 - Pass the same table to every `station(causes, ...)` and to
   `contractFor({ causes })`.
 - A cause sits on one station of a command. Two refusals that a caller must

@@ -1,0 +1,7 @@
+{
+  "id": "d7b87cb6-carries-data-facts-for-row",
+  "patch": "tests/planted-faults/patches/d7b87cb6-carries-data-facts-for-row.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^type checks reject non-null data on a plain refusal and illegal carriesData rows while accepting carriesData domain refusals$",
+  "source": "d7b87cb6 feat(kernel): allow carriesData on unchanged domain refusal cause rows"
+}

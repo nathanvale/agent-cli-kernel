@@ -1,0 +1,7 @@
+{
+  "id": "d7b87cb6-carries-data-row-validator",
+  "patch": "tests/planted-faults/patches/d7b87cb6-carries-data-row-validator.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^causeRow and contractFor accept carriesData: true only on an unchanged domain refusal and refuse every other row kind$",
+  "source": "d7b87cb6 feat(kernel): allow carriesData on unchanged domain refusal cause rows"
+}

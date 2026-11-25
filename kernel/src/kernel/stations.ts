@@ -67,7 +67,10 @@ export function station<C extends CauseTable, const S extends StationInput<C>>(
   readonly guidance: S["guidance"];
 } {
   const row = causes[spec.causeCode];
-  if (!row || !causeRow(row)) throw new Error("Invalid cause row.");
+  if (!row || !causeRow(row))
+    throw new Error(
+      "Invalid cause row. Repair: declare outcome, transactionState, failureClass, exitCode, retryable and guidance matching Command Contract 3; carriesData: true is allowed only on an unchanged domain refusal.",
+    );
   if (reservedFallbackCause(String(spec.causeCode)))
     throw new Error("Fallback station words are reserved.");
   validateWords(spec, row);

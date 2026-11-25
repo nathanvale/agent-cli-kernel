@@ -1,0 +1,15 @@
+--- a/kernel/src/kernel/declaration-checks.ts
++++ b/kernel/src/kernel/declaration-checks.ts
+@@ -77,7 +77,11 @@ function validateStationSet(
+       throw new Error(
+         "Station identity is undeclared, duplicated or bound to another command.",
+       );
+-    if (!sameCauseRow(station.row, row))
++    if (
++      !Object.entries(row).every(
++        ([key, value]) => Reflect.get(station.row, key) === value,
++      )
++    )
+       throw new Error("Station disagrees with the CLI cause owner.");
+     if (
+       command.effectClass === "inspect" &&
