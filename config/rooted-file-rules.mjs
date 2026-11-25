@@ -41,7 +41,6 @@ const loaderModules = new Set([
 ]);
 const moduleOnlyLoader = new Set(["module", "node:module"]);
 const loaderNames = new Set(["require", "createRequire", "getBuiltinModule"]);
-const noLoaderHolders = new Set();
 const processLoaderHolders = new Set(["mainModule"]);
 const checkedGlobals = new Set([
   ...globalHolders,
@@ -249,13 +248,13 @@ export const rootedFileRules = {
         dynamicBunReach:
           'Files in kernel/src/addons/state outside store.ts and coordination.ts may use the Bun object only as Bun.<member> with a plain member name, read from Bun, globalThis.Bun, global.Bun or self.Bun, or as a named import from "bun". An alias, destructuring, spread, computed key, whole-module load of "bun", or bare globalThis, global or self hides which member is used. Repair: write Bun.<member> in place, or route filesystem access through store.ts or coordination.ts.',
         loaderReach:
-          'Files in kernel/src/addons/state outside store.ts and coordination.ts may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
+          'Files in kernel/src/addons/state outside store.ts and coordination.ts may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, process.mainModule, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
       },
     },
     create(context) {
       return createFsReachVisitor(context, {
         allowFsMembers: undefined,
-        loaderHolders: noLoaderHolders,
+        loaderHolders: processLoaderHolders,
       });
     },
   },

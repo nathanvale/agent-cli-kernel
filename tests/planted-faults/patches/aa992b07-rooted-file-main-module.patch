@@ -1,12 +1,12 @@
 diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
 --- a/config/rooted-file-rules.mjs
 +++ b/config/rooted-file-rules.mjs
-@@ -281,7 +281,7 @@ export const rootedFileRules = {
+@@ -280,7 +280,7 @@ export const rootedFileRules = {
      create(context) {
        return createFsReachVisitor(context, {
          allowFsMembers: allowedNonOpeningFsMembers,
 -        loaderHolders: processLoaderHolders,
-+        loaderHolders: noLoaderHolders,
++        loaderHolders: new Set(),
        });
      },
    },
