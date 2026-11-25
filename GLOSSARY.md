@@ -343,6 +343,19 @@ The seconds one planted fault took to replay, kept in its own file beside
 the fault records. Fault replay's shard planner balances its parts by them,
 and counts a fault with no timing as a short one.
 
+**UNPARSED**:
+The fault replay verdict for a planted fault whose patch leaves a patched code
+or JSON file unparseable, so no test can catch it for its planted reason. It is
+never KILLED, and the replay exits non-zero. Repair: re-plant the fault so the
+patched file parses.
+
+**UNMATCHED**:
+The fault replay verdict for a planted fault whose faulted run fails, but no
+failing test's name matches the fault record's `title` (a test file that did
+not load counts as no match). It is never KILLED, and the replay exits non-zero.
+Repair: re-plant the fault so a test matching the record's title fails, or
+update the record's title.
+
 ### Shared tool words
 
 **Toolchain pin**:
