@@ -1,0 +1,26 @@
+diff --git a/kernel/src/shared/rooted-file-entry.ts b/kernel/src/shared/rooted-file-entry.ts
+--- a/kernel/src/shared/rooted-file-entry.ts
++++ b/kernel/src/shared/rooted-file-entry.ts
+@@ -1,16 +1,6 @@
+-import {
+-  readRootedFile as readRootedFileWithSeam,
+-  type RootedFacts,
+-  type RootedFileResult,
+-  type RootedRefusal,
+-} from "./rooted-file.ts";
+-
+-export type { RootedFacts, RootedFileResult, RootedRefusal };
+-
+-export function readRootedFile(
+-  root: string,
+-  path: string,
+-  limitBytes: number,
+-): RootedFileResult {
+-  return readRootedFileWithSeam(root, path, limitBytes);
+-}
++export {
++  readRootedFile,
++  type RootedFacts,
++  type RootedFileResult,
++  type RootedRefusal,
++} from "./rooted-file.ts";

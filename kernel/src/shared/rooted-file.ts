@@ -33,6 +33,15 @@ export type RootedFacts = {
   readonly mtimeMs: number;
 };
 
+export type RootedFileResult =
+  | {
+      readonly kind: "read";
+      readonly bytes: Uint8Array;
+      readonly facts: RootedFacts;
+    }
+  | { readonly kind: "missing" }
+  | RootedRefusal;
+
 type OpenedStats = {
   readonly dev: number;
   readonly ino: number;
@@ -306,14 +315,7 @@ export function readRootedFile(
   path: string,
   limitBytes: number,
   seam?: { readonly afterOpen?: () => void },
-):
-  | {
-      readonly kind: "read";
-      readonly bytes: Uint8Array;
-      readonly facts: RootedFacts;
-    }
-  | { readonly kind: "missing" }
-  | RootedRefusal {
+): RootedFileResult {
   if (!Number.isSafeInteger(limitBytes) || limitBytes < 0)
     throw new RangeError(
       `Rooted file limit must be a non-negative integer, got ${String(limitBytes)}.`,

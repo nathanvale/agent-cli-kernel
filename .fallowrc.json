@@ -111,6 +111,7 @@
     "tests/kernel/state/fixtures/probe-folder-ledger.ts",
     "tests/kernel/state/capability-qualification-run.ts",
     "kernel/src/addons/state/index.ts",
+    "kernel/src/shared/rooted-file-entry.ts",
     "tests/kernel/kernel-repair/swarm-cli.ts",
     "tests/kernel/locks/fixtures.ts",
     "tests/kernel/author-guide/example-document.ts",
