@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-fault-copy.ts b/scripts/planted-fault-copy.ts
+--- a/scripts/planted-fault-copy.ts
++++ b/scripts/planted-fault-copy.ts
+@@ -61,7 +61,7 @@ async function initOwnGit(
+   runStep: Step,
+ ): Promise<void> {
+   for (const argv of ownGitSteps) {
+-    const done = await runStep(id, dir, argv, limitMilliseconds);
++    const done = await runStep(id, dir, argv, undefined as unknown as number);
+     if (!done.passed) throw new Error(done.output.trim());
+   }
+ }
