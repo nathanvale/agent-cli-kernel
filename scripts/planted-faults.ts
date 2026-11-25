@@ -29,6 +29,7 @@ import {
   startChild,
   withoutRepositoryLocation,
 } from "./process-runner.ts";
+import { readOptionalUtf8 } from "./read-file.ts";
 
 export type { Verdict };
 
@@ -269,9 +270,18 @@ export async function replay(
     if (unparsed !== undefined) return { kind: "UNPARSED", ...unparsed };
     for (const [path, text] of placement.files)
       writeFileSync(join(dir, path), text);
-    const faulted = await bunInTree(testArgs(fault));
+    const reportPath = join(folder, "junit.xml");
+    const faulted = await bunInTree([
+      ...testArgs(fault),
+      "--reporter=junit",
+      `--reporter-outfile=${reportPath}`,
+    ]);
     if (faulted.passed) return { kind: "SURVIVED" };
-    return faultedVerdict(faulted.output, fault.title);
+    return faultedVerdict(
+      faulted.output,
+      readOptionalUtf8(reportPath),
+      fault.title,
+    );
   } catch (error) {
     if (error instanceof StepTimedOut)
       return { kind: "TIMEOUT", step: error.step };

@@ -7,10 +7,99 @@ export type Verdict =
   | { kind: "BROKEN"; output: string }
   | { kind: "TIMEOUT"; step: string };
 
-function failingTests(output: string): string[] {
-  return [...output.matchAll(/^\(fail\) (.+?)(?: \[[\d.]+m?s\])?$/gm)].map(
-    (match) => match[1] ?? "",
+const xmlEntities = new Map<string, string>([
+  ["amp", "&"],
+  ["lt", "<"],
+  ["gt", ">"],
+  ["quot", '"'],
+  ["apos", "'"],
+]);
+
+type XmlTag = {
+  closing: boolean;
+  selfClosing: boolean;
+  name: string;
+  attributes: string;
+};
+
+function decodeXml(text: string): string {
+  return text.replace(
+    /&(amp|lt|gt|quot|apos|#\d+|#x[\da-fA-F]+);/g,
+    (_full, entity: string) => {
+      const named = xmlEntities.get(entity);
+      if (named !== undefined) return named;
+      const radix = entity.startsWith("#x") ? 16 : 10;
+      const digits = entity.slice(radix === 16 ? 2 : 1);
+      return String.fromCodePoint(Number.parseInt(digits, radix));
+    },
   );
+}
+
+function xmlAttribute(attributes: string, name: string): string | undefined {
+  const value = new RegExp(`\\b${name}="([^"]*)"`).exec(attributes)?.[1];
+  return value === undefined ? undefined : decodeXml(value);
+}
+
+function recordSuite(suites: string[], tag: XmlTag): void {
+  if (tag.closing) suites.pop();
+  else if (!tag.selfClosing)
+    suites.push(xmlAttribute(tag.attributes, "name") ?? "");
+}
+
+function openTestCase(
+  suites: readonly string[],
+  attributes: string,
+): { name: string; failed: boolean } | undefined {
+  const name = xmlAttribute(attributes, "name");
+  if (name === undefined) return undefined;
+  return { name: [...suites.slice(1), name].join(" > "), failed: false };
+}
+
+type ParserState = {
+  suites: string[];
+  failing: string[];
+  current: { name: string; failed: boolean } | undefined;
+};
+
+function stepTestCase(state: ParserState, tag: XmlTag): void {
+  if (tag.closing && state.current?.failed)
+    state.failing.push(state.current.name);
+  if (tag.closing || tag.selfClosing) {
+    state.current = undefined;
+    return;
+  }
+  state.current = openTestCase(state.suites, tag.attributes);
+}
+
+function stepTag(state: ParserState, tag: XmlTag): void {
+  if (tag.name === "testsuite") {
+    recordSuite(state.suites, tag);
+    return;
+  }
+  if (tag.name === "testcase") {
+    stepTestCase(state, tag);
+    return;
+  }
+  if (!tag.closing && state.current !== undefined) state.current.failed = true;
+}
+
+function parseTag(match: RegExpExecArray): XmlTag {
+  return {
+    closing: match[1] === "/",
+    name: match[2] ?? "",
+    attributes: match[3] ?? "",
+    selfClosing: match[4] === "/",
+  };
+}
+
+function failingTests(report: string | undefined): string[] {
+  if (report === undefined || report === "") return [];
+  const state: ParserState = { suites: [], failing: [], current: undefined };
+  for (const match of report.matchAll(
+    /<(\/?)(testsuite|testcase|failure|error)\b([^>]*?)(\/?)>/g,
+  ))
+    stepTag(state, parseTag(match));
+  return state.failing;
 }
 
 function parseError(path: string, text: string): string | undefined {
@@ -57,9 +146,10 @@ function matchesTitle(failing: readonly string[], title: string): boolean {
 
 export function faultedVerdict(
   output: string,
+  report: string | undefined,
   title: string,
 ): Extract<Verdict, { kind: "KILLED" | "UNMATCHED" }> {
-  const failing = failingTests(output);
+  const failing = failingTests(report);
   if (!matchesTitle(failing, title))
     return { kind: "UNMATCHED", failing, output };
   return { kind: "KILLED", failing };

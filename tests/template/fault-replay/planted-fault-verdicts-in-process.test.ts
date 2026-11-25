@@ -147,6 +147,31 @@ describe("replay", () => {
     expect(outputOf(run.result)).toContain("module failed to load");
   }, 60_000);
 
+  test("UNMATCHED when a failing load prints a fake failure line matching the title", async () => {
+    const subject = planted();
+    write(
+      subject.root,
+      subject.fault.patch,
+      `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,3 +1,5 @@
++console.error("(fail) L.refuses NaN");
++throw new Error("module failed to load");
+ export function limit(value: number): number {
+   if (Number.isNaN(value)) throw new TypeError("limit must be a number");
+   return value;
+`,
+    );
+
+    const run = await replayed(subject);
+
+    expect(run.result.kind).toBe("UNMATCHED");
+    expect(Reflect.get(run.result, "failing")).toEqual([]);
+    expect(outputOf(run.result)).toContain("(fail) L.refuses NaN");
+    expect(outputOf(run.result)).toContain("module failed to load");
+  }, 60_000);
+
   test("UNMATCHED when the run fails on a name that does not match the record's title", async () => {
     const subject = planted({
       tests: `import { afterAll, describe, expect, test } from "bun:test";
