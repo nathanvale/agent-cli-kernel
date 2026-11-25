@@ -1,0 +1,7 @@
+{
+  "id": "b62e7e5e-rooted-file-recheck-parent",
+  "patch": "tests/planted-faults/patches/b62e7e5e-rooted-file-recheck-parent.patch",
+  "testFile": "tests/kernel/rooted-file.test.ts",
+  "title": "^readRootedFile refuses a parent folder replaced with a symbolic link between open and verification with its full Repair message$",
+  "source": "b62e7e5e fix(rooted-file): admit absolute paths through an overlapping root alias; test post-open file and parent swaps"
+}

@@ -1,0 +1,16 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -232,12 +232,6 @@ function recheckOpened(
+       "symbolic-link",
+       `${originalPath} is a symbolic link. Repair: replace the link with a regular file inside ${realRoot}.`,
+     );
+-  if (entry.dev !== status.dev || entry.ino !== status.ino)
+-    return refusal(
+-      originalPath,
+-      "outside-root",
+-      `${originalPath} changed between open and verification. Repair: retry once nothing is replacing the path.`,
+-    );
+   const currentParent = realpathOptional(parentPath);
+   if (currentParent === undefined) return { kind: "missing" };
+   if (currentParent !== parentPath)
