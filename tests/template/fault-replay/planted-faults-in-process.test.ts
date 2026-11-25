@@ -67,7 +67,12 @@ function renamed(root: string, extra: Record<string, string> = {}): void {
 }
 
 function outputOf(verdict: Verdict): string {
-  if (verdict.kind === "STALE" || verdict.kind === "BROKEN")
+  if (
+    verdict.kind === "STALE" ||
+    verdict.kind === "BROKEN" ||
+    verdict.kind === "UNPARSED" ||
+    verdict.kind === "UNMATCHED"
+  )
     return verdict.output;
   throw new Error(`${verdict.kind} carries no output.`);
 }

@@ -69,9 +69,51 @@ describe("report", () => {
     );
   });
 
-  test("KILLED with no failing test says the test file did not load", async () => {
-    expect(await reported({ kind: "KILLED", failing: [] }, 0.04)).toBe(
-      "KILLED abc1234-limit in 0.0 s. Failed: the test file, which did not load\n",
+  test("UNPARSED names the files, prints the parse output, and gives the repair", async () => {
+    expect(
+      await reported(
+        {
+          kind: "UNPARSED",
+          files: ["src/limit.ts"],
+          output: "src/limit.ts: Unexpected }",
+        },
+        0.04,
+      ),
+    ).toBe(
+      `UNPARSED abc1234-limit in 0.0 s. src/limit.ts failed to parse with ${sample.patch} applied, so any test would fail for the wrong reason.\n` +
+        "src/limit.ts: Unexpected }\n" +
+        `Repair: re-plant the fault so the patched file parses. ${done}\n`,
+    );
+  });
+
+  test("UNMATCHED with another failing test names what failed, prints the output, and gives the repair", async () => {
+    expect(
+      await reported({
+        kind: "UNMATCHED",
+        failing: ["Outer > (unnamed)"],
+        output: "(fail) Outer > (unnamed)",
+      }),
+    ).toBe(
+      `UNMATCHED abc1234-limit in 12.3 s. ${shown} failed, but no failing test matched '^L\\.refuses '. Failed: Outer > (unnamed).\n` +
+        "(fail) Outer > (unnamed)\n" +
+        `Repair: re-plant the fault so a test matching '^L\\.refuses ' fails, or update the record's title. ${done}\n`,
+    );
+  });
+
+  test("UNMATCHED with no failing test says the test file did not load", async () => {
+    expect(
+      await reported(
+        {
+          kind: "UNMATCHED",
+          failing: [],
+          output: "error: boom",
+        },
+        0.04,
+      ),
+    ).toBe(
+      `UNMATCHED abc1234-limit in 0.0 s. ${shown} failed, but no failing test matched '^L\\.refuses '. Failed: the test file, which did not load.\n` +
+        "error: boom\n" +
+        `Repair: re-plant the fault so a test matching '^L\\.refuses ' fails, or update the record's title. ${done}\n`,
     );
   });
 

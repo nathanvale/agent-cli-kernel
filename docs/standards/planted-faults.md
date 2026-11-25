@@ -26,6 +26,13 @@ its record current.
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05],
   [3779b5e] (eleven trust-check guards each changed alone left every test
   green; Fable review of pull request 56).
+- `KILLED` requires every patched code file (`.ts`, `.mts`, `.js`, `.mjs`) and
+  `.json` file to parse, and at least one failing test's full name to match the
+  record's `title` regex. A patch that leaves a file unparseable gets
+  `UNPARSED` and exits non-zero; re-plant the fault so the patched file parses.
+  A faulted run that fails with no failing test matching `title` (including a
+  test file that fails to load) gets `UNMATCHED` and exits non-zero; re-plant
+  the fault so a matching test fails, or update the record's `title`.
 
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
 [d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914

@@ -20,10 +20,17 @@ import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
 import { faultsInShard } from "./planted-fault-shards.ts";
 import { snapshotWorkingTree } from "./planted-fault-snapshot.ts";
 import {
+  faultedVerdict,
+  unparsedFiles,
+  type Verdict,
+} from "./planted-fault-verdict.ts";
+import {
   runWithOwnTools,
   startChild,
   withoutRepositoryLocation,
 } from "./process-runner.ts";
+
+export type { Verdict };
 
 export const recordsPath = "tests/planted-faults/fault-records";
 const patchFolder = "tests/planted-faults/patches";
@@ -40,12 +47,6 @@ export type Fault = {
   title: string;
   source: string;
 };
-export type Verdict =
-  | { kind: "KILLED"; failing: readonly string[] }
-  | { kind: "SURVIVED" }
-  | { kind: "STALE"; output: string }
-  | { kind: "BROKEN"; output: string }
-  | { kind: "TIMEOUT"; step: string };
 
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
@@ -191,12 +192,6 @@ async function step(
   return { passed: exitCode === 0, output };
 }
 
-function failingTests(output: string): string[] {
-  return [...output.matchAll(/^\(fail\) (.+?)(?: \[[\d.]+m?s\])?$/gm)].map(
-    (match) => match[1] ?? "",
-  );
-}
-
 function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
@@ -270,11 +265,13 @@ export async function replay(
       );
     const clean = await bunInTree(testArgs(fault));
     if (!clean.passed) return { kind: "BROKEN", output: clean.output };
+    const unparsed = unparsedFiles(placement.files);
+    if (unparsed !== undefined) return { kind: "UNPARSED", ...unparsed };
     for (const [path, text] of placement.files)
       writeFileSync(join(dir, path), text);
     const faulted = await bunInTree(testArgs(fault));
     if (faulted.passed) return { kind: "SURVIVED" };
-    return { kind: "KILLED", failing: failingTests(faulted.output) };
+    return faultedVerdict(faulted.output, fault.title);
   } catch (error) {
     if (error instanceof StepTimedOut)
       return { kind: "TIMEOUT", step: error.step };
@@ -296,7 +293,7 @@ export function report(
   switch (verdict.kind) {
     case "KILLED":
       print(
-        `KILLED ${fault.id} ${took}. Failed: ${verdict.failing.join(" | ") || "the test file, which did not load"}`,
+        `KILLED ${fault.id} ${took}. Failed: ${verdict.failing.join(" | ")}`,
       );
       return;
     case "SURVIVED":
@@ -314,6 +311,25 @@ export function report(
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
       print(replantRepair(fault));
       return;
+    case "UNPARSED":
+      print(
+        `UNPARSED ${fault.id} ${took}. ${verdict.files.join(", ")} failed to parse with ${fault.patch} applied, so any test would fail for the wrong reason.`,
+      );
+      process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
+      print(`Repair: re-plant the fault so the patched file parses. ${done}`);
+      return;
+    case "UNMATCHED": {
+      const failed =
+        verdict.failing.join(" | ") || "the test file, which did not load";
+      print(
+        `UNMATCHED ${fault.id} ${took}. ${shown} failed, but no failing test matched ${quoted(fault.title)}. Failed: ${failed}.`,
+      );
+      process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
+      print(
+        `Repair: re-plant the fault so a test matching ${quoted(fault.title)} fails, or update the record's title. ${done}`,
+      );
+      return;
+    }
     case "BROKEN":
       print(
         `BROKEN ${fault.id} ${took}. ${shown} fails without the patch, so the planted fault shows nothing.`,
