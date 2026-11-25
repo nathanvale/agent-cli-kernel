@@ -112,8 +112,8 @@ function relativeInside(
   path: string,
 ): string | RootedRefusal {
   const rel = isAbsolute(path)
-    ? (withinRoot(realRoot, resolve(path)) ??
-      withinRoot(resolvedRoot, resolve(path)))
+    ? (withinRoot(resolvedRoot, resolve(path)) ??
+      withinRoot(realRoot, resolve(path)))
     : withinRoot(realRoot, resolve(realRoot, path));
   if (rel === undefined)
     return refusal(
@@ -280,6 +280,7 @@ export function readRootedFile(
   root: string,
   path: string,
   limitBytes: number,
+  seam?: { readonly afterOpen?: () => void },
 ):
   | {
       readonly kind: "read";
@@ -308,6 +309,7 @@ export function readRootedFile(
   try {
     const checked = checkDescriptor(opened.fd, realRoot, path, limitBytes);
     if (checked.kind !== "ok") return checked;
+    seam?.afterOpen?.();
     const rechecked = recheckOpened(
       checked.status,
       targetPath,

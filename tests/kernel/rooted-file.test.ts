@@ -4,12 +4,14 @@ import {
   linkSync,
   mkdirSync,
   realpathSync,
+  renameSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { readRootedFile } from "../../kernel/src/shared/rooted-file.ts";
 import { ownedFolders } from "../support/fixture-files.ts";
+import { spawnBounded } from "./kernel-repair/swarm-process.ts";
 
 const folder = ownedFolders();
 const limitBytes = 1024;
@@ -128,13 +130,31 @@ describe("readRootedFile", () => {
     expect(viaLinkedRootAbsolute.kind).toBe("read");
     if (viaLinkedRootAbsolute.kind === "read")
       expect(text(viaLinkedRootAbsolute.bytes)).toBe("nested-body");
+
+    const physicalRoot = realpathSync.native(realRoot);
+    const overlappingAlias = join(physicalRoot, "alias");
+    symlinkSync(".", overlappingAlias);
+    const viaOverlappingAliasAbsolute = readRootedFile(
+      overlappingAlias,
+      join(overlappingAlias, "plain.txt"),
+      limitBytes,
+    );
+    expect(viaOverlappingAliasAbsolute.kind).toBe("read");
+    if (viaOverlappingAliasAbsolute.kind === "read")
+      expect(text(viaOverlappingAliasAbsolute.bytes)).toBe("plain-body");
   });
 
-  test("refuses directories, FIFOs, and files over the byte limit with full Repair messages", () => {
+  test("refuses directories, FIFOs, and files over the byte limit with full Repair messages", async () => {
     const base = folder("rooted-file-bounds-");
     const root = join(base, "root");
     const realRoot = join(realpathSync.native(base), "root");
     mkdirSync(join(root, "sub"), { recursive: true });
+    const fifoPath = join(root, "pipe");
+    const madeFifo = await spawnBounded(["mkfifo", fifoPath], {
+      boundMilliseconds: 3_000,
+    });
+    expect(madeFifo.exit).toBe(0);
+    writeFileSync(join(root, "exact.txt"), "x".repeat(limitBytes));
     writeFileSync(join(root, "big.txt"), "x".repeat(limitBytes + 1));
 
     expect(readRootedFile(root, "sub", limitBytes)).toEqual({
@@ -144,11 +164,74 @@ describe("readRootedFile", () => {
       message: `sub is not a regular file. Repair: replace it with a regular file inside ${realRoot}.`,
     });
 
+    expect(readRootedFile(root, "pipe", limitBytes)).toEqual({
+      kind: "refused",
+      path: "pipe",
+      reason: "not-regular",
+      message: `pipe is not a regular file. Repair: replace it with a regular file inside ${realRoot}.`,
+    });
+
+    const exact = readRootedFile(root, "exact.txt", limitBytes);
+    expect(exact.kind).toBe("read");
+    if (exact.kind === "read") {
+      expect(exact.bytes.byteLength).toBe(limitBytes);
+      expect(exact.facts.size).toBe(limitBytes);
+    }
+
     expect(readRootedFile(root, "big.txt", limitBytes)).toEqual({
       kind: "refused",
       path: "big.txt",
       reason: "over-limit",
       message: `big.txt is ${String(limitBytes + 1)} bytes, above the ${String(limitBytes)} byte limit. Repair: reduce the file size to at most ${String(limitBytes)} bytes.`,
+    });
+  }, 10_000);
+
+  test("refuses a file replaced between open and verification with its full Repair message", () => {
+    const base = folder("rooted-file-swap-file-");
+    const root = join(base, "root");
+    mkdirSync(root, { recursive: true });
+    const target = join(root, "target.txt");
+    const replacement = join(root, "replacement.txt");
+    writeFileSync(target, "original");
+    writeFileSync(replacement, "swapped");
+
+    expect(
+      readRootedFile(root, "target.txt", limitBytes, {
+        afterOpen: () => {
+          renameSync(replacement, target);
+        },
+      }),
+    ).toEqual({
+      kind: "refused",
+      path: "target.txt",
+      reason: "outside-root",
+      message:
+        "target.txt changed between open and verification. Repair: retry once nothing is replacing the path.",
+    });
+  });
+
+  test("refuses a parent folder replaced with a symbolic link between open and verification with its full Repair message", () => {
+    const base = folder("rooted-file-swap-parent-");
+    const root = join(base, "root");
+    const realBase = realpathSync.native(base);
+    const realRoot = join(realBase, "root");
+    const sub = join(realRoot, "sub");
+    const movedSub = join(realBase, "moved-sub");
+    mkdirSync(sub, { recursive: true });
+    writeFileSync(join(sub, "target.txt"), "original");
+
+    expect(
+      readRootedFile(root, "sub/target.txt", limitBytes, {
+        afterOpen: () => {
+          renameSync(sub, movedSub);
+          symlinkSync(movedSub, sub);
+        },
+      }),
+    ).toEqual({
+      kind: "refused",
+      path: "sub/target.txt",
+      reason: "linked-folder",
+      message: `sub/target.txt parent folder ${sub} changed to a symbolic link. Repair: replace the symbolic link with a real folder inside ${realRoot}.`,
     });
   });
 
