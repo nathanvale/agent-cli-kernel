@@ -1,0 +1,18 @@
+diff --git a/kernel/src/kernel/declaration-checks.ts b/kernel/src/kernel/declaration-checks.ts
+--- a/kernel/src/kernel/declaration-checks.ts
++++ b/kernel/src/kernel/declaration-checks.ts
+@@ -175,14 +175,6 @@ function assertRenamedRouteClear(
+     throw new Error(
+       "Renamed route conflicts with another command route. Repair: remove the conflicting route from renamedFrom.",
+     );
+-  if (
+-    other.route.length > 0 &&
+-    (isRoutePrefix(alias.route, other.route) ||
+-      isRoutePrefix(other.route, alias.route))
+-  )
+-    throw new Error(
+-      "Renamed route shadows another command route. Repair: remove the shadowing prefix from renamedFrom.",
+-    );
+ }
+ function validateRenamedRoutes(
+   cli: string,

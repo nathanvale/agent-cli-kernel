@@ -1,0 +1,7 @@
+{
+  "id": "a3380f01-refuse-empty-old-route",
+  "patch": "tests/planted-faults/patches/a3380f01-refuse-empty-old-route.patch",
+  "testFile": "tests/kernel/renamed-from.test.ts",
+  "title": "^renamedFrom route aliases refuses an empty old route in renamedFrom$",
+  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
+}

@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -126,11 +126,7 @@ function candidateRoutes(
+       route: item.route,
+       renamed: false,
+     };
+-    const aliases: RouteMatch[] = (item.renamedFrom ?? []).map((route) => ({
+-      command: item,
+-      route,
+-      renamed: true,
+-    }));
++    const aliases: RouteMatch[] = [];
+     return [current, ...aliases];
+   });
+ }

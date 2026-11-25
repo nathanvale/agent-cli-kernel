@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/declarations.ts b/kernel/src/kernel/declarations.ts
+--- a/kernel/src/kernel/declarations.ts
++++ b/kernel/src/kernel/declarations.ts
+@@ -226,10 +226,6 @@ export function validateRenamedFrom(
+       throw new Error(
+         "Renamed route duplicates its own command route. Repair: remove the current route from renamedFrom.",
+       );
+-    if (seen.has(key))
+-      throw new Error(
+-        "Duplicate renamedFrom route. Repair: list each old route at most once in renamedFrom.",
+-      );
+     seen.add(key);
+   }
+ }

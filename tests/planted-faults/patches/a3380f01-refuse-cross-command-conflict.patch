@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/declaration-checks.ts b/kernel/src/kernel/declaration-checks.ts
+--- a/kernel/src/kernel/declaration-checks.ts
++++ b/kernel/src/kernel/declaration-checks.ts
+@@ -171,10 +171,6 @@ function assertRenamedRouteClear(
+   other: { readonly identity: string; readonly route: readonly string[] },
+ ): void {
+   if (other.identity === alias.identity) return;
+-  if (sameRoute(alias.route, other.route))
+-    throw new Error(
+-      "Renamed route conflicts with another command route. Repair: remove the conflicting route from renamedFrom.",
+-    );
+   if (
+     other.route.length > 0 &&
+     (isRoutePrefix(alias.route, other.route) ||

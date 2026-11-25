@@ -1,0 +1,7 @@
+{
+  "id": "a3380f01-help-renamed-line",
+  "patch": "tests/planted-faults/patches/a3380f01-help-renamed-line.patch",
+  "testFile": "tests/kernel/renamed-from.test.ts",
+  "title": "^renamedFrom route aliases \\-\\-help through an old route shows the Renamed to line and \\-\\-help through the current route does not$",
+  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
+}
