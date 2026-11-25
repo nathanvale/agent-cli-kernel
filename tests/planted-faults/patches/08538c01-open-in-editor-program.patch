@@ -1,0 +1,12 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -211,7 +211,7 @@ const runtimeGlobals = {
+ };
+ const globalHolders = new Set(["globalThis", "global", "self"]);
+ const bunStartMembers = new Set(["spawn", "spawnSync", "$"]);
+-const bunProgramStarts = new Set([...bunStartMembers, "openInEditor"]);
++const bunProgramStarts = new Set([...bunStartMembers]);
+ const chainableProcess = new Set(
+   "on once off addListener removeListener removeAllListeners prependListener prependOnceListener setMaxListeners".split(
+     " ",
