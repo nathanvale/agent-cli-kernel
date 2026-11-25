@@ -1,0 +1,7 @@
+{
+  "id": "9d12216a-ci-fault-replay-needs-test",
+  "patch": "tests/planted-faults/patches/9d12216a-ci-fault-replay-needs-test.patch",
+  "testFile": "tests/template/fault-replay/fault-replay-workflow.test.ts",
+  "title": "fault-replay fails unless test and every fault-replay-shard job passed",
+  "source": "9d12216a ci(fault-replay): require test job success for the fault-replay gate"
+}

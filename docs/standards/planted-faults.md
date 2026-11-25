@@ -39,6 +39,10 @@ its record current.
   checkout's `.git`, installs dependencies once, then replays each fault in
   turn and restores the patched files between faults. The temporary copy is
   removed on every exit.
+- A planted fault is "caught" only by the hosted `fault-replay` job at the
+  reviewed head, on a run whose `test` job is green. A local
+  `bun run fault-replay` run is a pre-check and is reported as "replayed
+  locally".
 
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
 [d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914

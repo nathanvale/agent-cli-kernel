@@ -136,6 +136,7 @@
     "tests/template/doctor/doctor-fallow.test.ts": 55,
     "tests/template/doctor/doctor-hooks.test.ts": 4183,
     "tests/template/doctor/doctor.test.ts": 699,
+    "tests/template/fault-replay/fault-replay-workflow.test.ts": 68,
     "tests/template/fault-replay/planted-fault-changes-in-process.test.ts": 5083,
     "tests/template/fault-replay/planted-fault-process.test.ts": 28066,
     "tests/template/fault-replay/planted-fault-records-in-process.test.ts": 762,
