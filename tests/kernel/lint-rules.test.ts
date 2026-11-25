@@ -1838,7 +1838,7 @@ const aliasChain = Array.from(
 const loader = (line: number) =>
   [
     line,
-    `${stateFiles} may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.`,
+    `${stateFiles} may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, process.mainModule, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.`,
   ] as const;
 const stateBunFileReachCases = [
   [
@@ -2200,6 +2200,37 @@ const stateLoaderCases = [
     [],
   ],
   [framingFile, 'export { platform as default } from "node:process";', []],
+  [
+    framingFile,
+    'export const a = () => process.mainModule.require("node:fs");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'export const a = () => process.mainModule?.require("node:fs");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'const main = process.mainModule; export const a = () => main?.require("node:fs");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'const { mainModule } = process; export const a = () => mainModule?.require("node:fs");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'export const a = () => globalThis.process.mainModule?.require("node:fs");',
+    [loader(1)],
+  ],
+  [
+    framingFile,
+    'import { mainModule } from "node:process"; export const a = () => mainModule?.require("node:fs");',
+    [loader(1)],
+  ],
+  [framingFile, "export const a = process.platform;", []],
 ] as const;
 
 for (const [group, cases] of [
