@@ -4,6 +4,7 @@ import { ESLint } from "eslint";
 import ts from "typescript";
 import { loadFallowTargets } from "../../config/comment-directives.mjs";
 import { supportedFallowTargets } from "../support/lint-comment-cases.ts";
+import { treeFiles } from "../support/lint-rule-folder.ts";
 import { qualifiedSourceFiles } from "./state/capability-qualification-record.ts";
 
 const root = resolve(import.meta.dir, "../..");
@@ -2371,9 +2372,7 @@ for (const [filePath, code, expected] of pathsUseRootedFileCases)
   });
 
 test("paths-use-rooted-file scope ignores only the qualified source files and the pinned C1 owners", async () => {
-  const sourceFiles = [
-    ...new Bun.Glob("**/*.ts").scanSync(join(root, "kernel/src")),
-  ].sort();
+  const sourceFiles = treeFiles("**/*.ts", join(root, "kernel/src")).sort();
   const excluded: string[] = [];
   for (const rel of sourceFiles) {
     const configured: unknown = await eslint.calculateConfigForFile(
