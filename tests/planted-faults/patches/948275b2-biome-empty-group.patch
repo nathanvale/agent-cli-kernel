@@ -1,0 +1,27 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -156,16 +156,12 @@ function addSectionCategories(
+     const groupPrefix = `${prefix}/${group}`;
+     if (includeGroup) categories.add(groupPrefix);
+-    if (
+-      addGroupEntries(
+-        categories,
+-        groupPrefix,
+-        entries,
+-        defs,
+-        `${name}.${group}`,
+-      ) === 0
+-    ) {
+-      throw dependencyError(biomeSchemaSpecifier, `empty ${name}.${group}`);
+-    }
++    addGroupEntries(
++      categories,
++      groupPrefix,
++      entries,
++      defs,
++      `${name}.${group}`,
++    );
+     addedGroups += 1;
+   }
+   if (addedGroups === 0)
