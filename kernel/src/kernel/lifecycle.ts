@@ -16,6 +16,7 @@ import type {
   TerminalAdapter,
 } from "./process-types.ts";
 import { asksMachineOutput } from "./routing.ts";
+import type { RenamedRoute } from "./routing.ts";
 import { runtimeOf } from "./runtime.ts";
 import type { ContractKey } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
@@ -859,6 +860,25 @@ function isRenamedHelp(resolution: Resolution): boolean {
   return resolution.ok && resolution.value.renamedHelp === true;
 }
 
+function renamedRouteOf(resolution: Resolution): RenamedRoute | undefined {
+  return resolution.ok
+    ? resolution.value.renamedRoute
+    : resolution.renamedRoute;
+}
+
+function writerOptionsFor(run: Run, resolution: Resolution, output: Output) {
+  const asked = resolution.ok ? resolution.value.machine : resolution.machine;
+  const renamedRoute = renamedRouteOf(resolution);
+  return {
+    host: output.host,
+    runtime: run.runtime,
+    machine: output.machine === "always" || asked,
+    renamedHelp: isRenamedHelp(resolution),
+    ...(renamedRoute === undefined ? {} : { renamedRoute }),
+    stopping: () => run.stopped !== undefined,
+  };
+}
+
 async function deliver(
   run: Run,
   argv: unknown,
@@ -867,14 +887,7 @@ async function deliver(
   const interactive = run.terminal !== undefined && !asksMachineOutput(argv);
   if (!interactive) run.terminal = undefined;
   const resolution = await run.runtime.resolve(argv, { interactive });
-  const asked = resolution.ok ? resolution.value.machine : resolution.machine;
-  const writer = createWriter({
-    host: output.host,
-    runtime: run.runtime,
-    machine: output.machine === "always" || asked,
-    renamedHelp: isRenamedHelp(resolution),
-    stopping: () => run.stopped !== undefined,
-  });
+  const writer = createWriter(writerOptionsFor(run, resolution, output));
   const delivery = await route(run, resolution);
   if (!delivery) return 1;
   const reporter = delivery.trusted.handlerEntered ? run.reporter : undefined;

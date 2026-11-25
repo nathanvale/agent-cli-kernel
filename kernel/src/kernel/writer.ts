@@ -3,6 +3,7 @@ import type { TrustedRun } from "./fallback.ts";
 import { renderHuman } from "./human.ts";
 import type { HumanWrite } from "./human.ts";
 import type { ProcessHost } from "./process-types.ts";
+import type { RenamedRoute } from "./routing.ts";
 import type { ContractRuntime } from "./runtime.ts";
 import type { Diagnostics, Envelope, Validation } from "./types.ts";
 import { diagnostics } from "./validation/diagnostics.ts";
@@ -46,9 +47,11 @@ export function createWriter(options: {
   readonly runtime: ContractRuntime;
   readonly machine: boolean;
   readonly renamedHelp?: boolean;
+  readonly renamedRoute?: RenamedRoute;
   readonly stopping: () => boolean;
 }): Writer {
-  const { host, runtime, machine, renamedHelp, stopping } = options;
+  const { host, runtime, machine, renamedHelp, renamedRoute, stopping } =
+    options;
   let used = false;
 
   async function validateForWrite(value: unknown, trusted: TrustedRun) {
@@ -66,11 +69,14 @@ export function createWriter(options: {
 
   function output(text: string, envelope: Envelope): readonly HumanWrite[] {
     if (machine) return [{ stream: "stdout", text: `${text}\n` }];
-    return renderHuman(
-      runtime.cli,
-      envelope,
-      renamedHelp === true ? { renamedHelp: true } : undefined,
-    );
+    const humanOptions =
+      renamedHelp === true || renamedRoute !== undefined
+        ? {
+            ...(renamedHelp === true ? { renamedHelp: true } : {}),
+            ...(renamedRoute === undefined ? {} : { renamedRoute }),
+          }
+        : undefined;
+    return renderHuman(runtime.cli, envelope, humanOptions);
   }
 
   async function write(stream: "stdout" | "stderr", text: string) {

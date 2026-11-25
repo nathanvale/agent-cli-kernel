@@ -94,9 +94,10 @@ const list = command({
   singular word for the thing (as in `family`). When the CLI's own name is the
   thing, the route may be the action alone (`doorway start`).
 - `renamedFrom` is optional and lists old routes for a renamed command
-  (for example `[["changelog-earlier"]]`) so old scripts keep working; it
-  changes nothing else, and asking `--help` through an old route prints
-  `Renamed to \`<current route>\`.`
+  (for example `[["changelog-earlier"]]`) so old scripts keep working; running
+  through an old route in human mode prints `Note: "<old route>" is now "<new route>".`
+  to stderr, `--json` output stays unchanged, and asking `--help` through an old
+  route prints `Renamed to \`<current route>\`.`
 - `summary` is the line that help prints for the command.
 - `capabilities` is `{}` unless an add-on's guidance says otherwise.
 - `stations` is optional. Without it the command has one result, the success

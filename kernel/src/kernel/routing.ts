@@ -157,11 +157,19 @@ function selectCommand(
 ): CommandDeclaration | undefined {
   return selectRouteMatch(cli, commands, tokens)?.command;
 }
+export type RenamedRoute = {
+  readonly from: string;
+  readonly to: string;
+};
 export function invocationRoute(
   cli: string,
   commands: readonly CommandDeclaration[],
   argv: readonly string[],
-): { readonly routeLength: number; readonly renamedHelp: boolean } {
+): {
+  readonly routeLength: number;
+  readonly renamedHelp: boolean;
+  readonly renamedRoute?: RenamedRoute;
+} {
   const { tokens: globalTokens, navigation } = globalSwitches(argv);
   const split = splitDeadline(globalTokens);
   const tokens = split.ok ? split.value.tokens : globalTokens;
@@ -178,7 +186,15 @@ export function invocationRoute(
     };
   }
   const match = selectRouteMatch(cli, commands, tokens);
-  return { routeLength: match?.route.length ?? 0, renamedHelp: false };
+  const renamedRoute =
+    navigation.length === 0 && match?.renamed === true
+      ? { from: match.route.join(" "), to: match.command.route.join(" ") }
+      : undefined;
+  return {
+    routeLength: match?.route.length ?? 0,
+    renamedHelp: false,
+    ...(renamedRoute === undefined ? {} : { renamedRoute }),
+  };
 }
 function askedNavigation(
   cli: string,

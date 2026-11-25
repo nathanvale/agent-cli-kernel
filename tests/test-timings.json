@@ -83,6 +83,7 @@
     "tests/kernel/programs/programs.test.ts": 10615,
     "tests/kernel/programs/timers.test.ts": 1682,
     "tests/kernel/renamed-from.test.ts": 37,
+    "tests/kernel/renamed-notice.test.ts": 30,
     "tests/kernel/rooted-file.test.ts": 26,
     "tests/kernel/self-verification/refusals.test.ts": 13,
     "tests/kernel/self-verification/self-verification.test.ts": 9858,

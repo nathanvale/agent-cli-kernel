@@ -1,5 +1,6 @@
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import type { RenamedRoute } from "./routing.ts";
 import type { DeclaredStation } from "./stations.ts";
 import type { StateObservation } from "./state-seam.ts";
 import type { Effects, Envelope, JsonValue, Validation } from "./types.ts";
@@ -11,6 +12,7 @@ export type Resolution =
       readonly causeCode: "USAGE_INVALID_INVOCATION" | "USAGE_UNKNOWN_COMMAND";
       readonly machine: boolean;
       readonly message: string;
+      readonly renamedRoute?: RenamedRoute;
     }
   | {
       readonly ok: true;
@@ -21,6 +23,7 @@ export type Resolution =
         readonly args: readonly string[];
         readonly deadlineMilliseconds?: number;
         readonly renamedHelp?: boolean;
+        readonly renamedRoute?: RenamedRoute;
       };
     };
 

@@ -1,3 +1,4 @@
+import type { RenamedRoute } from "./routing.ts";
 import type { Diagnostics, Envelope } from "./types.ts";
 import { record } from "./validation/primitives.ts";
 
@@ -155,12 +156,29 @@ function diagnosticsLine(
     : [];
 }
 
+function renamedNoticeLine(
+  renamedRoute: RenamedRoute | undefined,
+): readonly HumanWrite[] {
+  return renamedRoute
+    ? [
+        {
+          stream: "stderr",
+          text: `Note: "${renamedRoute.from}" is now "${renamedRoute.to}".\n`,
+        },
+      ]
+    : [];
+}
+
 export function renderHuman(
   cli: string,
   envelope: Envelope,
-  options?: { readonly renamedHelp?: boolean },
+  options?: {
+    readonly renamedHelp?: boolean;
+    readonly renamedRoute?: RenamedRoute;
+  },
 ): readonly HumanWrite[] {
   return [
+    ...renamedNoticeLine(options?.renamedRoute),
     resultText(cli, envelope, options?.renamedHelp === true),
     ...diagnosticsLine(envelope.diagnostics),
   ];

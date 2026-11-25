@@ -530,17 +530,38 @@ export function contractFor<
           } as const);
     },
   };
+  const argvStringsOf = (argv: unknown): string[] =>
+    Array.isArray(argv)
+      ? argv.map((token) => (typeof token === "string" ? token : ""))
+      : [];
+  const withRenamed = <T extends object>(
+    value: T,
+    matched: ReturnType<typeof invocationRoute>,
+  ) =>
+    matched.renamedRoute === undefined
+      ? value
+      : { ...value, renamedRoute: matched.renamedRoute };
   recordRuntime(contract, {
     cli: spec.cli,
     commands,
     stations: stationMap,
     async resolve(argv: unknown, facts) {
-      const resolved = await resolveInvocation(spec.cli, commands, argv, {
+      const snapshot: unknown = Array.isArray(argv)
+        ? Array.from<unknown>(argv)
+        : argv;
+      const resolved = await resolveInvocation(spec.cli, commands, snapshot, {
         interactive: facts?.interactive === true,
         ...(defaultCommand === undefined ? {} : { defaultCommand }),
       });
-      if (!resolved.ok) return resolved;
-      const raw: readonly unknown[] = Array.isArray(argv) ? argv : [];
+      const argvStrings = argvStringsOf(snapshot);
+      if (!resolved.ok)
+        return resolved.commandIdentity === `${spec.cli}.dispatch`
+          ? resolved
+          : withRenamed(
+              resolved,
+              invocationRoute(spec.cli, commands, argvStrings),
+            );
+      const matched = invocationRoute(spec.cli, commands, argvStrings);
       const selected = commands.find(
         (item) => item.commandIdentity === resolved.value.commandIdentity,
       );
@@ -550,24 +571,25 @@ export function contractFor<
           await validateFutureInputs(selected, resolved.value.input, inputTable)
         ).ok
       )
-        return refused(
-          spec.cli,
-          { kind: "later-step" },
-          resolved.value.machine,
-          selected.commandIdentity,
+        return withRenamed(
+          refused(
+            spec.cli,
+            { kind: "later-step" },
+            resolved.value.machine,
+            selected.commandIdentity,
+          ),
+          matched,
         );
-      const argvStrings = raw.map((token) =>
-        typeof token === "string" ? token : "",
-      );
-      const matched = invocationRoute(spec.cli, commands, argvStrings);
-      const tokens = invocationTokens(argvStrings);
       return {
         ok: true,
-        value: {
-          ...resolved.value,
-          args: tokens.slice(matched.routeLength),
-          ...(matched.renamedHelp ? { renamedHelp: true } : {}),
-        },
+        value: withRenamed(
+          {
+            ...resolved.value,
+            args: invocationTokens(argvStrings).slice(matched.routeLength),
+            ...(matched.renamedHelp ? { renamedHelp: true } : {}),
+          },
+          matched,
+        ),
       };
     },
     navigation: {
