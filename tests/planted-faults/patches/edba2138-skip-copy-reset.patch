@@ -1,0 +1,10 @@
+diff --git a/scripts/planted-fault-copy.ts b/scripts/planted-fault-copy.ts
+--- a/scripts/planted-fault-copy.ts
++++ b/scripts/planted-fault-copy.ts
+@@ -234,6 +234,5 @@ export async function replayInCopy(
+     );
+   } finally {
+     rmSync(reportPath, { force: true });
+-    await resetCopy(copy.dir, fault.id, limitMilliseconds, runStep);
+   }
+ }
