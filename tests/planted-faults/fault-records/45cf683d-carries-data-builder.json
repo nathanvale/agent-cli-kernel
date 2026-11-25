@@ -1,0 +1,7 @@
+{
+  "id": "45cf683d-carries-data-builder",
+  "patch": "tests/planted-faults/patches/45cf683d-carries-data-builder.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^runtime result builder refuses non-null data on a refused row without carriesData and accepts it when carriesData is true$",
+  "source": "45cf683d feat(kernel): enforce carriesData in result builder and wire validation"
+}

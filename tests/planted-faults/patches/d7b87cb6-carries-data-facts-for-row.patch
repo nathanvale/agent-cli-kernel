@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/declaration-checks.ts b/kernel/src/kernel/declaration-checks.ts
+--- a/kernel/src/kernel/declaration-checks.ts
++++ b/kernel/src/kernel/declaration-checks.ts
+@@ -305,11 +305,7 @@ export type FactsForRow<
+ > = {
+   readonly runId: string;
+   readonly message: string;
+-  readonly data: R["outcome"] extends "success"
+-    ? import("./types.ts").JsonValue
+-    : R extends { readonly carriesData: true }
+-      ? import("./types.ts").JsonValue
+-      : null;
++  readonly data: import("./types.ts").JsonValue;
+   readonly bindings?: Readonly<Record<string, string>>;
+   readonly idempotencyKey?: string;
+ } & (R extends { readonly retryable: true }

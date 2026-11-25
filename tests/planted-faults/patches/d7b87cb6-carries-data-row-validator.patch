@@ -1,0 +1,18 @@
+diff --git a/kernel/src/kernel/validation/result.ts b/kernel/src/kernel/validation/result.ts
+index 556ca58d..44e0daf9 100644
+--- a/kernel/src/kernel/validation/result.ts
++++ b/kernel/src/kernel/validation/result.ts
+@@ -25,12 +25,7 @@ import {
+ 
+ function validCarriesData(value: Record<string, unknown>): boolean {
+   if (!Object.hasOwn(value, "carriesData")) return true;
+-  return (
+-    value.carriesData === true &&
+-    value.outcome === "refused" &&
+-    value.transactionState === "unchanged" &&
+-    value.failureClass === "domain"
+-  );
++  return value.carriesData === true;
+ }
+ 
+ export function causeRow(value: unknown): value is CauseRow {

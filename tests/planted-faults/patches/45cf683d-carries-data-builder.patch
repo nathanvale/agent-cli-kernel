@@ -1,0 +1,21 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -194,17 +194,6 @@ export function contractFor<
+   ) {
+     const { guidance: arm, ...rest } = station.row;
+     void arm;
+-    const carriesData = Reflect.get(rest, "carriesData") === true;
+-    if (
+-      station.row.outcome !== "success" &&
+-      !carriesData &&
+-      runFacts.data !== null
+-    )
+-      return {
+-        ok: false,
+-        path: "facts.data",
+-        reason: "non-null data requires a success row or carriesData: true",
+-      } as const;
+     const row = Object.fromEntries(
+       Object.entries(rest).filter(([key]) => key !== "carriesData"),
+     );

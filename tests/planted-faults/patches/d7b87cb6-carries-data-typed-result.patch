@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/validation/result.ts b/kernel/src/kernel/validation/result.ts
+--- a/kernel/src/kernel/validation/result.ts
++++ b/kernel/src/kernel/validation/result.ts
+@@ -349,11 +349,6 @@ export function typedResult<C extends CauseTable>(
+     value.failureClass === row.failureClass &&
+     value.exitCode === row.exitCode &&
+     value.retryable === row.retryable &&
+-    (row.outcome === "success" ||
+-      (row.outcome === "refused" &&
+-        row.failureClass === "domain" &&
+-        row.carriesData === true) ||
+-      value.data === null) &&
+     (row.guidance === "next"
+       ? value.next !== undefined
+       : value.handoff !== undefined)
