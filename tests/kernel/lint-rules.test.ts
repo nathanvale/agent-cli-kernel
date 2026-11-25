@@ -2350,6 +2350,37 @@ const pathsUseRootedFileCases = [
   ],
   [rootedFile, "export const a = Bun.version;", []],
   [
+    rootedFile,
+    'export const a = () => process.mainModule?.require("node:fs");',
+    [rootedLoader(1)],
+  ],
+  [
+    rootedFile,
+    'const main = process.mainModule; export const a = () => main?.require("node:fs");',
+    [rootedLoader(1)],
+  ],
+  [
+    rootedFile,
+    'const { mainModule } = process; export const a = () => mainModule?.require("node:fs");',
+    [rootedLoader(1)],
+  ],
+  [
+    rootedFile,
+    'export const a = () => globalThis.process.mainModule?.require("node:fs");',
+    [rootedLoader(1)],
+  ],
+  [
+    rootedFile,
+    'import { mainModule } from "node:process"; export const a = () => mainModule?.require("node:fs");',
+    [rootedLoader(1)],
+  ],
+  [rootedFile, "export const a = process.platform;", []],
+  [
+    rootedFile,
+    'import { platform } from "node:process"; export const a = platform;',
+    [],
+  ],
+  [
     "kernel/src/shared/rooted-file.ts",
     'import { openSync } from "node:fs"; export const a = openSync;',
     [],
