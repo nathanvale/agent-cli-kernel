@@ -1,0 +1,7 @@
+{
+  "id": "6dd0a46b-prose-repair-action-kept",
+  "patch": "tests/planted-faults/patches/6dd0a46b-prose-repair-action-kept.patch",
+  "testFile": "tests/kernel/discover-all.test.ts",
+  "title": "^--discover-all full discovery route returns every command and matches --discover-command with only trigger, guidance and repairAction removed$",
+  "source": "6dd0a46b feat(kernel): add --discover-all full discovery route"
+}

@@ -1,0 +1,15 @@
+--- a/kernel/src/kernel/validation/discovery.ts
++++ b/kernel/src/kernel/validation/discovery.ts
+@@ -32,12 +32,10 @@
+   const {
+     trigger: _trigger,
+     guidance: _guidance,
+-    repairAction: _repairAction,
+     ...rest
+   } = station;
+   void _trigger;
+   void _guidance;
+-  void _repairAction;
+   return rest;
+ }
+ 

@@ -158,6 +158,9 @@ A station the kernel adds to a command without an author declaration, covering
 usage refusals and internal failures.
 _Avoid_: built-in station (for a kernel station)
 
+**Full discovery**:
+`--discover-all`: every command's `--discover-command` data, less station prose.
+
 ### Interactive runs
 
 **Default command**:

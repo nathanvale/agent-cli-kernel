@@ -222,7 +222,7 @@ it out and the CLI uses none.
 
 ## What the kernel adds
 
-- Every CLI accepts `--json`, `--help`, `--discover` and
+- Every CLI accepts `--json`, `--help`, `--discover`, `--discover-all` and
   `--discover-command <identity>`. With `--json` the result is one JSON
   envelope on stdout.
 - Without `--json`, a success of one of your commands prints its message
@@ -232,6 +232,9 @@ it out and the CLI uses none.
   answers with exit code 0 and that command's discovery: its arguments,
   options and possible results, the same as
   `--discover-command <identity>`.
+- `--discover-all` returns every command's input and results in one call,
+  without the prose fields `trigger`, `guidance` and `repairAction`, which
+  `--discover-command <identity>` gives.
 - A usage refusal's message names what was wrong, such as a missing
   argument or an option the command does not declare.
 - The exit code comes from the result's cause: 0 success, 1 internal,

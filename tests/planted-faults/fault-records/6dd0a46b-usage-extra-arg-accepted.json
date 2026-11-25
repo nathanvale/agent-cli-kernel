@@ -1,0 +1,7 @@
+{
+  "id": "6dd0a46b-usage-extra-arg-accepted",
+  "patch": "tests/planted-faults/patches/6dd0a46b-usage-extra-arg-accepted.patch",
+  "testFile": "tests/kernel/discover-all.test.ts",
+  "title": "^--discover-all full discovery route --discover-all with an extra argument is a usage refusal like --discover$",
+  "source": "6dd0a46b feat(kernel): add --discover-all full discovery route"
+}

@@ -1,0 +1,15 @@
+--- a/kernel/src/kernel/validation/discovery.ts
++++ b/kernel/src/kernel/validation/discovery.ts
+@@ -30,12 +30,10 @@
+ 
+ function withoutProse(station: ReturnType<typeof publicStation>) {
+   const {
+-    trigger: _trigger,
+     guidance: _guidance,
+     repairAction: _repairAction,
+     ...rest
+   } = station;
+-  void _trigger;
+   void _guidance;
+   void _repairAction;
+   return rest;

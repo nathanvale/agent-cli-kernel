@@ -26,6 +26,7 @@
     "tests/kernel/diagnostics/repair.test.ts": 4150,
     "tests/kernel/diagnostics/secrets.test.ts": 658,
     "tests/kernel/diagnostics/type-names.test.ts": 3544,
+    "tests/kernel/discover-all.test.ts": 90,
     "tests/kernel/generated-repository-lint.test.ts": 13475,
     "tests/kernel/input.test.ts": 598,
     "tests/kernel/kernel-declaration.test.ts": 6,

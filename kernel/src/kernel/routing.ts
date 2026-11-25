@@ -17,8 +17,18 @@ export function refused(
     ...usageRefusal(fault, cli),
   } as const;
 }
-const booleanSwitches = ["--json", "--help", "--discover"] as const;
-const navigationSwitches = ["--help", "--discover", "--discover-command"];
+const booleanSwitches = [
+  "--json",
+  "--help",
+  "--discover",
+  "--discover-all",
+] as const;
+const navigationSwitches = [
+  "--help",
+  "--discover",
+  "--discover-all",
+  "--discover-command",
+];
 const discoverCommandPrefix = "--discover-command=";
 type SwitchScan = {
   readonly tokens: string[];

@@ -327,4 +327,22 @@ export const boundaries = [
     valid:
       "F.command({ ...spec, run: (_input, context) => context.result(F.inspectStation, F.runFacts) });",
   },
+  {
+    id: "next-full-discovery",
+    code: 2719,
+    setup: "",
+    invalid:
+      'F.contractFor({ cli: "specimen", commands: [F.inspectFor("specimen.no-such-built-in")] });',
+    valid:
+      'F.contractFor({ cli: "specimen", commands: [F.inspectFor("specimen.full-discovery")] });',
+  },
+  {
+    id: "handoff-full-discovery",
+    code: 2719,
+    setup: "",
+    invalid:
+      'F.contractFor({ cli: "specimen", causes: F.exemplarCauses, commands: [F.reportFor("specimen.no-such-built-in")] });',
+    valid:
+      'F.contractFor({ cli: "specimen", causes: F.exemplarCauses, commands: [F.reportFor("specimen.full-discovery")] });',
+  },
 ] as const;
