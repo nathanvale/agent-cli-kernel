@@ -1,0 +1,15 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -269,11 +269,5 @@ function readBounded(
+     if (bytesRead === 0) break;
+     length += bytesRead;
+-    if (length > limitBytes)
+-      return refusal(
+-        originalPath,
+-        "over-limit",
+-        `${originalPath} exceeded the ${String(limitBytes)} byte limit while reading. Repair: reduce the file size to at most ${String(limitBytes)} bytes.`,
+-      );
+   }
+   return buffer.subarray(0, length);
+ }

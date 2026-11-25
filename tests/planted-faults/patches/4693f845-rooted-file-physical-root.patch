@@ -1,0 +1,11 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -93,6 +93,6 @@ function resolveRealRoot(root: string):
+   | { readonly kind: "missing" }
+   | RootedRefusal {
+-  const realRoot = realpathOptional(root);
++  const realRoot = realpathOptional(resolve(root));
+   if (realRoot === undefined) return { kind: "missing" };
+   const status = lstatOptional(realRoot);
+   if (status === undefined) return { kind: "missing" };

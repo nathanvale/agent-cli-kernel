@@ -1,0 +1,16 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -210,12 +210,6 @@ function checkDescriptor(
+       "hard-link",
+       `${originalPath} is a hard link (link count ${String(status.nlink)}). Repair: replace it with a copy, or remove the other link.`,
+     );
+-  if (status.size > limitBytes)
+-    return refusal(
+-      originalPath,
+-      "over-limit",
+-      `${originalPath} is ${String(status.size)} bytes, above the ${String(limitBytes)} byte limit. Repair: reduce the file size to at most ${String(limitBytes)} bytes.`,
+-    );
+   return { kind: "ok", status };
+ }
+ 

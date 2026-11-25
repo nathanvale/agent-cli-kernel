@@ -1,0 +1,7 @@
+{
+  "id": "4693f845-rooted-file-growth-limit",
+  "patch": "tests/planted-faults/patches/4693f845-rooted-file-growth-limit.patch",
+  "testFile": "tests/kernel/rooted-file.test.ts",
+  "title": "^readRootedFile refuses a file that grows past the byte limit after open with its full Repair message$",
+  "source": "4693f845 fix(rooted-file): resolve the root through its links before lexical normalisation"
+}
