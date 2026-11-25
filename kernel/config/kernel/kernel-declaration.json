@@ -5,7 +5,8 @@
     "packages": {},
     "deadCodeEntries": [
       "src/kernel/index.ts",
-      "src/shared/rooted-file-entry.ts"
+      "src/shared/rooted-file-entry.ts",
+      "src/shared/xdg-base.ts"
     ]
   },
   "addons": {

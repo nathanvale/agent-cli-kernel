@@ -2,12 +2,13 @@ diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagno
 index 1e2c2dcd..bbaf28c2 100644
 --- a/kernel/src/addons/diagnostics/custody.ts
 +++ b/kernel/src/addons/diagnostics/custody.ts
-@@ -16,13 +16,12 @@ import {
+@@ -16,14 +16,13 @@ import {
  } from "node:fs";
  import type { Stats } from "node:fs";
  import { hostname } from "node:os";
--import { basename, dirname, isAbsolute, join, normalize } from "node:path";
-+import { dirname, isAbsolute, join, normalize } from "node:path";
+-import { basename, dirname, join } from "node:path";
++import { dirname, join } from "node:path";
+ import { xdgBaseFolder } from "../../shared/xdg-base.ts";
  import { errorCode } from "./io.ts";
  import { limits } from "./limits.ts";
  import type { DiagnosticsIo } from "./io.ts";
@@ -17,16 +18,16 @@ index 1e2c2dcd..bbaf28c2 100644
  const lockName = ".allocation-lock";
  const host = createHash("sha256").update(hostname()).digest("hex").slice(0, 16);
  const ownerPattern = /^owner-([1-9][0-9]{0,9})-([0-9a-f]{16})$/;
-@@ -59,7 +58,7 @@ export function locate(
-         : undefined;
-   return base === undefined
-     ? undefined
--    : join(normalize(base), dojo, cli, "diagnostics");
-+    : join(normalize(base), cli, "diagnostics");
+@@ -51,7 +50,7 @@ export function locate(
+ ): string | undefined {
+   if (!segment.test(cli)) return undefined;
+   const base = xdgBaseFolder(environment, "state");
+-  return base === undefined ? undefined : join(base, dojo, cli, "diagnostics");
++  return base === undefined ? undefined : join(base, cli, "diagnostics");
  }
  
  function lookup(path: string): Stats | undefined {
-@@ -130,22 +129,16 @@ function prepareBase(base: string): string | undefined {
+@@ -122,22 +121,16 @@ function prepareBase(base: string): string | undefined {
    return real;
  }
  

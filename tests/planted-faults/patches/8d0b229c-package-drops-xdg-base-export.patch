@@ -1,0 +1,11 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -11,7 +11,6 @@
+     "./addons/programs": "./kernel/src/addons/programs/index.ts",
+     "./addons/state": "./kernel/src/addons/state/index.ts",
+     "./rooted-file": "./kernel/src/shared/rooted-file-entry.ts",
+-    "./xdg-base": "./kernel/src/shared/xdg-base.ts",
+     "./lint": "./kernel/config/kernel/eslint.mjs",
+     "./lint-rules": "./kernel/config/kernel/eslint-rules.mjs",
+     "./kernel-declaration.json": "./kernel/config/kernel/kernel-declaration.json",

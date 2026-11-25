@@ -1,0 +1,12 @@
+diff --git a/kernel/src/shared/xdg-base.ts b/kernel/src/shared/xdg-base.ts
+--- a/kernel/src/shared/xdg-base.ts
++++ b/kernel/src/shared/xdg-base.ts
+@@ -9,7 +9,7 @@
+ const envNames: Readonly<Record<XdgKind, string>> = {
+   config: "XDG_CONFIG_HOME",
+   data: "XDG_DATA_HOME",
+-  state: "XDG_STATE_HOME",
++  state: "XDG_DATA_HOME",
+   cache: "XDG_CACHE_HOME",
+   runtime: "XDG_RUNTIME_DIR",
+ };

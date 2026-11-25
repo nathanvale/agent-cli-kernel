@@ -2,6 +2,6 @@
   "id": "72b908d2-package-drops-rooted-file-export",
   "patch": "tests/planted-faults/patches/72b908d2-package-drops-rooted-file-export.patch",
   "testFile": "tests/kernel/pinned-commit.test.ts",
-  "title": "^the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, rooted-file, lint, lint rules, the declaration and itself$",
+  "title": "^the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, rooted-file, xdg-base, lint, lint rules, the declaration and itself$",
   "source": "72b908d2 feat(rooted-file): publish agent-cli-kernel/rooted-file without test seam"
 }

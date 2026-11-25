@@ -16,7 +16,8 @@ import {
 } from "node:fs";
 import type { Stats } from "node:fs";
 import { hostname } from "node:os";
-import { basename, dirname, isAbsolute, join, normalize } from "node:path";
+import { basename, dirname, join } from "node:path";
+import { xdgBaseFolder } from "../../shared/xdg-base.ts";
 import { errorCode } from "./io.ts";
 import { limits } from "./limits.ts";
 import type { DiagnosticsIo } from "./io.ts";
@@ -49,17 +50,8 @@ export function locate(
   cli: string,
 ): string | undefined {
   if (!segment.test(cli)) return undefined;
-  const xdg = environment.XDG_STATE_HOME;
-  const home = environment.HOME;
-  const base =
-    xdg && isAbsolute(xdg)
-      ? xdg
-      : home && isAbsolute(home)
-        ? join(home, ".local", "state")
-        : undefined;
-  return base === undefined
-    ? undefined
-    : join(normalize(base), dojo, cli, "diagnostics");
+  const base = xdgBaseFolder(environment, "state");
+  return base === undefined ? undefined : join(base, dojo, cli, "diagnostics");
 }
 
 function lookup(path: string): Stats | undefined {

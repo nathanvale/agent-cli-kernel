@@ -127,6 +127,7 @@
     "tests/kernel/writer/human-text.test.ts": 155,
     "tests/kernel/writer/kernel-words.test.ts": 16,
     "tests/kernel/writer/writer.test.ts": 5307,
+    "tests/kernel/xdg-base.test.ts": 18,
     "tests/template/check-commits/carried-verdict-workflow.test.ts": 16,
     "tests/template/check-commits/carried-verdict.test.ts": 1109,
     "tests/template/check-commits/check-commits-in-process.test.ts": 511,
