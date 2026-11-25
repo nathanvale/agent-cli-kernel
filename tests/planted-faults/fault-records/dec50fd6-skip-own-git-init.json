@@ -1,0 +1,7 @@
+{
+  "id": "dec50fd6-skip-own-git-init",
+  "patch": "tests/planted-faults/patches/dec50fd6-skip-own-git-init.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-replay-all-in-process.test.ts",
+  "title": "^replayAll gives KILLED to a fault whose test runs git on the replayed tree$",
+  "source": "dec50fd6 feat(fault-replay): replay in one temp copy with its own .git"
+}

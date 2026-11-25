@@ -482,7 +482,11 @@ test("L.refuses dies", () => {
     const bun = process.execPath;
     expect(
       [
-        "git worktree add --detach --quiet ",
+        "git archive ",
+        "tar -xf ",
+        "git init ",
+        "git add ",
+        "git -c ",
         "git ls-files ",
         `${bun} install --frozen-lockfile`,
         `${bun} test ./tests/`,
@@ -498,7 +502,7 @@ test("L.refuses dies", () => {
       replay(subject.root, subject.fault, "0".repeat(40), limit),
     );
 
-    expect(await rejection(run)).toContain("invalid reference");
+    expect(await rejection(run)).toContain("not a tree object");
   }, 60_000);
 
   test("refuses when the install fails, naming the fault and the output", async () => {

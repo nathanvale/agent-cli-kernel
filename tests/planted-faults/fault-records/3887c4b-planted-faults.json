@@ -1,7 +1,0 @@
-{
-  "id": "3887c4b-planted-faults",
-  "patch": "tests/planted-faults/patches/3887c4b-planted-faults.patch",
-  "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
-  "title": "FR\\.y ",
-  "source": "3887c4b fix(faults): prune the worktree entry a stopped removal leaves behind (GREEN)"
-}

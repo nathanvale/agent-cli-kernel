@@ -1,0 +1,11 @@
+diff --git a/scripts/planted-fault-copy.ts b/scripts/planted-fault-copy.ts
+--- a/scripts/planted-fault-copy.ts
++++ b/scripts/planted-fault-copy.ts
+@@ -57,7 +57,6 @@ const ownGitSteps: readonly (readonly string[])[] = [
+ ];
+ 
+ const resetCopySteps: readonly (readonly string[])[] = [
+-  ["git", "reset", "--hard", "-q", baselineRef],
+   ["git", "clean", "-fdx", "-q", "-e", "node_modules"],
+ ];
+ 

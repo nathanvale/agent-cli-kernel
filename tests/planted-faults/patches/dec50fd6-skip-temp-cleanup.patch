@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -418,8 +418,6 @@ export async function replayAll(
+       if (verdict.kind === "KILLED") killed += 1;
+     }
+   } finally {
+-    if (copy !== undefined)
+-      rmSync(copy.folder, { recursive: true, force: true });
+   }
+   printSummary(killed, chosen.length, started);
+   return killed === chosen.length ? 0 : 1;

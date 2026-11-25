@@ -1,0 +1,11 @@
+diff --git a/scripts/planted-fault-copy.ts b/scripts/planted-fault-copy.ts
+--- a/scripts/planted-fault-copy.ts
++++ b/scripts/planted-fault-copy.ts
+@@ -111,7 +111,6 @@ export async function copyWorkingTree(
+   mkdirSync(dir);
+   try {
+     const tracked = copyListedFiles(root, dir, listed.output);
+-    await initOwnGit(dir, id, limitMilliseconds, runStep);
+     await installDependencies(dir, id, limitMilliseconds, runStep);
+     return { folder, dir, tracked };
+   } catch (error) {

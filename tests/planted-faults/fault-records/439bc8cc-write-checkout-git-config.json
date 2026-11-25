@@ -1,0 +1,7 @@
+{
+  "id": "439bc8cc-write-checkout-git-config",
+  "patch": "tests/planted-faults/patches/439bc8cc-write-checkout-git-config.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-replay-all-in-process.test.ts",
+  "title": "^replayAll does not write any worktree or git object under the checkout's \\.git, even when dirty$",
+  "source": "439bc8cc fix(fault-replay): clean ignored leftovers, hash the checkout's .git, and bound replayAll test timeouts"
+}

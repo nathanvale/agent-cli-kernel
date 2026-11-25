@@ -1,0 +1,7 @@
+{
+  "id": "dec50fd6-skip-file-restore",
+  "patch": "tests/planted-faults/patches/dec50fd6-skip-file-restore.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-replay-all-in-process.test.ts",
+  "title": "^replayAll restores patched files between faults so a later fault does not see an earlier patch$",
+  "source": "dec50fd6 feat(fault-replay): replay in one temp copy with its own .git"
+}

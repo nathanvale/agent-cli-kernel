@@ -1,0 +1,7 @@
+{
+  "id": "edba2138-skip-copy-reset",
+  "patch": "tests/planted-faults/patches/edba2138-skip-copy-reset.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-replay-all-in-process.test.ts",
+  "title": "^replayAll resets test-created files between faults so a later fault keeps its verdict$",
+  "source": "edba2138 fix(fault-replay): reset the temp copy to its baseline between faults and bound a test's git child"
+}

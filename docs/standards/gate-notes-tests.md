@@ -17,7 +17,8 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 ## Planted faults
 
 - `bun run fault-replay` replays each record in
-  `tests/planted-faults/fault-records/` in a temporary worktree.
+  `tests/planted-faults/fault-records/` in one temporary copy of the working
+  tree with its own `.git`.
 - A pull request's `fault-replay-shard` jobs replay each record whose test
   is outside `tests/template/`, and each other record its change touches;
   `fault-replay` passes when all of them do. The Linux nightly

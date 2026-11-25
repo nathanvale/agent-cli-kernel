@@ -7,7 +7,6 @@ import {
   exited,
   expectNoLeftovers,
   expectOneTestProcessGone,
-  guarded,
   ledgered,
   lineOf,
   tests,
@@ -242,7 +241,7 @@ describe("bun run fault-replay", () => {
         tools,
         "bin/git",
         `#!/bin/sh
-if [ "$1" = worktree ] && [ "$2" = add ]; then
+if [ "$1" = init ]; then
   perl -e '
     my ($replay, $shim) = @ARGV;
     if (!fork) { exit 0 }
@@ -270,54 +269,41 @@ exec '${realGit}' "$@"
   );
 
   test(
-    "FR.n a SIGINT while git removes a record's worktree stops on that record, before the next one starts",
+    "FR.n a SIGINT during a record stops on that record, before the next one starts",
     async () => {
-      const { root, id } = await repositoryWithFault({ next: "^L\\.refuses " });
-      const tools = folder("fault-replay-remove-");
-      const once = join(tools, "signalled");
-      const realGit = Bun.which("git");
-      if (realGit === null) throw new Error("git is not on PATH.");
-      write(
-        tools,
-        "bin/git",
-        `#!/bin/sh
-if [ "$1" = worktree ] && [ "$2" = remove ] && [ ! -e '${once}' ]; then
-  : > '${once}'
-  kill -INT "$PPID"
-fi
-exec '${realGit}' "$@"
-`,
-      );
-      chmodSync(join(tools, "bin/git"), 0o755);
-      const run = await faultReplay(root, [], {
-        env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
+      const { root } = await repositoryWithFault({
+        blocks: "^L\\.blocks ",
+        next: "^L\\.refuses ",
+      });
+      const hang = hangLedger();
+      const run = await faultReplay(root, ["blocks", "next"], {
+        signalAt: { ledger: hang.ledger, line: "started", signal: "SIGINT" },
+        env: { FAULTS_LEDGER: hang.ledger },
       });
       expect(run.stderr).toContain(
-        `Stopped by SIGINT while replaying ${id}, so it has no verdict.\n`,
+        "Stopped by SIGINT while replaying blocks, so it has no verdict.\n",
       );
       expect(run.stderr).not.toContain("while replaying next");
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(130);
+      expectOneTestProcessGone(run.pids);
       expectNoLeftovers(root, run.temporary);
     },
     processWatchdog(2),
   );
 
   test(
-    "FR.y a worktree removal that hangs is stopped at the step limit, leaves no worktree entry, and the verdict stands",
+    "FR.y a copy step that hangs is stopped at the step limit with TIMEOUT, removes the copy, and exits 1",
     async () => {
       const { root, id } = await repositoryWithFault({});
-      commit(root, "reword the refusal", {
-        "src/limit.ts": guarded.replace("must be", "has to be"),
-      });
-      const tools = folder("fault-replay-hung-remove-");
+      const tools = folder("fault-replay-hung-copy-");
       const realGit = Bun.which("git");
       if (realGit === null) throw new Error("git is not on PATH.");
       write(
         tools,
         "bin/git",
         `#!/bin/sh
-if [ "$1" = worktree ] && [ "$2" = remove ]; then
+if [ "$1" = init ]; then
   exec sleep 20
 fi
 exec '${realGit}' "$@"
@@ -334,18 +320,26 @@ exec '${realGit}' "$@"
         boundMilliseconds: forcedBound,
       });
 
-      expect(verdicts(run.lines)).toEqual([`STALE ${id}`]);
+      expect(verdicts(run.lines)).toEqual([`TIMEOUT ${id}`]);
+      expect(lineOf(run.lines, "TIMEOUT")).toMatch(
+        new RegExp(
+          `^TIMEOUT ${id} in [\\d.]+ s\\. git init -q --initial-branch=main did not finish within ${stepSeconds} s, so the planted fault has no verdict\\.$`,
+        ),
+      );
+      expect(run.lines).toContain(
+        `Repair: run that step by hand to see where it hangs, or raise FAULT_REPLAY_STEP_SECONDS. Done when bun run fault-replay ${id} passes.`,
+      );
       expect(run.exit).toBe(1);
       expect(performance.now() - began).toBeLessThan(
         stepSeconds * 1000 + 4_000,
       );
       expectNoLeftovers(root, run.temporary);
     },
-    timeout,
+    processWatchdog(2),
   );
 
   test(
-    "FR.h a terminal's group SIGINT while git removes the worktree still removes it, and exits 130",
+    "FR.h a terminal's group SIGINT while preparing the temp copy still removes it, and exits 130",
     async () => {
       const { root } = await repositoryWithFault({});
       const tools = folder("fault-replay-group-");
@@ -355,7 +349,7 @@ exec '${realGit}' "$@"
         tools,
         "bin/git",
         `#!/bin/sh
-if [ "$1" = worktree ] && [ "$2" = remove ]; then
+if [ "$1" = init ]; then
   kill -INT -"$(ps -o pgid= -p "$PPID" | tr -d ' ')"
 fi
 exec '${realGit}' "$@"

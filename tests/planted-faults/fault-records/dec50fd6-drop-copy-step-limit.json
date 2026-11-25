@@ -1,0 +1,7 @@
+{
+  "id": "dec50fd6-drop-copy-step-limit",
+  "patch": "tests/planted-faults/patches/dec50fd6-drop-copy-step-limit.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+  "title": "^bun run fault-replay FR\\.y a copy step that hangs is stopped at the step limit with TIMEOUT, removes the copy, and exits 1$",
+  "source": "dec50fd6 feat(fault-replay): replay in one temp copy with its own .git"
+}
