@@ -16,8 +16,8 @@ gates and their witnesses.
   includes the gate, and the tokenizer stays in
   `devDependencies`. See [Fallow entry settings](https://fallow.tools/docs/configuration/overview/#supportentry).
 - The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
-  directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
-  `.claude/hooks/` and `.codex/hooks/`.
+  directories, the root `CHANGELOG.md`, every `bun.lock`, and the generated
+  `fallow-gate.sh` at exactly `.claude/hooks/` and `.codex/hooks/`.
 - [The gate's recorded hits](../../scripts/file-size-recorded-hits.json) name each
   exception, its reason, and its lifetime. The standing fault-replay record
   reports its token count whenever scanned. Remove a temporary record in the
