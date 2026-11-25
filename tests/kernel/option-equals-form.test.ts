@@ -623,7 +623,7 @@ describe("option equals form", () => {
       });
     expect(() => buildWithStep(["--note=ok"])).not.toThrow();
     expect(() => buildWithStep(["--verbose=yes"])).toThrow(
-      "--verbose takes no value",
+      'Command step demo.target ["--verbose=yes"] from demo.caller can never parse: --verbose takes no value.',
     );
   });
 
