@@ -20,6 +20,12 @@ import type { CauseTable } from "agent-cli-kernel";
 
 - `command({...})` declares a read-only command, and `changing({...})` a
   command that changes something. See [changing](changing.md).
+- Work that only looks (a check, a plan, a dry run) is its own read-only
+  command, never a `--check` or `--dry-run` flag on a changing command. A
+  read-only command gets no transaction, so the kernel keeps it from changing
+  the state it journals. The decision is the kernel's ADR 0002
+  (`docs/adr/0002-look-only-work-is-an-inspect-route.md` in the kernel
+  repository).
 - `station(causes, {...})` declares one result a command can produce. See
   [stations](stations.md).
 - `contractFor({ cli, commands, causes })` checks every declaration when the

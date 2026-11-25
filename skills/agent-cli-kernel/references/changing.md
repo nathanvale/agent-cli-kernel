@@ -10,6 +10,8 @@ to show it, and `pending` lists the visits that never finished.
 A command that changes a file, a program's state or anything else is a
 changing command. Its effect class is `repository-local` or `external`;
 `visit` is `external`, because it asks another program to act.
+A command that only looks is never a changing command; see
+[commands](commands.md).
 
 It needs three things:
 
