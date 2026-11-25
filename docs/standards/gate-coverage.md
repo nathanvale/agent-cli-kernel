@@ -95,16 +95,21 @@ the kernel. They are plugin rules, so a host block that sets its own
 - Lint `repository/no-process-reach` works from an allowlist,
   `allowedRuntimeMembers` in `kernel/config/kernel/eslint-rules.mjs`:
   - A member that source reads or destructures from `Bun` or `process`
-    passes when the list names it, or when another rule judges it: the
-    stream names (`no-domain-output`) and `Bun.spawn`, `Bun.spawnSync`
-    and `Bun.$` (`no-restricted-properties`). Chainable `process` listener
-    methods (`on`, `once`, `off`, `addListener`, `removeListener`,
-    `removeAllListeners`, `prependListener`, `prependOnceListener`,
-    `setMaxListeners`) pass only as a call on `process` whose result is
-    discarded (an expression statement or under `void`); importing or
-    destructuring them is refused. A `console` member read passes to
-    `no-console`. Every other member, a destructured `console` name, a
-    rest element and a key that is not fixed are refused.
+    passes when the list names it (including Bun's pure parsers and formatters
+    such as `TOML`, `YAML`, `markdown`, `JSON5`, `JSONC`, `JSONL` and `XML`),
+    or when another rule judges it: the stream names (`no-domain-output`) and
+    `Bun.spawn`, `Bun.spawnSync` and `Bun.$` (`no-restricted-properties`).
+    Chainable `process` listener methods (`on`, `once`, `off`, `addListener`,
+    `removeListener`, `removeAllListeners`, `prependListener`,
+    `prependOnceListener`, `setMaxListeners`) pass only as a call on `process`
+    whose result is discarded (an expression statement or under `void`);
+    importing or destructuring them is refused with the stream message. A
+    `console` member read passes to `no-console`. An unlisted static member of
+    `Bun` or `process` (not a program start, stream, chainable `process` method
+    or `default`) is refused with `unlistedMember`, naming the allowlist and
+    repair. A real program start (`spawn`, `spawnSync`, `$`, `child_process`),
+    a stream, a destructured `console` name, a rest element and a key that is
+    not fixed keep the program-start or stream message.
   - An import from `"bun"`, `process` or `console`, with or without
     `node:`, passes when it is type-only or names a listed member.
     `"node:module"` and `"module"` admit only type-only imports; every
