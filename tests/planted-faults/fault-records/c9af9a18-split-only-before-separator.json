@@ -1,0 +1,7 @@
+{
+  "id": "c9af9a18-split-only-before-separator",
+  "patch": "tests/planted-faults/patches/c9af9a18-split-only-before-separator.patch",
+  "testFile": "tests/kernel/option-equals-form.test.ts",
+  "title": "^option equals form -- --name=value treats the word after -- as an argument$",
+  "source": "c9af9a18 feat(kernel): accept --name=value option form"
+}

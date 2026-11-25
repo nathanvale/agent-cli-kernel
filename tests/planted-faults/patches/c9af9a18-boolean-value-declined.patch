@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
+--- a/kernel/src/kernel/input.ts
++++ b/kernel/src/kernel/input.ts
+@@ -263,7 +263,7 @@ function selectOption(
+       },
+     };
+   }
+-  if (option.value === null && split.value !== undefined)
++  if (false && option.value === null && split.value !== undefined)
+     return {
+       ok: false,
+       fault: { kind: "unexpected-value", slot: slotOf(schema, option.name) },
