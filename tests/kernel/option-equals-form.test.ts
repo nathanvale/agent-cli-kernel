@@ -280,6 +280,35 @@ describe("option equals form", () => {
     }
   });
 
+  test("--discover-all=x --json refuses like --discover=x and never runs full discovery", async () => {
+    const contract = equalsContract();
+    const run = runInProcess(contract);
+    const discover = await run(["--discover=x", "--json"]);
+    const discoverAll = await run(["--discover-all=x", "--json"]);
+    expect(discover.kind).toBe("envelope");
+    expect(discoverAll.kind).toBe("envelope");
+    if (discover.kind !== "envelope" || discoverAll.kind !== "envelope")
+      throw new Error("Expected refusal envelopes.");
+    expect(discoverAll.exitCode).toBe(discover.exitCode);
+    expect(discoverAll.exitCode).toBe(2);
+    expect(discoverAll.envelope.result.causeCode).toBe(
+      discover.envelope.result.causeCode,
+    );
+    expect(discoverAll.envelope.result.causeCode).toBe(
+      "USAGE_INVALID_INVOCATION",
+    );
+    expect(discoverAll.envelope.result.commandIdentity).toBe("demo.dispatch");
+    expect(discoverAll.envelope.result.commandIdentity).not.toBe(
+      "demo.full-discovery",
+    );
+    expect(discover.envelope.message).toBe(
+      "The option --discover takes no value.",
+    );
+    expect(discoverAll.envelope.message).toBe(
+      "The option --discover-all takes no value.",
+    );
+  });
+
   test("--discover-command=<identity> resolves the same as --discover-command <identity>", async () => {
     const contract = equalsContract();
     expect(await contract.resolve(["--discover-command=demo.check"])).toEqual(
