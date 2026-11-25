@@ -220,11 +220,14 @@ file extensions in those directories.
     line terminator (`LF`, `CR`, `U+2028`, `U+2029`) and with every comment in
     the block judged on its own (never admitting following prose lines):
     `@ts-expect-error`, `@ts-ignore`, line-only `@ts-nocheck` and `@ts-check`,
-    `biome-ignore` (`-all`, `-start`, `-end`) with a valid category and `: reason`,
-    `fallow-ignore-next-line` and `fallow-ignore-file` with valid targets and
-    optional `-- reason`, `eslint-disable-next-line` and `eslint-disable-line`,
-    plus block-only `eslint`, `eslint-disable`, `eslint-enable`, `global`,
-    `globals` and `exported`. `eslint.config.mjs` sets
+    `biome-ignore` (`-all`, `-start`, `-end`) with one or more valid categories
+    and `: reason`, `fallow-ignore-next-line` and `fallow-ignore-file` with
+    valid targets from the installed Fallow registry and optional `-- reason`,
+    `eslint-disable-next-line` and `eslint-disable-line`, plus block-only
+    `eslint`, `eslint-disable`, `eslint-enable`, `global`, `globals` and
+    `exported`. Biome category and Fallow target loaders fail closed with a
+    dependency-reinstall repair if their package metadata is missing,
+    unreadable, malformed or incomplete. `eslint.config.mjs` sets
     `linterOptions.noInlineConfig: true` across every linted path, so ESLint
     refuses every inline ESLint directive.
   - `SAFETY:` and a justification on its first line, on its own lines

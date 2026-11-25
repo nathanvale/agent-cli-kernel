@@ -1,0 +1,15 @@
+diff --git a/config/comment-directives.mjs b/config/comment-directives.mjs
+--- a/config/comment-directives.mjs
++++ b/config/comment-directives.mjs
+@@ -174,10 +174,7 @@ function addSectionCategories(
+ 
+ export function loadBiomeCategories(schemaPath) {
+   const schema = readJsonDependency(biomeSchemaSpecifier, schemaPath);
+-  if (!isRecord(schema) || !isRecord(schema.$defs)) {
+-    throw dependencyError(biomeSchemaSpecifier, "missing $defs");
+-  }
+-  const defs = schema.$defs;
++  const defs = isRecord(schema) && isRecord(schema.$defs) ? schema.$defs : {};
+   const categories = new Set(["format", "parse", "lint", "assist"]);
+   addSectionCategories(categories, defs.Rules, defs, "lint", true, "Rules");
+   addSectionCategories(
