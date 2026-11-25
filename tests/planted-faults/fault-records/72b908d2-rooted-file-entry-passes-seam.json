@@ -2,6 +2,6 @@
   "id": "72b908d2-rooted-file-entry-passes-seam",
   "patch": "tests/planted-faults/patches/72b908d2-rooted-file-entry-passes-seam.patch",
   "testFile": "tests/kernel/pinned-commit.test.ts",
-  "title": "^a repository that installs the kernel imports readRootedFile from agent-cli-kernel/rooted-file, reads a plain file, refuses a symbolic link, and sees no seam parameter$",
+  "title": "^a repository that installs the kernel imports readRootedFile from agent-cli-kernel/rooted-file, reads a plain file, refuses link, escape and size violations, and sees no seam parameter$",
   "source": "72b908d2 feat(rooted-file): publish agent-cli-kernel/rooted-file without test seam"
 }
