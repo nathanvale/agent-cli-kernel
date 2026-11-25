@@ -191,6 +191,75 @@ const deep = await import("agent-cli-kernel/kernel/src/kernel/index.ts").then(
 console.log(JSON.stringify({ loaded, deep }));
 `;
 
+const rootedFileCheck = `import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  readRootedFile,
+  type RootedFacts,
+  type RootedFileResult,
+  type RootedRefusal,
+} from "agent-cli-kernel/rooted-file";
+
+const root = process.argv[2] ?? "";
+mkdirSync(root, { recursive: true });
+writeFileSync(join(root, "plain.txt"), "hello");
+symlinkSync(join(root, "plain.txt"), join(root, "link.txt"));
+
+const plain: RootedFileResult = readRootedFile(root, "plain.txt", 1024);
+const linked: RootedFileResult = readRootedFile(root, "link.txt", 1024);
+let seamCalled = false;
+Reflect.apply(readRootedFile, undefined, [
+  root,
+  "plain.txt",
+  1024,
+  {
+    afterOpen: () => {
+      seamCalled = true;
+    },
+  },
+]);
+
+const readFacts: RootedFacts | null =
+  plain.kind === "read" ? plain.facts : null;
+const refusal: RootedRefusal | null = linked.kind === "refused" ? linked : null;
+console.log(
+  JSON.stringify({
+    arity: readRootedFile.length,
+    seamCalled,
+    realRoot: realpathSync.native(root),
+    plain:
+      plain.kind === "read"
+        ? {
+            kind: plain.kind,
+            text: new TextDecoder().decode(plain.bytes),
+            size: readFacts?.size ?? -1,
+          }
+        : plain,
+    linked: refusal,
+  }),
+);
+`;
+
+const rootedFileTypes = `import {
+  readRootedFile,
+  type RootedFacts,
+  type RootedFileResult,
+  type RootedRefusal,
+} from "agent-cli-kernel/rooted-file";
+
+type PublicParameters = Parameters<typeof readRootedFile>;
+export const publicArity: PublicParameters["length"] extends 3 ? true : never =
+  true;
+export function inspectRooted(
+  root: string,
+): RootedFacts | RootedRefusal | null {
+  const result: RootedFileResult = readRootedFile(root, "plain.txt", 1024);
+  if (result.kind === "read") return result.facts;
+  if (result.kind === "refused") return result;
+  return null;
+}
+`;
+
 const consumerLintConfig = `import { kernelLint } from "agent-cli-kernel/lint";
 
 export default kernelLint({
@@ -270,7 +339,13 @@ beforeAll(async () => {
   world.consumer = join(world.base, "consumer");
   world.commit = workingTreeCommit(repository, world.kernel);
   mkdirSync(join(world.consumer, "src"), { recursive: true });
-  const dev = ["@eslint/js", "typescript-eslint", "eslint", "typescript"];
+  const dev = [
+    "@eslint/js",
+    "@types/bun",
+    "typescript-eslint",
+    "eslint",
+    "typescript",
+  ];
   writeFileSync(
     join(world.consumer, "package.json"),
     `${JSON.stringify(
@@ -295,6 +370,22 @@ beforeAll(async () => {
   );
   writeFileSync(join(world.consumer, "src/cli.ts"), noAddOnCli);
   writeFileSync(join(world.consumer, "src/imports.ts"), importEveryExport);
+  writeFileSync(
+    join(world.consumer, "src/rooted-file-check.ts"),
+    rootedFileCheck,
+  );
+  writeFileSync(
+    join(world.consumer, "src/rooted-file-types.ts"),
+    rootedFileTypes,
+  );
+  writeFileSync(
+    join(world.consumer, "tsconfig.rooted-file.json"),
+    `${JSON.stringify({
+      extends: "./tsconfig.json",
+      compilerOptions: { types: ["bun"] },
+      include: ["src/rooted-file-types.ts"],
+    })}\n`,
+  );
   writeConsumerLint(world.consumer);
   const installed = await run(
     [process.execPath, "install"],
@@ -338,7 +429,7 @@ afterAll(() => {
   if (world.base !== "") rmSync(world.base, { recursive: true, force: true });
 });
 
-test("the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, lint, lint rules, the declaration and itself", () => {
+test("the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, rooted-file, lint, lint rules, the declaration and itself", () => {
   expect(manifest.name).toBe("agent-cli-kernel");
   expect(manifest.type).toBe("module");
   expect(Object.hasOwn(manifest, "version")).toBe(false);
@@ -350,6 +441,7 @@ test("the kernel repository's manifest names agent-cli-kernel, is a module with 
     "./addons/menu",
     "./addons/programs",
     "./addons/state",
+    "./rooted-file",
     "./lint",
     "./lint-rules",
     "./kernel-declaration.json",
@@ -360,6 +452,52 @@ test("the kernel repository's manifest names agent-cli-kernel, is a module with 
     "@logtape/redaction",
   ]);
 });
+
+test(
+  "a repository that installs the kernel imports readRootedFile from agent-cli-kernel/rooted-file, reads a plain file, refuses a symbolic link, and sees no seam parameter",
+  async () => {
+    const root = join(world.base, "rooted-file-consumer-root");
+    const ran = await run(
+      [process.execPath, "src/rooted-file-check.ts", root],
+      world.consumer,
+    );
+    expect(ran.stderr).toBe("");
+    expect(ran.exit).toBe(0);
+    const observed = record(JSON.parse(ran.stdout));
+    const realRoot = text(observed.realRoot);
+    expect(observed).toEqual({
+      arity: 3,
+      seamCalled: false,
+      realRoot,
+      plain: { kind: "read", text: "hello", size: 5 },
+      linked: {
+        kind: "refused",
+        path: "link.txt",
+        reason: "symbolic-link",
+        message: `link.txt is a symbolic link. Repair: replace the link with a regular file inside ${realRoot}.`,
+      },
+    });
+    const checked = await run(
+      [
+        process.execPath,
+        "node_modules/typescript/lib/tsc.js",
+        "--noEmit",
+        "-p",
+        "tsconfig.rooted-file.json",
+      ],
+      world.consumer,
+      buildBound,
+    );
+    expect({
+      exit: checked.exit,
+      output: checked.stdout + checked.stderr,
+    }).toEqual({
+      exit: 0,
+      output: "",
+    });
+  },
+  runBound + buildBound + 30_000,
+);
 
 test(
   "a repository installs the kernel by name at a pinned commit, imports every export, and is refused a deep import",

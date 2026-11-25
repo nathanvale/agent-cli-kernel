@@ -533,7 +533,7 @@ test("the kernel public surface follows package.json TypeScript and JavaScript e
     .filter((path) => /\.(?:ts|mjs)$/.test(path))
     .map((path) => path.replace(/^\.\//, ""))
     .sort();
-  expect(entryPoints).toHaveLength(8);
+  expect(entryPoints).toHaveLength(9);
   expect(actual.exports.toSorted()).toEqual(entryPoints);
   expect(actual.consumedExports).toEqual([]);
   expect(actual.importers).toEqual([]);
