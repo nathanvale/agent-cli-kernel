@@ -1,13 +1,13 @@
-diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
-index 58d1d369..4ede5b19 100644
---- a/config/kernel-repository-rules.mjs
-+++ b/config/kernel-repository-rules.mjs
-@@ -323,7 +323,7 @@ export default {
-             if (node.meta.name === "import") checkGlobal(node, "import.meta");
-           },
-           "Program:exit"() {
--            for (const { references } of context.sourceCode.scopeManager.scopes)
-+            for (const { references } of [{ references: context.sourceCode.scopeManager.globalScope.through }])
-               for (const reference of references)
-                 if (
-                   checkedGlobals.has(reference.identifier.name) &&
+diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
+index 4c7240e6..9cede538 100644
+--- a/config/rooted-file-rules.mjs
++++ b/config/rooted-file-rules.mjs
+@@ -221,7 +221,7 @@ function createFsReachVisitor(context, allowFsMembers) {
+       if (node.meta.name === "import") checkGlobal(node, "import.meta");
+     },
+     "Program:exit"() {
+-      for (const { references } of context.sourceCode.scopeManager.scopes)
++      for (const { references } of [{ references: context.sourceCode.scopeManager.globalScope.through }])
+         checkReferences(references);
+     },
+   };

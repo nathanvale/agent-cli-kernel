@@ -1,0 +1,13 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+index 0bc07752..0c096a05 100644
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -79,8 +79,6 @@ function realpathOptional(path: string): string | undefined {
+ 
+ function withinRoot(root: string, target: string): string | undefined {
+   const rel = relative(root, target);
+-  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))
+-    return undefined;
+   return rel;
+ }
+ 

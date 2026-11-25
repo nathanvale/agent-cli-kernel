@@ -1,0 +1,13 @@
+diff --git a/config/kernel-repository-lint.mjs b/config/kernel-repository-lint.mjs
+index eccedee9..7cf3bafd 100644
+--- a/config/kernel-repository-lint.mjs
++++ b/config/kernel-repository-lint.mjs
+@@ -39,7 +39,7 @@ export default [
+       "kernel/src/addons/state/*.ts",
+       "kernel/src/kernel/state-seam.ts",
+       "kernel/src/shared/rooted-file.ts",
+-      "kernel/src/addons/approval/store.ts",
++      "kernel/src/addons/approval/*.ts",
+       "kernel/src/addons/diagnostics/custody.ts",
+       "kernel/src/addons/diagnostics/io.ts",
+       "kernel/src/addons/diagnostics/run.ts",

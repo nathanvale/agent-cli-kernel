@@ -1,0 +1,13 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+index 0bc07752..fc74f83d 100644
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -167,7 +167,7 @@ function openNoFollow(
+   try {
+     const fd = openSync(
+       targetPath,
+-      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
++      constants.O_RDONLY | constants.O_NONBLOCK,
+     );
+     return { kind: "fd", fd };
+   } catch (error) {
