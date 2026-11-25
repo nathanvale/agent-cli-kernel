@@ -124,6 +124,69 @@ describe("bun run fault-replay", () => {
   );
 
   test(
+    "FR.d2 a patch that leaves a file unparseable is UNPARSED, not KILLED, and exits 1",
+    async () => {
+      const { root, id, killed } = await repositoryWithFault({});
+      commit(root, "plant an unparseable fault", {
+        [killed.patch]: `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,4 +1,5 @@
+ export function limit(value: number): number {
+   if (Number.isNaN(value)) throw new TypeError("limit must be a number");
+   return value;
+ }
++});
+`,
+      });
+      const run = await faultReplay(root, [id]);
+      expect(verdicts(run.lines)).toEqual([`UNPARSED ${id}`]);
+      expect(lineOf(run.lines, "UNPARSED")).toMatch(
+        new RegExp(
+          `^UNPARSED ${id} in [\\d.]+ s\\. src/limit\\.ts failed to parse with ${killed.patch.replaceAll(".", "\\.")} applied, so any test would fail for the wrong reason\\.$`,
+        ),
+      );
+      expect(run.lines).toContain(
+        `Repair: re-plant the fault so the patched file parses. Done when bun run fault-replay ${id} passes.`,
+      );
+      expect(run.exit).toBe(1);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.d3 a patch that fails the test file on load is UNMATCHED, not KILLED, and exits 1",
+    async () => {
+      const { root, id, killed } = await repositoryWithFault({});
+      commit(root, "plant a load-throwing fault", {
+        [killed.patch]: `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,3 +1,4 @@
++throw new Error("module failed to load");
+ export function limit(value: number): number {
+   if (Number.isNaN(value)) throw new TypeError("limit must be a number");
+   return value;
+`,
+      });
+      const run = await faultReplay(root, [id]);
+      expect(verdicts(run.lines)).toEqual([`UNMATCHED ${id}`]);
+      expect(lineOf(run.lines, "UNMATCHED")).toMatch(
+        new RegExp(
+          `^UNMATCHED ${id} in [\\d.]+ s\\. bun test \\./tests/limit\\.test\\.ts -t '\\^L\\\\\\.refuses ' failed, but no failing test matched '\\^L\\\\\\.refuses '\\. Failed: the test file, which did not load\\.$`,
+        ),
+      );
+      expect(run.lines).toContain(
+        `Repair: re-plant the fault so a test matching '^L\\.refuses ' fails, or update the record's title. Done when bun run fault-replay ${id} passes.`,
+      );
+      expect(run.exit).toBe(1);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
     "FR.e an id no fault record has is refused with exit 2 and runs nothing",
     async () => {
       const { root } = await repositoryWithFault({});

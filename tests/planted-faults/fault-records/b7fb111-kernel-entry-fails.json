@@ -1,7 +1,7 @@
 {
   "id": "b7fb111-kernel-entry-fails",
   "patch": "tests/planted-faults/patches/b7fb111-kernel-entry-fails.patch",
-  "testFile": "tests/kernel/verify-skill/ready.test.ts",
-  "title": "^ready ready passes the author skill's example$",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "^kernel faults the check reports a healthy copy of the installed kernel is trusted$",
   "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
 }

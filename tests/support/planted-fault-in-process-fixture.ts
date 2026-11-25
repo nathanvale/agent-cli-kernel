@@ -23,6 +23,27 @@ export const guarded = `export function limit(value: number): number {
 }
 `;
 
+export const unparseablePatch = `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,4 +1,5 @@
+ export function limit(value: number): number {
+   if (Number.isNaN(value)) throw new TypeError("limit must be a number");
+   return value;
+ }
++});
+`;
+
+export const loadThrowingPatch = `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,3 +1,4 @@
++throw new Error("module failed to load");
+ export function limit(value: number): number {
+   if (Number.isNaN(value)) throw new TypeError("limit must be a number");
+   return value;
+`;
+
 export const limitTests = `import { expect, test } from "bun:test";
 import { limit } from "../src/limit.ts";
 

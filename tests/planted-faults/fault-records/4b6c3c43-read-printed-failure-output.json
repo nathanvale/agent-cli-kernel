@@ -1,0 +1,7 @@
+{
+  "id": "4b6c3c43-read-printed-failure-output",
+  "patch": "tests/planted-faults/patches/4b6c3c43-read-printed-failure-output.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-verdicts-in-process.test.ts",
+  "title": "^replay UNMATCHED when a failing load prints a fake failure line matching the title$",
+  "source": "4b6c3c43 fix(fault-replay): read failing test names from the bun junit report"
+}

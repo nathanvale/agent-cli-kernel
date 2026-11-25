@@ -174,7 +174,7 @@ export function addFault(
 
 export function verdicts(lines: readonly string[]): string[] {
   return lines.flatMap((line) =>
-    /^(KILLED|SURVIVED|STALE|BROKEN|TIMEOUT) /.test(line)
+    /^(KILLED|SURVIVED|STALE|UNPARSED|UNMATCHED|BROKEN|TIMEOUT) /.test(line)
       ? [line.split(" ", 2).join(" ")]
       : [],
   );
@@ -307,6 +307,10 @@ export function createPlantedFaultFixture() {
       ),
       "scripts/planted-fault-snapshot.ts": readFileSync(
         join(repository, "scripts/planted-fault-snapshot.ts"),
+        "utf8",
+      ),
+      "scripts/planted-fault-verdict.ts": readFileSync(
+        join(repository, "scripts/planted-fault-verdict.ts"),
         "utf8",
       ),
       "scripts/read-file.ts": readFileSync(

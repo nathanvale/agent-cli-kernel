@@ -1,0 +1,17 @@
+diff --git a/scripts/planted-fault-verdict.ts b/scripts/planted-fault-verdict.ts
+--- a/scripts/planted-fault-verdict.ts
++++ b/scripts/planted-fault-verdict.ts
+@@ -20,11 +20,7 @@ function parseError(path: string, text: string): string | undefined {
+         new Bun.Transpiler({
+           loader: /\.m?ts$/.test(path) ? "ts" : "js",
+         }).transformSync(text);
+       }
+-    : /\.json$/.test(path)
+-      ? () => {
+-          JSON.parse(text);
+-        }
+-      : undefined;
++    : undefined;
+   if (parse === undefined) return undefined;
+   try {
+     parse();

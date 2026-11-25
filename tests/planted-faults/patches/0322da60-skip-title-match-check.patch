@@ -1,0 +1,14 @@
+diff --git a/scripts/planted-fault-verdict.ts b/scripts/planted-fault-verdict.ts
+--- a/scripts/planted-fault-verdict.ts
++++ b/scripts/planted-fault-verdict.ts
+@@ -130,9 +130,7 @@ function matchesTitle(failing: readonly string[], title: string): boolean {
+ export function faultedVerdict(
+   output: string,
+   report: string | undefined,
+   title: string,
+ ): Extract<Verdict, { kind: "KILLED" | "UNMATCHED" }> {
+   const failing = failingTests(report);
+-  if (!matchesTitle(failing, title))
+-    return { kind: "UNMATCHED", failing, output };
+   return { kind: "KILLED", failing };
+ }

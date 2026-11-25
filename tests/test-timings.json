@@ -142,6 +142,7 @@
     "tests/template/fault-replay/planted-fault-replay-all-in-process.test.ts": 709,
     "tests/template/fault-replay/planted-fault-report-in-process.test.ts": 18,
     "tests/template/fault-replay/planted-fault-shards-in-process.test.ts": 52,
+    "tests/template/fault-replay/planted-fault-verdicts-in-process.test.ts": 2438,
     "tests/template/fault-replay/planted-faults-in-process.test.ts": 1839,
     "tests/template/fault-replay/planted-faults.test.ts": 3043,
     "tests/template/file-size/file-size.test.ts": 8645,

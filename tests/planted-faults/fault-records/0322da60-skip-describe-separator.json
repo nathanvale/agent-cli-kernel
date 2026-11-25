@@ -1,0 +1,7 @@
+{
+  "id": "0322da60-skip-describe-separator",
+  "patch": "tests/planted-faults/patches/0322da60-skip-describe-separator.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-verdicts-in-process.test.ts",
+  "title": "^replay KILLED when a nested describe and test name matches the record's title$",
+  "source": "0322da60 fix(fault-replay): require patched files to parse and failing test to match title"
+}

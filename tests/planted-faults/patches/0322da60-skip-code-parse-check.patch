@@ -1,0 +1,20 @@
+diff --git a/scripts/planted-fault-verdict.ts b/scripts/planted-fault-verdict.ts
+--- a/scripts/planted-fault-verdict.ts
++++ b/scripts/planted-fault-verdict.ts
+@@ -14,15 +14,11 @@ function failingTests(output: string): string[] {
+ }
+ 
+ function parseError(path: string, text: string): string | undefined {
+-  const parse = /\.(?:m?ts|m?js)$/.test(path)
+-    ? () => {
+-        new Bun.Transpiler({
+-          loader: /\.m?ts$/.test(path) ? "ts" : "js",
+-        }).transformSync(text);
+-      }
+-    : /\.json$/.test(path)
++  const parse = /\.json$/.test(path)
+       ? () => {
+           JSON.parse(text);
+         }
+       : undefined;
+   if (parse === undefined) return undefined;

@@ -12,15 +12,18 @@ import {
   guarded,
   headOf,
   limitTests,
+  loadThrowingPatch,
   type Planted,
   recorded,
   rejection,
   sample,
   stepVariable,
   unguarded,
+  unparseablePatch,
 } from "../../support/planted-fault-in-process-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
 import { commit, gitOutput, worktrees } from "../../support/git-fixture.ts";
+import { processWatchdog } from "../../support/process.ts";
 
 const { isolated, planted, repository } = createPlantedFaultFixture();
 
@@ -233,4 +236,52 @@ describe("replayAll", () => {
     expect(gitOutput(subject.root, "status", "--porcelain")).toBe("");
     expect(gitOutput(subject.root, "count-objects")).toBe(objects);
   }, 60_000);
+
+  test(
+    "reports UNPARSED with the repair line and exits 1",
+    async () => {
+      const subject = planted();
+      write(subject.root, subject.fault.patch, unparseablePatch);
+      recorded(subject.root, [subject.fault]);
+
+      const run = await replayedAll(subject.root, [], { [stepVariable]: "20" });
+
+      expect(run.result).toBe(1);
+      expect(run.stdout).toMatch(
+        new RegExp(
+          `^UNPARSED ${subject.id} in [\\d.]+ s\\. src/limit\\.ts failed to parse with ${subject.fault.patch.replaceAll(".", "\\.")} applied, so any test would fail for the wrong reason\\.`,
+        ),
+      );
+      expect(run.stdout).toContain(
+        `Repair: re-plant the fault so the patched file parses. Done when bun run fault-replay ${subject.id} passes.`,
+      );
+      expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
+      expect(run.leftovers).toEqual([]);
+    },
+    processWatchdog(12),
+  );
+
+  test(
+    "reports UNMATCHED with the repair line and exits 1",
+    async () => {
+      const subject = planted();
+      write(subject.root, subject.fault.patch, loadThrowingPatch);
+      recorded(subject.root, [subject.fault]);
+
+      const run = await replayedAll(subject.root, [], { [stepVariable]: "20" });
+
+      expect(run.result).toBe(1);
+      expect(run.stdout).toMatch(
+        new RegExp(
+          `^UNMATCHED ${subject.id} in [\\d.]+ s\\. bun test \\./tests/limit\\.test\\.ts -t '\\^L\\\\\\.refuses ' failed, but no failing test matched '\\^L\\\\\\.refuses '\\. Failed: the test file, which did not load\\.`,
+        ),
+      );
+      expect(run.stdout).toContain(
+        `Repair: re-plant the fault so a test matching '^L\\.refuses ' fails, or update the record's title. Done when bun run fault-replay ${subject.id} passes.`,
+      );
+      expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
+      expect(run.leftovers).toEqual([]);
+    },
+    processWatchdog(12),
+  );
 });

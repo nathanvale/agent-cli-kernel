@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-fault-verdict.ts b/scripts/planted-fault-verdict.ts
+--- a/scripts/planted-fault-verdict.ts
++++ b/scripts/planted-fault-verdict.ts
+@@ -51,7 +51,7 @@ export function unparsedFiles(
+ 
+ function matchesTitle(failing: readonly string[], title: string): boolean {
+   const pattern = new RegExp(title);
+-  return failing.some((name) => pattern.test(name.replaceAll(" > ", " ")));
++  return failing.some((name) => pattern.test(name));
+ }
+ 
+ export function faultedVerdict(
