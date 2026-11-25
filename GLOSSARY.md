@@ -227,6 +227,15 @@ The optional diagnostics capability. `DiagnosticsAddon` is its public type;
 `freeze` operation. `StatusAddon` and `StatusAttached` remain exported as
 deprecated aliases of those types under accepted decision N11.
 
+**Rooted file**:
+A path a kernel tool derives under a folder root, opened through
+`kernel/src/shared/rooted-file.ts` after resolving the root's real path,
+walking every folder level with `lstat` to refuse linked folders, opening
+the last part with `O_NOFOLLOW`, requiring a regular file with link count 1,
+and rechecking `dev`/`ino` and parent realpath after open. Every refusal is
+a `RootedRefusal` whose message ends with a `Repair:` line.
+_Avoid_: safe path, guard (unqualified), helper (for a rooted-file module)
+
 ### Verifying a CLI
 
 **verify-cli**:

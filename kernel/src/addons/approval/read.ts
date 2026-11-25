@@ -1,6 +1,4 @@
-import { constants } from "node:fs";
-import { open } from "node:fs/promises";
-import type { FileHandle } from "node:fs/promises";
+import { readRootedFile } from "../../shared/rooted-file.ts";
 import { ApprovalRejection } from "./rejection.ts";
 
 export type RecordFacts = {
@@ -23,62 +21,21 @@ export function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-function isAbsentOrSymlinkOpenError(code: string | undefined): boolean {
-  return code === "ENOENT" || code === "ELOOP" || code === "EMLINK";
-}
-
-export async function readUntrusted(
+export function readUntrusted(
+  root: string,
   path: string,
-): Promise<
-  { readonly value: unknown; readonly facts: RecordFacts } | undefined
-> {
-  let handle: FileHandle;
+): { readonly value: unknown; readonly facts: RecordFacts } | undefined {
+  let result;
   try {
-    handle = await open(
-      path,
-      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-    );
-  } catch (error) {
-    if (isAbsentOrSymlinkOpenError(errorCode(error))) return undefined;
-    throw new ApprovalRejection("store-unavailable", error);
-  }
-  try {
-    const read = await boundedBytes(handle, path);
-    const value = read && decode(read.bytes);
-    return read && value
-      ? { value: value.parsed, facts: read.facts }
-      : undefined;
-  } finally {
-    await handle.close();
-  }
-}
-
-async function boundedBytes(handle: FileHandle, path: string) {
-  let length = 0;
-  const buffer = new Uint8Array(limitBytes + 1);
-  try {
-    const status = await handle.stat();
-    if (!status.isFile() || status.nlink !== 1 || status.size > limitBytes)
-      return undefined;
-    for (;;) {
-      const { bytesRead } = await handle.read(
-        buffer,
-        length,
-        buffer.length - length,
-        null,
-      );
-      if (bytesRead === 0) break;
-      length += bytesRead;
-      if (length > limitBytes) return undefined;
-    }
-    const { uid, gid, mode, dev, ino } = status;
-    return {
-      bytes: buffer.subarray(0, length),
-      facts: { path, uid, gid, mode, dev, ino },
-    };
+    result = readRootedFile(root, path, limitBytes);
   } catch (error) {
     throw new ApprovalRejection("store-unavailable", error);
   }
+  if (result.kind !== "read") return undefined;
+  const value = decode(result.bytes);
+  if (!value) return undefined;
+  const { uid, gid, mode, dev, ino } = result.facts;
+  return { value: value.parsed, facts: { path, uid, gid, mode, dev, ino } };
 }
 
 function decode(bytes: Uint8Array): { readonly parsed: unknown } | undefined {

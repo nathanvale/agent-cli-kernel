@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { ESLint } from "eslint";
 import ts from "typescript";
+import { qualifiedSourceFiles } from "./state/capability-qualification-record.ts";
 
 const root = resolve(import.meta.dir, "../..");
 const eslint = new ESLint({ cwd: root });
@@ -2150,3 +2151,196 @@ for (const [group, cases] of [
         expected.map(([line, message]) => [line, message]),
       );
     });
+
+const rootedFile = "kernel/src/addons/menu/index.ts";
+const rootedFsImport = (line: number, specifier: string) =>
+  [
+    line,
+    `Files in kernel/src outside the rooted-file owners must not import filesystem module ${JSON.stringify(specifier)} whole. Repair: read paths through readRootedFile from kernel/src/shared/rooted-file.ts, or import only allowed non-opening fs members by name.`,
+  ] as const;
+const rootedFsMember = (line: number, member: string, specifier: string) =>
+  [
+    line,
+    `Files in kernel/src outside the rooted-file owners must not import ${member} from ${JSON.stringify(specifier)}: only fs members that open no path are allowed here. Repair: read paths through readRootedFile from kernel/src/shared/rooted-file.ts.`,
+  ] as const;
+const rootedDynamicImport = (line: number) =>
+  [
+    line,
+    "Files in kernel/src outside the rooted-file owners must not use a non-static dynamic import that could load a filesystem module. Repair: use a static import of a non-filesystem module, or read paths through readRootedFile from kernel/src/shared/rooted-file.ts.",
+  ] as const;
+const rootedBunReach = (line: number, member: string) =>
+  [
+    line,
+    `Files in kernel/src outside the rooted-file owners must not use Bun.${member}: only Bun members that touch no path are allowed here. Repair: read paths through readRootedFile from kernel/src/shared/rooted-file.ts.`,
+  ] as const;
+const rootedLoader = (line: number) =>
+  [
+    line,
+    'Files in kernel/src outside the rooted-file owners may load a module only by a static import, or by calling require, import.meta.require or process.getBuiltinModule directly with a string, and may use process and import.meta only as process.<member> and import.meta.<member>. An alias, a computed key, createRequire, module, or a whole import of "node:module" or "node:process" hides which module is loaded. Repair: write a static import.',
+  ] as const;
+
+const pathsUseRootedFileCases = [
+  [
+    rootedFile,
+    'import { readFileSync } from "node:fs"; export const a = readFileSync;',
+    [rootedFsMember(1, "readFileSync", "node:fs")],
+  ],
+  [
+    rootedFile,
+    'import { open } from "node:fs/promises"; export const a = open;',
+    [rootedFsMember(1, "open", "node:fs/promises")],
+  ],
+  [
+    rootedFile,
+    'import { openSync as o } from "fs"; export const a = o;',
+    [rootedFsMember(1, "openSync", "fs")],
+  ],
+  [
+    rootedFile,
+    'export { readFile } from "node:fs/promises";',
+    [rootedFsMember(1, "readFile", "node:fs/promises")],
+  ],
+  [rootedFile, 'export * from "node:fs";', [rootedFsImport(1, "node:fs")]],
+  [
+    rootedFile,
+    'import * as fs from "node:fs"; export const a = fs;',
+    [rootedFsImport(1, "node:fs")],
+  ],
+  [
+    rootedFile,
+    'import fs from "fs"; export const a = fs;',
+    [rootedFsImport(1, "fs")],
+  ],
+  [rootedFile, 'import "node:fs";', [rootedFsImport(1, "node:fs")]],
+  [
+    rootedFile,
+    'import fs = require("node:fs"); export const a = fs;',
+    [rootedFsImport(1, "node:fs")],
+  ],
+  [
+    rootedFile,
+    'export const a = () => import("node:fs");',
+    [rootedFsImport(1, "node:fs")],
+  ],
+  [
+    rootedFile,
+    "export const a = (name: string) => import(name);",
+    [rootedDynamicImport(1)],
+  ],
+  [
+    rootedFile,
+    'export const a = require("node:fs/promises");',
+    [rootedFsImport(1, "node:fs/promises")],
+  ],
+  [
+    rootedFile,
+    'export const a = import.meta.require("fs");',
+    [rootedFsImport(1, "fs")],
+  ],
+  [
+    rootedFile,
+    'import { createRequire } from "node:module"; export const a = createRequire;',
+    [rootedLoader(1)],
+  ],
+  [
+    rootedFile,
+    'export const a = () => process.getBuiltinModule("node:fs");',
+    [rootedFsImport(1, "node:fs")],
+  ],
+  [
+    rootedFile,
+    'export const a = () => Bun.file("x");',
+    [rootedBunReach(1, "file")],
+  ],
+  [
+    rootedFile,
+    'export const a = () => globalThis.Bun.write("x", "y");',
+    [rootedBunReach(1, "write")],
+  ],
+  [
+    rootedFile,
+    'import { file } from "bun"; export const a = file;',
+    [rootedBunReach(1, "file")],
+  ],
+  [
+    rootedFile,
+    'import type { Stats } from "node:fs"; export type A = Stats;',
+    [],
+  ],
+  [
+    rootedFile,
+    'import { type FileHandle } from "node:fs/promises"; export type A = FileHandle;',
+    [],
+  ],
+  [
+    rootedFile,
+    'import { constants, lstatSync, fstatSync, realpathSync, accessSync, closeSync, fsyncSync } from "node:fs"; export const a = [constants, lstatSync, fstatSync, realpathSync, accessSync, closeSync, fsyncSync];',
+    [],
+  ],
+  [
+    rootedFile,
+    'import { access, fstat, lstat, realpath } from "node:fs/promises"; export const a = [access, fstat, lstat, realpath];',
+    [],
+  ],
+  [rootedFile, "export const a = Bun.version;", []],
+  [
+    "kernel/src/shared/rooted-file.ts",
+    'import { openSync } from "node:fs"; export const a = openSync;',
+    [],
+  ],
+  [
+    "kernel/src/addons/state/store.ts",
+    'import { openSync } from "node:fs"; export const a = openSync;',
+    [],
+  ],
+] as const;
+
+for (const [filePath, code, expected] of pathsUseRootedFileCases)
+  test(`paths-use-rooted-file ${expected.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
+    const found = (await messages(filePath, code)).filter(
+      ({ ruleId }) => ruleId === "repository/paths-use-rooted-file",
+    );
+    expect(found.map(({ line, message }) => [line, message])).toEqual(
+      expected.map(([line, message]) => [line, message]),
+    );
+  });
+
+test("paths-use-rooted-file scope ignores only the qualified source files and the pinned C1 owners", async () => {
+  const sourceFiles = [
+    ...new Bun.Glob("**/*.ts").scanSync(join(root, "kernel/src")),
+  ].sort();
+  const excluded: string[] = [];
+  for (const rel of sourceFiles) {
+    const configured: unknown = await eslint.calculateConfigForFile(
+      join("kernel/src", rel),
+    );
+    const rules: unknown =
+      typeof configured === "object" && configured !== null
+        ? Reflect.get(configured, "rules")
+        : undefined;
+    const setting: unknown =
+      typeof rules === "object" && rules !== null
+        ? Reflect.get(rules, "repository/paths-use-rooted-file")
+        : undefined;
+    const active =
+      setting === "error" ||
+      setting === 2 ||
+      (Array.isArray(setting) && (setting[0] === "error" || setting[0] === 2));
+    if (!active) excluded.push(rel);
+  }
+  const qualified = [
+    ...qualifiedSourceFiles(root).map(({ path }) => path),
+    "addons/state/capability-qualification-table.ts",
+  ];
+  const pinnedOwners = [
+    "addons/approval/store.ts",
+    "addons/diagnostics/custody.ts",
+    "addons/diagnostics/io.ts",
+    "addons/diagnostics/run.ts",
+    "kernel/process-host.ts",
+    "shared/rooted-file.ts",
+  ];
+  expect(excluded.sort()).toEqual(
+    [...new Set([...qualified, ...pinnedOwners])].sort(),
+  );
+});

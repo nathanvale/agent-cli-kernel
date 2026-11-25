@@ -33,6 +33,24 @@ export default [
     },
   },
   {
+    files: ["kernel/src/**/*.{ts,mts,cts}"],
+    ignores: [
+      "kernel/src/addons/programs/*.ts",
+      "kernel/src/addons/state/*.ts",
+      "kernel/src/kernel/state-seam.ts",
+      "kernel/src/shared/rooted-file.ts",
+      "kernel/src/addons/approval/store.ts",
+      "kernel/src/addons/diagnostics/custody.ts",
+      "kernel/src/addons/diagnostics/io.ts",
+      "kernel/src/addons/diagnostics/run.ts",
+      "kernel/src/kernel/process-host.ts",
+    ],
+    plugins: { repository },
+    rules: {
+      "repository/paths-use-rooted-file": "error",
+    },
+  },
+  {
     files: ["tests/kernel/**/*.{ts,mts,cts}"],
     plugins: { repository },
     rules: {

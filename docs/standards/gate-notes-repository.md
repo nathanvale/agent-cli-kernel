@@ -63,6 +63,10 @@ What the gates of the repository rows refuse and where, what stays with the revi
 
 ## Paths and outputs
 
+- Lint `repository/paths-use-rooted-file` refuses direct filesystem opens and
+  `Bun` file access across `kernel/src/` outside the qualified source and the
+  pinned rooted-file owners, routing derived-path reads through
+  `readRootedFile` in `kernel/src/shared/rooted-file.ts`.
 - Four planted faults cover physical path resolution and output hashing in
   `skills/verify-cli/`:
   - `480dec5-work-tree-walk-lexical` and `02311f4-run-walk-from-alias-parent`
