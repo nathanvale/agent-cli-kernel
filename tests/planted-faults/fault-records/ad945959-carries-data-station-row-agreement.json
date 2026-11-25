@@ -1,0 +1,7 @@
+{
+  "id": "ad945959-carries-data-station-row-agreement",
+  "patch": "tests/planted-faults/patches/ad945959-carries-data-station-row-agreement.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^contractFor refuses a station whose row disagrees with the CLI cause owner on carriesData$",
+  "source": "ad945959 fix(kernel): forbid carriesData on non-opt-in CauseRow arms and add strict-station Repair text"
+}

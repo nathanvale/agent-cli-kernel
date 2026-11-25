@@ -1,0 +1,7 @@
+{
+  "id": "ad945959-carries-data-common-row-agreement",
+  "patch": "tests/planted-faults/patches/ad945959-carries-data-common-row-agreement.patch",
+  "testFile": "tests/kernel/stations.test.ts",
+  "title": "^contractFor refuses replacing a common cause row with carriesData$",
+  "source": "ad945959 fix(kernel): forbid carriesData on non-opt-in CauseRow arms and add strict-station Repair text"
+}

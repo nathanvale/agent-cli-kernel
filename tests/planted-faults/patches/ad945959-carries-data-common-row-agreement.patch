@@ -1,0 +1,16 @@
+--- a/kernel/src/kernel/declaration-checks.ts
++++ b/kernel/src/kernel/declaration-checks.ts
+@@ -48,7 +48,12 @@ export function validateCauses(causes: CauseTable): void {
+   }
+   for (const [code, expected] of Object.entries(commonCauses)) {
+     const actual = causes[code];
+-    if (!actual || !sameCauseRow(actual, expected))
++    if (
++      !actual ||
++      !Object.entries(expected).every(
++        ([key, value]) => Reflect.get(actual, key) === value,
++      )
++    )
+       throw new Error("Common cause rows cannot be replaced.");
+   }
+ }
