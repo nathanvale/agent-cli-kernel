@@ -192,8 +192,22 @@ export function contractFor<
     runFacts: Readonly<Record<string, unknown>>,
     message: unknown,
   ) {
-    const { guidance: arm, ...row } = station.row;
+    const { guidance: arm, ...rest } = station.row;
     void arm;
+    const carriesData = Reflect.get(rest, "carriesData") === true;
+    if (
+      station.row.outcome !== "success" &&
+      !carriesData &&
+      runFacts.data !== null
+    )
+      return {
+        ok: false,
+        path: "facts.data",
+        reason: "non-null data requires a success row or carriesData: true",
+      } as const;
+    const row = Object.fromEntries(
+      Object.entries(rest).filter(([key]) => key !== "carriesData"),
+    );
     const result = {
       ...runFacts,
       ...row,
