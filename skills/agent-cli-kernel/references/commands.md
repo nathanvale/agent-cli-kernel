@@ -134,6 +134,12 @@ const noInput = {
 - A long option takes its value as the next word (`--at-least 2`) or after `=`
   (`--at-least=2`). A boolean flag refuses a value, and a one-dash alias takes
   its value as the next word only.
+- The kernel reads its own switches (`--json`, `--help`, `--discover`,
+  `--discover-all`, `--discover-command` and `--deadline-ms`) before a
+  command's options, in either spelling. Pass a value starting with one as
+  `--name=value` or after `--`: `--name=--help=x` gives `--name` the value
+  `--help=x`, while `--name --help=x` is read as `--help` with a value and
+  refused.
 - `constraints` relate slots by name:
   `{ kind: "requires", ifPresent, thenPresent }` or
   `{ kind: "exclusive", members }`.

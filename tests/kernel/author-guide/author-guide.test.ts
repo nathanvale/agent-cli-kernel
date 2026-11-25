@@ -1239,6 +1239,76 @@ describe("kernel behaviour the author skill states in words", () => {
     );
   });
 
+  test("commands.md: kernel switches take precedence over option values, so --name=--help=x passes the value while --name --help=x is refused", async () => {
+    const show = kernel.command({
+      identity: "guide.show",
+      route: ["show"],
+      summary: "Show.",
+      input: {
+        ...emptyInput,
+        arguments: [
+          {
+            name: "item",
+            summary: "Item.",
+            required: false,
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 32,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
+        options: [
+          {
+            name: "--name",
+            aliases: [],
+            summary: "Name.",
+            required: false,
+            repeatable: false,
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 32,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
+      },
+      capabilities: {},
+      run: (input, context) =>
+        context.result(
+          { commandIdentity: "guide.show", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Shown.",
+            data: {
+              name: input["--name"] ?? null,
+              item: input.item ?? null,
+            },
+            effects: unchanged,
+          },
+        ),
+    });
+    const run = kernel.runInProcess(
+      kernel.contractFor({ cli: "guide", commands: [show] }),
+    );
+    expect(await run(["show", "--name=--help=x"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: { name: "--help=x", item: null } } },
+    });
+    expect(await run(["show", "--name", "--help=x"])).toMatchObject(
+      usageRefusal("The option --help takes no value."),
+    );
+    expect(await run(["show", "--", "--help=x"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: { name: null, item: "--help=x" } } },
+    });
+  });
+
   test("menu.md: a menu command requires notInteractiveCause, refuses before handler entry when not interactive, and picks or cancels with scriptedTerminal", async () => {
     const causes = {
       ...kernel.commonCauses,
