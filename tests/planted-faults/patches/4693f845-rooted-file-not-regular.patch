@@ -1,0 +1,16 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -198,12 +198,6 @@ function checkDescriptor(
+   limitBytes: number,
+ ): { readonly kind: "ok"; readonly status: OpenedStats } | RootedRefusal {
+   const status = fstatSync(fd);
+-  if (!status.isFile())
+-    return refusal(
+-      originalPath,
+-      "not-regular",
+-      `${originalPath} is not a regular file. Repair: replace it with a regular file inside ${realRoot}.`,
+-    );
+   if (status.nlink !== 1)
+     return refusal(
+       originalPath,

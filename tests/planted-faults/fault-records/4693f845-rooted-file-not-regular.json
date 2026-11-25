@@ -1,0 +1,7 @@
+{
+  "id": "4693f845-rooted-file-not-regular",
+  "patch": "tests/planted-faults/patches/4693f845-rooted-file-not-regular.patch",
+  "testFile": "tests/kernel/rooted-file.test.ts",
+  "title": "^readRootedFile refuses directories and FIFOs as not-regular with full Repair messages$",
+  "source": "4693f845 fix(rooted-file): resolve the root through its links before lexical normalisation"
+}

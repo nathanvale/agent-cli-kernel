@@ -1,0 +1,16 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -240,12 +240,6 @@ function recheckOpened(
+     );
+   const currentParent = realpathOptional(parentPath);
+   if (currentParent === undefined) return { kind: "missing" };
+-  if (currentParent !== parentPath)
+-    return refusal(
+-      originalPath,
+-      "linked-folder",
+-      `${originalPath} parent folder ${parentPath} changed to a symbolic link. Repair: replace the symbolic link with a real folder inside ${realRoot}.`,
+-    );
+   return { kind: "ok" };
+ }
+ 

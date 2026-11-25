@@ -1,48 +1,31 @@
-diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
-index a8eca84c..d1364144 100644
---- a/config/kernel-repository-rules.mjs
-+++ b/config/kernel-repository-rules.mjs
-@@ -212,12 +212,10 @@ const isTypePosition = ({ isValueReference, identifier }) => {
- };
- const isTypeOnly = (node) =>
-   node.importKind === "type" || node.exportKind === "type";
--const specifierName = ({ type, imported, local }) => {
--  if (type === "ImportDefaultSpecifier" || type === "ImportNamespaceSpecifier")
--    return undefined;
--  const name = (imported ?? local).name ?? (imported ?? local).value;
+diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
+index 955274c7..c82478ae 100644
+--- a/config/rooted-file-rules.mjs
++++ b/config/rooted-file-rules.mjs
+@@ -76,14 +76,13 @@ const identifierText = (node) => node.name ?? node.value;
+ const specifierName = ({ type, imported, local }) => {
+   if (isWholeSpecifier(type)) return undefined;
+   const name = identifierText(imported ?? local);
 -  return name === "default" ? undefined : name;
--};
-+const specifierName = ({ type, imported, local }) =>
-+  type === "ImportDefaultSpecifier" || type === "ImportNamespaceSpecifier"
-+    ? undefined
-+    : ((imported ?? local).name ?? (imported ?? local).value);
++  return name;
+ };
+ const isUnboundValueReference = (reference) =>
+   checkedGlobals.has(reference.identifier.name) &&
+   !reference.init &&
+   !isTypePosition(reference);
+-const isLoaderSpecifier = (value, name, loaderHolders) =>
+-  moduleOnlyLoader.has(value) ||
++const isLoaderSpecifier = (_value, name, loaderHolders) =>
+   name === undefined ||
+   loaderNames.has(name) ||
+   loaderHolders.has(name);
+@@ -140,8 +139,7 @@ function createGlobalChecker(report, checkLoad, loaderHolders) {
+   return checkGlobal;
+ }
  
- export default {
-   rules: {
-@@ -275,11 +273,7 @@ export default {
-         };
-         const checkSpecifiers = (node, each) => {
-           if (isTypeOnly(node)) return;
--          if (
--            node.type === "ExportAllDeclaration" ||
--            node.specifiers.length === 0
--          )
--            return each(node);
-+          if (node.type === "ExportAllDeclaration") return each(node);
-           for (const specifier of node.specifiers)
-             if (!isTypeOnly(specifier))
-               each(specifier, specifierName(specifier));
-@@ -296,12 +290,7 @@ export default {
-             );
-           else if (loaderModules.has(value))
-             checkSpecifiers(node, (specifier, name) => {
--              if (
--                value === "module" ||
--                value === "node:module" ||
--                name === undefined ||
--                loaderNames.has(name)
--              )
-+              if (name === undefined || loaderNames.has(name))
-                 report(specifier, "loaderReach");
-             });
-           else if (isFsSpecifier(value)) judgeLoad(node, value);
+-const isWholeExport = (node) =>
+-  node.type === "ExportAllDeclaration" || node.specifiers.length === 0;
++const isWholeExport = (node) => node.type === "ExportAllDeclaration";
+ 
+ function visitNamedSpecifiers(specifiers, each) {
+   for (const specifier of specifiers)

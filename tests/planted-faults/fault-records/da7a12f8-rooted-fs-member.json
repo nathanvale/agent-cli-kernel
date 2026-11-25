@@ -1,0 +1,7 @@
+{
+  "id": "da7a12f8-rooted-fs-member",
+  "patch": "tests/planted-faults/patches/da7a12f8-rooted-fs-member.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^paths-use-rooted-file refuses \"import \\{ readFileSync \\} from ",
+  "source": "da7a12f8 feat(kernel): read files inside a root without following any link, and refuse raw file access in kernel source"
+}

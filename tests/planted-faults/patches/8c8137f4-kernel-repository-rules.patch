@@ -1,21 +1,21 @@
-diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
-index 58d1d369..e281fd43 100644
---- a/config/kernel-repository-rules.mjs
-+++ b/config/kernel-repository-rules.mjs
-@@ -241,7 +241,6 @@ export default {
-           context.report({ node, messageId, data: { member } });
-         const judgeLoad = (node, value) => {
-           if (value === undefined) report(node, "dynamicImport");
--          else if (value === "bun") report(node, "dynamicBunReach");
-           else if (loaderModules.has(value)) report(node, "loaderReach");
-           else if (isFsSpecifier(value))
-             context.report({
-@@ -281,7 +280,7 @@ export default {
-         const checkSource = (node, source) => {
-           if (!source) return;
-           const value = staticString(context, source);
--          if (value === "bun")
-+          if (value === "")
-             checkSpecifiers(node, (specifier, name) =>
-               name === undefined
-                 ? report(specifier, "dynamicBunReach")
+diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
+index 4c7240e6..5559473e 100644
+--- a/config/rooted-file-rules.mjs
++++ b/config/rooted-file-rules.mjs
+@@ -93,7 +93,6 @@ function createLoadJudges(context) {
+   };
+   const judgeLoad = (node, value) => {
+     if (value === undefined) return report(node, "dynamicImport");
+-    if (value === "bun") return report(node, "dynamicBunReach");
+     judgeKnownLoad(node, value);
+   };
+   const checkLoad = (node) => {
+@@ -170,7 +169,7 @@ function createSourceChecker(context, allowFsMembers, report, judgeLoad) {
+     walkSpecifiers(node, checkFsSpecifier(value));
+   };
+   const checkSourceValue = (node, value) => {
+-    if (value === "bun") return walkSpecifiers(node, checkBunSpecifier);
++    if (value === "") return walkSpecifiers(node, checkBunSpecifier);
+     if (loaderModules.has(value))
+       return walkSpecifiers(node, (specifier, name) => {
+         if (isLoaderSpecifier(value, name)) report(specifier, "loaderReach");

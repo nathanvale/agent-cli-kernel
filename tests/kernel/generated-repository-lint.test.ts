@@ -60,9 +60,10 @@ async function hostTree(
 ): Promise<string> {
   const tree = testFolder("kernel-generated-repository-lint-");
   trees.push(tree);
-  await cp(join(kernelSource, "src/kernel"), join(tree, "src/kernel"), {
-    recursive: true,
-  });
+  for (const part of ["kernel", "shared"])
+    await cp(join(kernelSource, "src", part), join(tree, "src", part), {
+      recursive: true,
+    });
   for (const name of folders)
     await cp(
       join(kernelSource, "src/addons", name),

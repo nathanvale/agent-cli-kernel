@@ -108,9 +108,10 @@ export function approval(options: {
 } {
   const consumedDirectory = absolute(options.store.consumed);
   const now = options.now ?? Date.now;
-  async function currentGrant(request: ApprovalRequest) {
+  function currentGrant(request: ApprovalRequest) {
     if (typeof request.preview !== "string") return undefined;
-    const opened = await readUntrusted(
+    const opened = readUntrusted(
+      absolute(options.store.grants),
       grantLocation(options.store, request.preview),
     );
     const grant = opened && parseGrant(opened.value);
@@ -119,7 +120,7 @@ export function approval(options: {
       : undefined;
   }
   async function check(request: ApprovalRequest) {
-    const marker = await currentGrant(request);
+    const marker = currentGrant(request);
     return marker !== undefined && !(await isConsumed(marker));
   }
   const runtime = (state: StateAddonDescriptor): ApprovalRuntime =>
@@ -131,7 +132,7 @@ export function approval(options: {
       ) {
         const consumed = await consumeHeld(
           () => held(coordination, options.runId, request.resource, state),
-          () => currentGrant(request),
+          () => Promise.resolve(currentGrant(request)),
           () => consumption("approval", options.runId, now()),
         );
         return { consumed };
@@ -294,7 +295,10 @@ function slot<Item extends { readonly scope: string }>(
   async function current(item: Item): Promise<string | AuthorityVerdict> {
     const source = options.source;
     if (!source || !(await source.separated())) return unavailable();
-    const opened = await readUntrusted(recordPath(source, key(item)));
+    const opened = readUntrusted(
+      absolute(source.directory),
+      recordPath(source, key(item)),
+    );
     if (!opened) return refused;
     if (!(await source.separated(opened.facts))) return unavailable();
     return matches(opened.value, item, options.now())

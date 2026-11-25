@@ -1,28 +1,22 @@
-diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
-index 58d1d369..3157dfe9 100644
---- a/config/kernel-repository-rules.mjs
-+++ b/config/kernel-repository-rules.mjs
-@@ -265,11 +265,11 @@ export default {
-           } else if (globalHolders.has(name)) {
-             if (member === undefined) report(node, "dynamicBunReach");
-             else checkGlobal(node.parent, member);
--          } else if (name === "process" || name === "import.meta") {
-+          } else if (name === "") {
-             if (member === undefined) report(node, "loaderReach");
-             else if (loaderNames.has(member)) checkLoad(node.parent);
--          } else if (name === "require") checkLoad(node);
--          else if (name === "module") report(node, "loaderReach");
-+          } else if (name === "") checkLoad(node);
-+          else if (name === "") report(node, "loaderReach");
-         };
-         const checkSpecifiers = (node, each) => {
-           if (isTypeOnly(node)) return;
-@@ -288,7 +288,7 @@ export default {
-                 : allowedBunMembers.has(name) ||
-                   report(specifier, "bunReach", name),
-             );
--          else if (loaderModules.has(value))
-+          else if (value === "")
-             checkSpecifiers(node, (specifier, name) => {
-               if (name === undefined || loaderNames.has(name))
-                 report(specifier, "loaderReach");
+diff --git a/config/rooted-file-rules.mjs b/config/rooted-file-rules.mjs
+index 4c7240e6..e6815112 100644
+--- a/config/rooted-file-rules.mjs
++++ b/config/rooted-file-rules.mjs
+@@ -87,7 +87,7 @@ function createLoadJudges(context) {
+   const report = (node, messageId, data) =>
+     context.report({ node, messageId, data });
+   const judgeKnownLoad = (node, value) => {
+-    if (loaderModules.has(value)) return report(node, "loaderReach");
++    if (value === "") return report(node, "loaderReach");
+     if (isFsSpecifier(value))
+       report(node, "fsImport", { specifier: JSON.stringify(value) });
+   };
+@@ -129,7 +129,7 @@ function createGlobalChecker(report, checkLoad) {
+     const member = staticMemberName(node);
+     if (name === "Bun") return checkBunGlobal(node, member);
+     if (globalHolders.has(name)) return checkGlobalHolder(node, member);
+-    if (Object.hasOwn(directGlobals, name)) directGlobals[name](node, member);
++    if (name === "") directGlobals[name](node, member);
+   };
+   return checkGlobal;
+ }

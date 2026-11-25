@@ -61,14 +61,10 @@ export async function materialise(): Promise<string> {
   const tests = join(root, "tests/kernel/kernel-repair");
   await mkdir(join(source, "addons/state"), { recursive: true });
   await mkdir(tests, { recursive: true });
-  await cp(join(repository, "kernel/src/kernel"), join(source, "kernel"), {
-    recursive: true,
-  });
-  await cp(
-    join(repository, "kernel/src/addons/approval"),
-    join(source, "addons/approval"),
-    { recursive: true },
-  );
+  for (const part of ["kernel", "shared", "addons/approval"])
+    await cp(join(repository, "kernel/src", part), join(source, part), {
+      recursive: true,
+    });
   for (const name of stateModules)
     await writeFile(
       join(source, `addons/state/${name}.ts`),

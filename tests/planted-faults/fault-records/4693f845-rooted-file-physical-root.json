@@ -1,0 +1,7 @@
+{
+  "id": "4693f845-rooted-file-physical-root",
+  "patch": "tests/planted-faults/patches/4693f845-rooted-file-physical-root.patch",
+  "testFile": "tests/kernel/rooted-file.test.ts",
+  "title": "^readRootedFile resolves a root containing a symbolic link followed by \\.\\. to its physical folder$",
+  "source": "4693f845 fix(rooted-file): resolve the root through its links before lexical normalisation"
+}
