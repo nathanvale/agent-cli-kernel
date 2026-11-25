@@ -131,8 +131,9 @@ const noInput = {
 - `run` receives the parsed input keyed by declared name: `input.planet`,
   `input["--at-least"]`. A slot with `required: false` may be `undefined`. A
   flag is `true` when given. A repeatable option is an array.
-- An option takes its value as the next word: `--at-least 2`. The kernel
-  refuses `--at-least=2`.
+- A long option takes its value as the next word (`--at-least 2`) or after `=`
+  (`--at-least=2`). A boolean flag refuses a value, and a one-dash alias takes
+  its value as the next word only.
 - `constraints` relate slots by name:
   `{ kind: "requires", ifPresent, thenPresent }` or
   `{ kind: "exclusive", members }`.

@@ -1107,7 +1107,7 @@ describe("kernel behaviour the author skill states in words", () => {
       await kernel.runInProcess(readContract())(["read", "--wat"]),
     ).toMatchObject(
       usageRefusal(
-        "The invocation uses an option this command does not declare.",
+        "The invocation uses --wat, an option this command does not declare.",
       ),
     );
     const show = kernel.command({
@@ -1151,7 +1151,7 @@ describe("kernel behaviour the author skill states in words", () => {
     );
   });
 
-  test("commands.md: an option's value is the next word, and the same value after an equals sign is refused as an undeclared option", async () => {
+  test("commands.md: a long option accepts both space and equals forms, a boolean flag refuses a value, and a one-dash alias takes its value as the next word only", async () => {
     const count = kernel.command({
       identity: "guide.count",
       route: ["count"],
@@ -1161,11 +1161,19 @@ describe("kernel behaviour the author skill states in words", () => {
         options: [
           {
             name: "--to",
-            aliases: [],
+            aliases: ["-t"],
             summary: "Where to stop.",
             required: false,
             repeatable: false,
             value: { kind: "integer", minimum: 0, maximum: 9 },
+          },
+          {
+            name: "--verbose",
+            aliases: [],
+            summary: "Verbose.",
+            required: false,
+            repeatable: false,
+            value: null,
           },
         ],
       },
@@ -1188,9 +1196,17 @@ describe("kernel behaviour the author skill states in words", () => {
       exitCode: 0,
       envelope: { result: { data: 3 } },
     });
-    expect(await run(["count", "--to=3"])).toMatchObject(
+    expect(await run(["count", "--to=3"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: 3 } },
+    });
+    expect(await run(["count", "--verbose=yes"])).toMatchObject(
+      usageRefusal("The option --verbose takes no value."),
+    );
+    expect(await run(["count", "-t=3"])).toMatchObject(
       usageRefusal(
-        "The invocation uses an option this command does not declare.",
+        "The invocation uses -t, an option this command does not declare. Did you mean --to?",
       ),
     );
   });

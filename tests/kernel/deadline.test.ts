@@ -112,8 +112,9 @@ test("invalid or unsupported deadlines refuse before the handler", async () => {
     expect((await check.execute(argv, {}, "run-1")).ok).toBe(false);
   }
   for (const argv of [
-    ["--deadline-ms=10"],
+    ["--deadline-ms=0"],
     ["--deadline-ms", "10", "--deadline-ms", "20"],
+    ["--deadline-ms=10", "--deadline-ms=20"],
   ])
     expect((await contract.execute("sample.check", argv, "run-1")).ok).toBe(
       false,

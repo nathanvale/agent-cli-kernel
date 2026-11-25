@@ -61,7 +61,7 @@ const refusals: readonly (readonly [
 ])[] = [
   [[marker], "kf.dispatch", "USAGE_UNKNOWN_COMMAND", 2],
   [["show", `--tokn=${marker}`], "kf.show", usage, 2],
-  [["show", `--${marker}`], "kf.show", usage, 2],
+  [["show", `--unknown=${marker}`], "kf.show", usage, 2],
   [["show", "--title", `${marker}xxxxxxxxxx`], "kf.show", usage, 2],
   [["show", "--mode", marker], "kf.show", usage, 2],
   [["show", "--count", marker], "kf.show", usage, 2],
@@ -70,12 +70,17 @@ const refusals: readonly (readonly [
   [["show", "abc", marker], "kf.show", usage, 2],
   [["show", `--flag=${marker}`], "kf.show", usage, 2],
   [["show", "--title"], "kf.show", usage, 2],
-  [["show", `-${marker}`], "kf.show", usage, 2],
+  [["show", `-x=${marker}`], "kf.show", usage, 2],
   [["show", "--title", marker, "--count"], "kf.show", usage, 2],
   [["show", "--title", marker, "--title", marker], "kf.show", usage, 2],
   [["show", "--title", marker, "--count", "99999"], "kf.show", usage, 2],
   [["show", "--title", marker, "--mode", "c"], "kf.show", usage, 2],
-  [["show", "--title", marker, "--flag", `--${marker}`], "kf.show", usage, 2],
+  [
+    ["show", "--title", marker, "--flag", `--unknown=${marker}`],
+    "kf.show",
+    usage,
+    2,
+  ],
   [["pair", marker, "--both"], "kf.pair", usage, 2],
   [["pair", marker, "--left", "--right"], "kf.pair", usage, 2],
   [["show", "--deadline-ms", marker], "kf.dispatch", usage, 2],
@@ -121,11 +126,11 @@ describe("KF10.a no-argument-value-in-kernel-refusals", () => {
     processWatchdog(2),
   );
   test(
-    `KF10.a pair a --${marker}: one edit from the declared alias --KF10MAR, the suggestion names --left and carries no argument value`,
+    `KF10.a pair a --lfet=${marker}: one edit from --left, the suggestion names --left and carries no argument value`,
     async () => {
-      const runs = await bothModes(["pair", "a", `--${marker}`]);
+      const runs = await bothModes(["pair", "a", `--lfet=${marker}`]);
       const message =
-        "The invocation uses an option this command does not declare. Did you mean --left?";
+        "The invocation uses --lfet, an option this command does not declare. Did you mean --left?";
       expect({
         machine: runs.machine.envelope?.message,
         human: runs.human.stderr,
