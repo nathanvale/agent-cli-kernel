@@ -1,0 +1,16 @@
+--- a/kernel/src/kernel/validation/discovery.ts
++++ b/kernel/src/kernel/validation/discovery.ts
+@@ -33,11 +33,13 @@
+     trigger: _trigger,
+     guidance: _guidance,
+     repairAction: _repairAction,
++    transactionState: _dropped,
+     ...rest
+   } = station;
+   void _trigger;
+   void _guidance;
+   void _repairAction;
++  void _dropped;
+   return rest;
+ }
+ 

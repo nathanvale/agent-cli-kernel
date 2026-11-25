@@ -11,6 +11,7 @@ const reserved = [
   "--json",
   "--help",
   "--discover",
+  "--discover-all",
   "--discover-command",
   "--deadline-ms",
 ];

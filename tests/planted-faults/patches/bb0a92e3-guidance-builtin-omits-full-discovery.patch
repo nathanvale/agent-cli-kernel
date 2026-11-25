@@ -1,0 +1,14 @@
+--- a/kernel/src/kernel/navigation.ts
++++ b/kernel/src/kernel/navigation.ts
+@@ -32,7 +32,10 @@
+   },
+ ] as const;
+ 
+-export type NavigationBuiltinName = (typeof navigationBuiltins)[number]["name"];
++export type NavigationBuiltinName = Exclude<
++  (typeof navigationBuiltins)[number]["name"],
++  "full-discovery"
++>;
+ 
+ export function builtins(cli: string): readonly CommandDeclaration[] {
+   return [

@@ -64,6 +64,7 @@ function listed(entry: unknown): Listed | undefined {
 const kernelCommands = [
   "help",
   "discovery",
+  "full-discovery",
   "command-discovery",
   "dispatch",
 ] as const;

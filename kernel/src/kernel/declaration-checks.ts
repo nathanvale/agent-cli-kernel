@@ -4,6 +4,7 @@ import {
   validateWords,
 } from "./stations.ts";
 import { builtins } from "./navigation.ts";
+import type { NavigationBuiltinName } from "./navigation.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import {
   validateChangingShape,
@@ -314,14 +315,12 @@ export type ValidatedCommands<
       readonly guidance:
         | {
             readonly next: import("./types.ts").NextStep<
-              | CommandIdentity<D>
-              | `${Cli}.${"help" | "discovery" | "command-discovery"}`
+              CommandIdentity<D> | `${Cli}.${NavigationBuiltinName}`
             >;
           }
         | {
             readonly handoff: import("./types.ts").Handoff<
-              | InspectIdentity<D>
-              | `${Cli}.${"help" | "discovery" | "command-discovery"}`
+              InspectIdentity<D> | `${Cli}.${NavigationBuiltinName}`
             >;
           };
     }[];

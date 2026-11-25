@@ -198,6 +198,7 @@ describe("which commands and stations the sweep counts", () => {
         discovery([
           command("tool.help", ["--help"]),
           command("tool.discovery", ["--discover"]),
+          command("tool.full-discovery", ["--discover-all"]),
           command("tool.command-discovery", ["--discover-command"]),
           command("tool.dispatch", []),
           command("tool.run", []),

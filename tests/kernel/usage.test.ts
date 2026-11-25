@@ -196,7 +196,7 @@ const rows: readonly (readonly [string, readonly string[], Expected])[] = [
     ["--help", "--discover"],
     refusal(
       "x.dispatch",
-      "Use only one of --help, --discover and --discover-command.",
+      "Use only one of --help, --discover, --discover-all and --discover-command.",
     ),
   ],
   [
@@ -204,7 +204,7 @@ const rows: readonly (readonly [string, readonly string[], Expected])[] = [
     ["show", "--discover"],
     refusal(
       "x.dispatch",
-      "Give --help or --discover alone, or --discover-command with one command identity.",
+      "Give --help, --discover or --discover-all alone, or --discover-command with one command identity.",
     ),
   ],
   [
@@ -844,14 +844,14 @@ describe("a host command's usage refusal points at its own discovery", () => {
 });
 
 const shape =
-  "Give --help or --discover alone, or --discover-command with one command identity.";
+  "Give --help, --discover or --discover-all alone, or --discover-command with one command identity.";
 const kept: readonly (readonly [string, readonly string[], Expected])[] = [
   [
     "--help with another navigation switch is a conflict",
     ["show", "--help", "--discover"],
     refusal(
       "x.dispatch",
-      "Use only one of --help, --discover and --discover-command.",
+      "Use only one of --help, --discover, --discover-all and --discover-command.",
     ),
   ],
   [

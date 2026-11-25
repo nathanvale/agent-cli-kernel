@@ -113,6 +113,7 @@ const helpText = [
   "  --json  Emit one machine-readable result.",
   "  --help  Show help.",
   "  --discover  Discover commands.",
+  "  --discover-all  Discover all commands.",
   "  --discover-command <identity>  Discover one command.",
   "",
 ].join("\n");

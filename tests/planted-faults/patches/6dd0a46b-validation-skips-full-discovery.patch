@@ -1,0 +1,11 @@
+--- a/kernel/src/kernel/validation/discovery.ts
++++ b/kernel/src/kernel/validation/discovery.ts
+@@ -137,8 +137,6 @@
+       return sameProjection(result.data, help());
+     if (result.commandIdentity === `${cli}.discovery`)
+       return sameProjection(result.data, discover());
+-    if (result.commandIdentity === `${cli}.full-discovery`)
+-      return sameProjection(result.data, discoverAll());
+     if (result.commandIdentity !== `${cli}.command-discovery`) return true;
+     const data: unknown = result.data;
+     if (!record(data) || !record(data.command)) return false;

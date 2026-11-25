@@ -115,8 +115,8 @@ A `next` step has one of four kinds:
 - `{ kind: "done" }`: only on a success.
 - `{ kind: "instruction", text }`: words for the caller.
 - `{ kind: "command", command, args }`: another command of this CLI, by
-  identity. The built-in `<cli>.help`, `<cli>.discovery` and
-  `<cli>.command-discovery` count.
+  identity. The built-in `<cli>.help`, `<cli>.discovery`,
+  `<cli>.full-discovery` and `<cli>.command-discovery` count.
 - `{ kind: "retry" }`: on every row with `retryable: true`, and on no other.
   Such a station sets `retryDelayPolicy` to
   `{ kind: "bounded", minimumMilliseconds, maximumMilliseconds }`, and its
