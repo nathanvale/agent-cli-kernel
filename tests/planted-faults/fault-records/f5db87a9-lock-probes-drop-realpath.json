@@ -1,0 +1,7 @@
+{
+  "id": "f5db87a9-lock-probes-drop-realpath",
+  "patch": "tests/planted-faults/patches/f5db87a9-lock-probes-drop-realpath.patch",
+  "testFile": "tests/kernel/locks/probe-folders.test.ts",
+  "title": "^a lock probe reached through a symbolic link matches its sentinel and diagnostics$",
+  "source": "f5db87a9 fix(locks): resolve real paths for the lock-probe root and directory"
+}

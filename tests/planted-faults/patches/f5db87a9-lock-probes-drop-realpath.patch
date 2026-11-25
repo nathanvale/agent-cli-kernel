@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/locks/lock-probes.ts b/tests/kernel/locks/lock-probes.ts
+--- a/tests/kernel/locks/lock-probes.ts
++++ b/tests/kernel/locks/lock-probes.ts
+@@ -97,7 +97,7 @@ export function readRun(
+     throw new Error(
+       `${compiler} did not complete normally (exit ${run.exit}, stderr ${JSON.stringify(run.stderr)}), so no probe has a result.`,
+     );
+-  const realDirectory = realpathSync(directory);
++  const realDirectory = directory;
+   const owned = new Map<string, Parsed[]>(files.map((file) => [file, []]));
+   const shared: Parsed[] = [];
+   let checked = false;
