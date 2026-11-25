@@ -153,5 +153,7 @@ test("supplementary compiler boundaries retain their independent identities", ()
     "global-undeclared-cause",
     "global-undeclared-command",
     "handler-result-global-envelope",
+    "next-full-discovery",
+    "handoff-full-discovery",
   ]);
 });

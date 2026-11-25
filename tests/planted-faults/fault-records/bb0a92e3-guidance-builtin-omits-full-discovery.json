@@ -1,0 +1,7 @@
+{
+  "id": "bb0a92e3-guidance-builtin-omits-full-discovery",
+  "patch": "tests/planted-faults/patches/bb0a92e3-guidance-builtin-omits-full-discovery.patch",
+  "testFile": "tests/kernel/compiler-locks.test.ts",
+  "title": "^next-full-discovery: native rejects only its invalid line, valid twin and TS6 comparison agree$",
+  "source": "bb0a92e3 fix(kernel): admit full-discovery in guidance target types"
+}

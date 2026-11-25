@@ -1,0 +1,7 @@
+{
+  "id": "6dd0a46b-machine-transaction-state-dropped",
+  "patch": "tests/planted-faults/patches/6dd0a46b-machine-transaction-state-dropped.patch",
+  "testFile": "tests/kernel/discover-all.test.ts",
+  "title": "^--discover-all full discovery route keeps retryDelayPolicy bounds, reachability, unreachableRationale and ifNoResult$",
+  "source": "6dd0a46b feat(kernel): add --discover-all full discovery route"
+}

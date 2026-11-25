@@ -9,33 +9,46 @@ import {
   internalResultCause,
   internalResultCode,
 } from "./state-causes.ts";
+const navigationBuiltins = [
+  {
+    name: "help",
+    route: ["--help"],
+    summary: "Show help.",
+  },
+  {
+    name: "discovery",
+    route: ["--discover"],
+    summary: "Discover commands.",
+  },
+  {
+    name: "full-discovery",
+    route: ["--discover-all"],
+    summary: "Discover all commands.",
+  },
+  {
+    name: "command-discovery",
+    route: ["--discover-command"],
+    summary: "Discover one command.",
+  },
+] as const;
+
+export type NavigationBuiltinName = (typeof navigationBuiltins)[number]["name"];
+
 export function builtins(cli: string): readonly CommandDeclaration[] {
   return [
+    ...navigationBuiltins,
     {
-      commandIdentity: `${cli}.help`,
-      route: ["--help"],
-      summary: "Show help.",
-    },
-    {
-      commandIdentity: `${cli}.discovery`,
-      route: ["--discover"],
-      summary: "Discover commands.",
-    },
-    {
-      commandIdentity: `${cli}.command-discovery`,
-      route: ["--discover-command"],
-      summary: "Discover one command.",
-    },
-    {
-      commandIdentity: `${cli}.dispatch`,
+      name: "dispatch",
       route: [],
       summary: "Resolve an invocation.",
     },
   ].map((item) => ({
-    ...item,
+    commandIdentity: `${cli}.${item.name}`,
+    route: item.route,
+    summary: item.summary,
     effectClass: "inspect",
     input:
-      item.commandIdentity === `${cli}.command-discovery`
+      item.name === "command-discovery"
         ? {
             ...emptyInput,
             arguments: [

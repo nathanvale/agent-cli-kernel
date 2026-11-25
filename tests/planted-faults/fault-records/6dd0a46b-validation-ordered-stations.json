@@ -1,0 +1,7 @@
+{
+  "id": "6dd0a46b-validation-ordered-stations",
+  "patch": "tests/planted-faults/patches/6dd0a46b-validation-ordered-stations.patch",
+  "testFile": "tests/kernel/discover-all.test.ts",
+  "title": "^--discover-all full discovery route validator accepts any order of commands and stations and declines prose fields or missing station fields$",
+  "source": "6dd0a46b feat(kernel): add --discover-all full discovery route"
+}

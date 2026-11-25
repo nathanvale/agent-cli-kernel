@@ -494,6 +494,7 @@ export function contractFor<
     },
     help: navigation.help,
     discover: navigation.discover,
+    discoverAll: navigation.discoverAll,
     discoverCommand: navigation.discoverCommand,
     async parse(identity: string, argv: unknown) {
       const item = commands.find((entry) => entry.commandIdentity === identity);
@@ -572,6 +573,7 @@ export function contractFor<
     navigation: {
       help: navigation.help,
       discover: navigation.discover,
+      discoverAll: navigation.discoverAll,
       discoverCommand: navigation.discoverCommand,
     },
     execute: (identity, argv, runId, context) =>

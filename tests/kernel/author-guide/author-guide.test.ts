@@ -1102,6 +1102,34 @@ describe("kernel behaviour the author skill states in words", () => {
     );
   });
 
+  test("commands.md: --discover-all returns every command's input and results without trigger, guidance or repairAction", async () => {
+    const contract = readContract();
+    const run = kernel.runInProcess(contract);
+    const all = await run(["--discover-all"]);
+    const expected = contract.discoverAll();
+    expect(all).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: {
+        result: {
+          commandIdentity: "guide.full-discovery",
+          causeCode: "SUCCESS_UNCHANGED",
+          data: expected,
+        },
+      },
+    });
+    const readEntry = expected.commands.find(
+      (entry) => entry.command.commandIdentity === "guide.read",
+    );
+    expect(readEntry?.input).toEqual(emptyInput);
+    expect(readEntry?.stations.length).toBeGreaterThan(0);
+    for (const item of readEntry?.stations ?? []) {
+      expect(Object.hasOwn(item, "trigger")).toBe(false);
+      expect(Object.hasOwn(item, "guidance")).toBe(false);
+      expect(Object.hasOwn(item, "repairAction")).toBe(false);
+    }
+  });
+
   test("commands.md: a usage refusal is exit code 2 and its message names what was wrong: an option the command does not declare, or a missing argument", async () => {
     expect(
       await kernel.runInProcess(readContract())(["read", "--wat"]),

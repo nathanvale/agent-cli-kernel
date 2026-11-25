@@ -54,6 +54,17 @@ function discovery(data: unknown): string[] {
   ];
 }
 
+function fullDiscovery(data: unknown): string[] {
+  return [
+    `Contract ${texts(data, "contractVersion")}`,
+    "Commands:",
+    ...list(data, "commands").map((entry) => {
+      const item = record(entry) ? entry.command : undefined;
+      return `  ${texts(item, "commandIdentity")} (${texts(item, "effectClass")})  ${texts(item, "summary")}`;
+    }),
+  ];
+}
+
 function numeral(value: unknown, key: string): string {
   return record(value) && typeof value[key] === "number"
     ? oneLine(String(value[key]))
@@ -155,6 +166,23 @@ export function renderHuman(
   ];
 }
 
+function successLines(
+  cli: string,
+  envelope: Envelope,
+  renamedHelp: boolean,
+): string[] {
+  const { commandIdentity, data } = envelope.result;
+  if (commandIdentity === `${cli}.help`) return help(data);
+  if (commandIdentity === `${cli}.discovery`) return discovery(data);
+  if (commandIdentity === `${cli}.full-discovery`) return fullDiscovery(data);
+  if (commandIdentity === `${cli}.command-discovery`)
+    return commandDiscovery(data, renamedHelp);
+  return [
+    oneLine(envelope.message),
+    ...(data === null ? [] : [JSON.stringify(data, null, 2)]),
+  ];
+}
+
 function resultText(
   cli: string,
   envelope: Envelope,
@@ -166,18 +194,6 @@ function resultText(
       stream: "stderr",
       text: `${oneLine(cli)}: ${oneLine(envelope.message)} [${result.causeCode}]\n`,
     };
-  const lines =
-    result.commandIdentity === `${cli}.help`
-      ? help(result.data)
-      : result.commandIdentity === `${cli}.discovery`
-        ? discovery(result.data)
-        : result.commandIdentity === `${cli}.command-discovery`
-          ? commandDiscovery(result.data, renamedHelp)
-          : [
-              oneLine(envelope.message),
-              ...(result.data === null
-                ? []
-                : [JSON.stringify(result.data, null, 2)]),
-            ];
+  const lines = successLines(cli, envelope, renamedHelp);
   return { stream: "stdout", text: `${lines.join("\n")}\n` };
 }

@@ -1,0 +1,11 @@
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -62,7 +62,7 @@
+     return refused(cli, { kind: "deadline-unsupported" }, machine);
+   const command = commands.find((item) => item.route[0] === flag);
+   const expected = flag === "--discover-command" ? 2 : 1;
+-  if (!command || tokens[0] !== flag || tokens.length !== expected)
++  if (!command || tokens[0] !== flag || (flag !== "--discover-all" && tokens.length !== expected))
+     return refused(cli, { kind: "navigation-shape" }, machine);
+   if (
+     flag === "--discover-command" &&

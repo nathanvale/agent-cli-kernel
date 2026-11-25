@@ -17,7 +17,12 @@ export function refused(
     ...usageRefusal(fault, cli),
   } as const;
 }
-const navigationSwitches = ["--help", "--discover", "--discover-command"];
+const navigationSwitches = [
+  "--help",
+  "--discover",
+  "--discover-all",
+  "--discover-command",
+];
 function globalSwitches(argv: readonly unknown[]) {
   const tokens: string[] = [];
   let literal = false,

@@ -28,6 +28,19 @@ function sameProjection(actual: unknown, expected: unknown): boolean {
   return sameJson(actual, expected, unordered);
 }
 
+function withoutProse(station: ReturnType<typeof publicStation>) {
+  const {
+    trigger: _trigger,
+    guidance: _guidance,
+    repairAction: _repairAction,
+    ...rest
+  } = station;
+  void _trigger;
+  void _guidance;
+  void _repairAction;
+  return rest;
+}
+
 export function navigationData(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -57,11 +70,27 @@ export function navigationData(
         { name: "--help", valueName: null, summary: "Show help." },
         { name: "--discover", valueName: null, summary: "Discover commands." },
         {
+          name: "--discover-all",
+          valueName: null,
+          summary: "Discover all commands.",
+        },
+        {
           name: "--discover-command",
           valueName: "identity",
           summary: "Discover one command.",
         },
       ],
+    };
+  }
+  function commandEntry(command: CommandDeclaration) {
+    return {
+      command: summary(command),
+      semantics: "possible-outcomes" as const,
+      ifNoResult: command.ifNoResult?.step ?? null,
+      input: command.input,
+      stations: (stations.get(command.commandIdentity) ?? []).map((station) =>
+        publicStation(station, command.effectClass),
+      ),
     };
   }
   function discover() {
@@ -76,21 +105,31 @@ export function navigationData(
       ],
     });
   }
+  function discoverAll() {
+    return freeze({
+      contractVersion: "3.0.0",
+      stationProseSource:
+        "Run --discover-command <identity> for trigger, guidance and repairAction.",
+      commands: commands.map((command) => {
+        const entry = commandEntry(command);
+        return {
+          ...entry,
+          stations: entry.stations.map(withoutProse),
+        };
+      }),
+      exitMeanings: { ...exitMeanings },
+      signalExits: { ...signalExits },
+      effectExclusions: [
+        "Incidental journal maintenance.",
+        "Incidental diagnostic maintenance.",
+      ],
+    });
+  }
   function discoverCommand(identity: string) {
     const command = commands.find(
       (entry) => entry.commandIdentity === identity,
     );
-    return command
-      ? freeze({
-          command: summary(command),
-          semantics: "possible-outcomes",
-          ifNoResult: command.ifNoResult?.step ?? null,
-          input: command.input,
-          stations: (stations.get(identity) ?? []).map((station) =>
-            publicStation(station, command.effectClass),
-          ),
-        })
-      : undefined;
+    return command ? freeze(commandEntry(command)) : undefined;
   }
   function validData(result: WireResult): boolean {
     if (result.outcome !== "success") return true;
@@ -98,6 +137,8 @@ export function navigationData(
       return sameProjection(result.data, help());
     if (result.commandIdentity === `${cli}.discovery`)
       return sameProjection(result.data, discover());
+    if (result.commandIdentity === `${cli}.full-discovery`)
+      return sameProjection(result.data, discoverAll());
     if (result.commandIdentity !== `${cli}.command-discovery`) return true;
     const data: unknown = result.data;
     if (!record(data) || !record(data.command)) return false;
@@ -107,5 +148,5 @@ export function navigationData(
       sameProjection(data, discoverCommand(identity))
     );
   }
-  return { help, discover, discoverCommand, validData };
+  return { help, discover, discoverAll, discoverCommand, validData };
 }

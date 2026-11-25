@@ -61,6 +61,7 @@ test("help data is complete and agrees with executable declarations", async () =
   ]);
   expect(valid.options.map((option) => option.name).sort()).toEqual([
     "--discover",
+    "--discover-all",
     "--discover-command",
     "--help",
     "--json",
@@ -89,6 +90,7 @@ test("discovery rejects missing built-ins and altered public contract fields", a
     "specimen.command-discovery",
     "specimen.discovery",
     "specimen.dispatch",
+    "specimen.full-discovery",
     "specimen.help",
   ]);
   expect(valid.exitMeanings).toEqual({
