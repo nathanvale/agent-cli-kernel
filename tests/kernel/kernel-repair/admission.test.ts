@@ -281,6 +281,7 @@ runFamily("R04", {
       ["specimen.command-discovery", ["--discover-command"]],
       ["specimen.discovery", ["--discover"]],
       ["specimen.dispatch", []],
+      ["specimen.full-discovery", ["--discover-all"]],
       ["specimen.help", ["--help"]],
     ]);
   },

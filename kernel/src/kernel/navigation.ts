@@ -22,6 +22,11 @@ export function builtins(cli: string): readonly CommandDeclaration[] {
       summary: "Discover commands.",
     },
     {
+      commandIdentity: `${cli}.full-discovery`,
+      route: ["--discover-all"],
+      summary: "Discover all commands.",
+    },
+    {
       commandIdentity: `${cli}.command-discovery`,
       route: ["--discover-command"],
       summary: "Discover one command.",

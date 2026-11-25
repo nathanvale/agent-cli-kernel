@@ -119,6 +119,7 @@ test("declared stations bind identity and words, with built-ins and fallback sta
     "notes.command-discovery",
     "notes.discovery",
     "notes.dispatch",
+    "notes.full-discovery",
     "notes.help",
     "notes.list",
   ]);
