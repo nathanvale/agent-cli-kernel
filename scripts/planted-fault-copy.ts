@@ -58,7 +58,7 @@ const ownGitSteps: readonly (readonly string[])[] = [
 
 const resetCopySteps: readonly (readonly string[])[] = [
   ["git", "reset", "--hard", "-q", baselineRef],
-  ["git", "clean", "-fd", "-q", "-e", "node_modules"],
+  ["git", "clean", "-fdx", "-q", "-e", "node_modules"],
 ];
 
 async function initOwnGit(

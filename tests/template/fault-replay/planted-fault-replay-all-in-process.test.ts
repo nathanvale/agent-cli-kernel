@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   type Fault,
@@ -27,8 +27,34 @@ import { processWatchdog } from "../../support/process.ts";
 
 const { isolated, planted, repository } = createPlantedFaultFixture();
 
+function hashGitTree(root: string): Record<string, string> {
+  const entries: [string, string][] = [];
+  const visit = (dir: string, prefix: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) visit(full, relative);
+      else if (entry.isSymbolicLink())
+        entries.push([relative, `symlink:${readlinkSync(full)}`]);
+      else
+        entries.push([
+          relative,
+          new Bun.CryptoHasher("sha256")
+            .update(readFileSync(full))
+            .digest("hex"),
+        ]);
+    }
+  };
+  visit(root, "");
+  entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return Object.fromEntries(entries);
+}
+
 describe("replayAll", () => {
-  const environment = { [stepVariable]: "120" };
+  const environment = { [stepVariable]: "20" };
+  const setupOnlyTimeout = processWatchdog(4);
+  const oneFaultTimeout = processWatchdog(14);
+  const twoFaultTimeout = processWatchdog(19);
 
   async function replayedAll(
     root: string,
@@ -49,98 +75,171 @@ describe("replayAll", () => {
     return { ...subject, survivor };
   }
 
-  test("exits 0 and says so when every fault is KILLED", async () => {
-    const subject = planted();
-    recorded(subject.root, [subject.fault]);
+  function twoFaultMarkerFixture(ignored: boolean) {
+    const subject = planted({
+      tests: `import { expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { limit } from "../src/limit.ts";
 
-    const run = await replayedAll(subject.root);
-
-    expect(run.result).toBe(0);
-    const [verdict, summary, ...rest] = run.stdout.split("\n");
-    expect(verdict).toMatch(
-      new RegExp(
-        `^KILLED ${subject.id} in [\\d.]+ s\\. Failed: L\\.refuses NaN \\| L\\.refuses NaN twice$`,
-      ),
-    );
-    expect(summary).toMatch(
-      new RegExp(
-        `^1 of 1 planted faults KILLED in [\\d.]+ s, [\\d.]+ s per fault, with Bun ${Bun.version.replaceAll(".", "\\.")}\\.$`,
-      ),
-    );
-    expect(rest).toEqual([""]);
-    expect(run.stderr).toBe("");
-    expect(worktrees(subject.root)).toEqual([subject.root]);
-    expect(run.leftovers).toEqual([]);
-  }, 60_000);
-
-  test("replays every record in order and exits 1 when one survives", async () => {
-    const { root, id } = killedAndSurvivor();
-    let wall = 0;
-
-    const run = await isolated(async () => {
-      const began = performance.now();
-      try {
-        return await replayAll(root, [], environment);
-      } finally {
-        wall = (performance.now() - began) / 1000;
-      }
+test("L.refuses NaN after writing a file", () => {
+  writeFileSync("marker.txt", "left behind\\n");
+  expect(() => limit(Number.NaN)).toThrow("limit must be a number");
+});
+`,
     });
+    commit(subject.root, "add second guard expecting clean tree", {
+      ...(ignored ? { ".gitignore": "node_modules/\nmarker.txt\n" } : {}),
+      "src/other.ts": `export function check(value: number): number {
+  if (value < 0) throw new RangeError("must be non-negative");
+  return value;
+}
+`,
+      "tests/other.test.ts": `import { expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { check } from "../src/other.ts";
 
-    expect(run.result).toBe(1);
-    const lines = run.stdout.split("\n");
-    expect(lines[0]).toStartWith(`KILLED ${id} in `);
-    expect(lines[1]).toStartWith("SURVIVED weak in ");
-    expect(lines[2]).toBe(
-      "Repair: change tests/limit.test.ts so that test fails with the patch applied. Done when bun run fault-replay weak passes.",
+test("O.refuses negative on a clean tree", () => {
+  expect(existsSync("marker.txt")).toBe(false);
+  expect(() => check(-1)).toThrow("must be non-negative");
+});
+`,
+    });
+    const second: Fault = {
+      id: "zzz9999-other",
+      patch: "tests/planted-faults/patches/zzz9999-other.patch",
+      testFile: "tests/other.test.ts",
+      title: "^O\\.refuses ",
+      source: "zzz9999 fix: refuse negative",
+    };
+    write(
+      subject.root,
+      second.patch,
+      `diff --git a/src/other.ts b/src/other.ts
+--- a/src/other.ts
++++ b/src/other.ts
+@@ -1,4 +1,3 @@
+ export function check(value: number): number {
+-  if (value < 0) throw new RangeError("must be non-negative");
+   return value;
+ }
+`,
     );
-    expect(lines[3]).toMatch(
-      /^1 of 2 planted faults KILLED in [\d.]+ s, [\d.]+ s per fault, with Bun /,
-    );
-    expect(run.leftovers).toEqual([]);
-    const seconds = (line: string | undefined, after: string) =>
-      Number(line?.match(new RegExp(`${after}(\\d+\\.\\d)`))?.[1]);
-    const first = seconds(lines[0], " in ");
-    const second = seconds(lines[1], " in ");
-    const total = seconds(lines[3], "KILLED in ");
-    const each = seconds(lines[3], " s, ");
-    expect(first).toBeGreaterThanOrEqual(0);
-    expect(second).toBeGreaterThanOrEqual(0);
-    expect(first + second).toBeLessThanOrEqual(total + 0.2);
-    expect(total).toBeLessThanOrEqual(wall + 0.06);
-    expect(Math.abs(each * 2 - total)).toBeLessThanOrEqual(0.15);
-  }, 60_000);
+    recorded(subject.root, [subject.fault, second]);
+    return { subject, second };
+  }
 
-  test("replays only the records its ids name", async () => {
-    const { root, id } = killedAndSurvivor();
+  test(
+    "exits 0 and says so when every fault is KILLED",
+    async () => {
+      const subject = planted();
+      recorded(subject.root, [subject.fault]);
 
-    const run = await replayedAll(root, [id]);
+      const run = await replayedAll(subject.root);
 
-    expect(run.result).toBe(0);
-    expect(run.stdout).not.toContain("SURVIVED");
-    expect(run.stdout).toContain("1 of 1 planted faults KILLED in ");
-  }, 60_000);
+      expect(run.result).toBe(0);
+      const [verdict, summary, ...rest] = run.stdout.split("\n");
+      expect(verdict).toMatch(
+        new RegExp(
+          `^KILLED ${subject.id} in [\\d.]+ s\\. Failed: L\\.refuses NaN \\| L\\.refuses NaN twice$`,
+        ),
+      );
+      expect(summary).toMatch(
+        new RegExp(
+          `^1 of 1 planted faults KILLED in [\\d.]+ s, [\\d.]+ s per fault, with Bun ${Bun.version.replaceAll(".", "\\.")}\\.$`,
+        ),
+      );
+      expect(rest).toEqual([""]);
+      expect(run.stderr).toBe("");
+      expect(worktrees(subject.root)).toEqual([subject.root]);
+      expect(run.leftovers).toEqual([]);
+    },
+    oneFaultTimeout,
+  );
 
-  test("refuses an unknown id before replaying anything", async () => {
-    const { root, id } = killedAndSurvivor();
+  test(
+    "replays every record in order and exits 1 when one survives",
+    async () => {
+      const { root, id } = killedAndSurvivor();
+      let wall = 0;
 
-    const run = await replayedAll(root, [id, "nope", "gone"]);
+      const run = await isolated(async () => {
+        const began = performance.now();
+        try {
+          return await replayAll(root, [], environment);
+        } finally {
+          wall = (performance.now() - began) / 1000;
+        }
+      });
 
-    expect(run.result).toBe(2);
-    expect(run.stdout).toBe("");
-    expect(run.stderr).toBe(
-      `No fault record nope, gone in ${recordsPath}. Repair: pass an id that folder holds.\n`,
-    );
-    expect(run.leftovers).toEqual([]);
-  }, 60_000);
+      expect(run.result).toBe(1);
+      const lines = run.stdout.split("\n");
+      expect(lines[0]).toStartWith(`KILLED ${id} in `);
+      expect(lines[1]).toStartWith("SURVIVED weak in ");
+      expect(lines[2]).toBe(
+        "Repair: change tests/limit.test.ts so that test fails with the patch applied. Done when bun run fault-replay weak passes.",
+      );
+      expect(lines[3]).toMatch(
+        /^1 of 2 planted faults KILLED in [\d.]+ s, [\d.]+ s per fault, with Bun /,
+      );
+      expect(run.leftovers).toEqual([]);
+      const seconds = (line: string | undefined, after: string) =>
+        Number(line?.match(new RegExp(`${after}(\\d+\\.\\d)`))?.[1]);
+      const first = seconds(lines[0], " in ");
+      const second = seconds(lines[1], " in ");
+      const total = seconds(lines[3], "KILLED in ");
+      const each = seconds(lines[3], " s, ");
+      expect(first).toBeGreaterThanOrEqual(0);
+      expect(second).toBeGreaterThanOrEqual(0);
+      expect(first + second).toBeLessThanOrEqual(total + 0.2);
+      expect(total).toBeLessThanOrEqual(wall + 0.06);
+      expect(Math.abs(each * 2 - total)).toBeLessThanOrEqual(0.15);
+    },
+    twoFaultTimeout,
+  );
 
-  test("reports an unknown id before it reads the step limit", async () => {
-    const { root } = killedAndSurvivor();
+  test(
+    "replays only the records its ids name",
+    async () => {
+      const { root, id } = killedAndSurvivor();
 
-    const run = await replayedAll(root, ["nope"], { [stepVariable]: "x" });
+      const run = await replayedAll(root, [id]);
 
-    expect(run.result).toBe(2);
-    expect(run.stderr).toContain("No fault record nope in ");
-  }, 60_000);
+      expect(run.result).toBe(0);
+      expect(run.stdout).not.toContain("SURVIVED");
+      expect(run.stdout).toContain("1 of 1 planted faults KILLED in ");
+    },
+    oneFaultTimeout,
+  );
+
+  test(
+    "refuses an unknown id before replaying anything",
+    async () => {
+      const { root, id } = killedAndSurvivor();
+
+      const run = await replayedAll(root, [id, "nope", "gone"]);
+
+      expect(run.result).toBe(2);
+      expect(run.stdout).toBe("");
+      expect(run.stderr).toBe(
+        `No fault record nope, gone in ${recordsPath}. Repair: pass an id that folder holds.\n`,
+      );
+      expect(run.leftovers).toEqual([]);
+    },
+    setupOnlyTimeout,
+  );
+
+  test(
+    "reports an unknown id before it reads the step limit",
+    async () => {
+      const { root } = killedAndSurvivor();
+
+      const run = await replayedAll(root, ["nope"], { [stepVariable]: "x" });
+
+      expect(run.result).toBe(2);
+      expect(run.stderr).toContain("No fault record nope in ");
+    },
+    setupOnlyTimeout,
+  );
 
   test.each([
     ["no records folder", null],
@@ -160,82 +259,98 @@ describe("replayAll", () => {
       );
       expect(run.stderr).toBe("");
     },
-    60_000,
+    setupOnlyTimeout,
   );
 
-  test("refuses a step limit that is not a positive number", async () => {
-    const subject = planted();
-    recorded(subject.root, [subject.fault]);
+  test(
+    "refuses a step limit that is not a positive number",
+    async () => {
+      const subject = planted();
+      recorded(subject.root, [subject.fault]);
 
-    const run = replayedAll(subject.root, [], { [stepVariable]: "-3" });
+      const run = replayedAll(subject.root, [], { [stepVariable]: "-3" });
 
-    expect(await rejection(run)).toBe(
-      `${stepVariable} is '-3'. Repair: set it to a positive number of seconds, or unset it for 300 s.`,
-    );
-  }, 60_000);
+      expect(await rejection(run)).toBe(
+        `${stepVariable} is '-3'. Repair: set it to a positive number of seconds, or unset it for 300 s.`,
+      );
+    },
+    setupOnlyTimeout,
+  );
 
-  test("reports TIMEOUT with the limit in seconds and exits 1", async () => {
-    const subject = planted();
-    recorded(subject.root, [subject.fault]);
+  test(
+    "reports TIMEOUT with the limit in seconds and exits 1",
+    async () => {
+      const subject = planted();
+      recorded(subject.root, [subject.fault]);
 
-    const run = await replayedAll(subject.root, [], {
-      [stepVariable]: "0.001",
-    });
+      const run = await replayedAll(subject.root, [], {
+        [stepVariable]: "0.001",
+      });
 
-    expect(run.result).toBe(1);
-    expect(run.stdout).toContain(
-      "did not finish within 0.001 s, so the planted fault has no verdict.",
-    );
-    expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
-    expect(run.leftovers).toEqual([]);
-  }, 60_000);
+      expect(run.result).toBe(1);
+      expect(run.stdout).toContain(
+        "did not finish within 0.001 s, so the planted fault has no verdict.",
+      );
+      expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
+      expect(run.leftovers).toEqual([]);
+    },
+    setupOnlyTimeout,
+  );
 
-  test("replays uncommitted and untracked work, leaving the tree as it was", async () => {
-    const root = repository("planted-faults-dirty-");
-    commit(root, "base", {
-      "package.json": JSON.stringify({ name: "fixture", private: true }),
-      ".gitignore": "node_modules/\n",
-      "src/limit.ts": unguarded,
-    });
-    const fault: Fault = {
-      ...sample,
-      id: "dirty-limit",
-      patch: "tests/planted-faults/patches/dirty-limit.patch",
-    };
-    write(root, "src/limit.ts", guarded);
-    write(
-      root,
-      fault.patch,
-      gitOutput(root, "diff", "-R", "--", "src/limit.ts"),
-    );
-    write(root, "tests/limit.test.ts", limitTests);
-    write(root, recordFile(fault.id), `${JSON.stringify(fault, null, 2)}\n`);
-    const head = headOf(root);
-    const status = gitOutput(root, "status", "--porcelain");
+  test(
+    "replays uncommitted and untracked work, leaving the tree as it was",
+    async () => {
+      const root = repository("planted-faults-dirty-");
+      commit(root, "base", {
+        "package.json": JSON.stringify({ name: "fixture", private: true }),
+        ".gitignore": "node_modules/\n",
+        "src/limit.ts": unguarded,
+      });
+      const fault: Fault = {
+        ...sample,
+        id: "dirty-limit",
+        patch: "tests/planted-faults/patches/dirty-limit.patch",
+      };
+      write(root, "src/limit.ts", guarded);
+      write(
+        root,
+        fault.patch,
+        gitOutput(root, "diff", "-R", "--", "src/limit.ts"),
+      );
+      write(root, "tests/limit.test.ts", limitTests);
+      write(root, recordFile(fault.id), `${JSON.stringify(fault, null, 2)}\n`);
+      const head = headOf(root);
+      const status = gitOutput(root, "status", "--porcelain");
 
-    const run = await replayedAll(root);
+      const run = await replayedAll(root);
 
-    expect(run.result).toBe(0);
-    expect(run.stdout).toContain(`KILLED ${fault.id} in `);
-    expect(headOf(root)).toBe(head);
-    expect(gitOutput(root, "status", "--porcelain")).toBe(status);
-    expect(readFileSync(join(root, "src/limit.ts"), "utf8")).toBe(guarded);
-    expect(run.leftovers).toEqual([]);
-  }, 60_000);
+      expect(run.result).toBe(0);
+      expect(run.stdout).toContain(`KILLED ${fault.id} in `);
+      expect(headOf(root)).toBe(head);
+      expect(gitOutput(root, "status", "--porcelain")).toBe(status);
+      expect(readFileSync(join(root, "src/limit.ts"), "utf8")).toBe(guarded);
+      expect(run.leftovers).toEqual([]);
+    },
+    oneFaultTimeout,
+  );
 
-  test("replays a clean tree at its own head", async () => {
-    const subject = planted();
-    recorded(subject.root, [subject.fault]);
-    const head = headOf(subject.root);
-    const objects = gitOutput(subject.root, "count-objects");
+  test(
+    "replays a clean tree at its own head",
+    async () => {
+      const subject = planted();
+      recorded(subject.root, [subject.fault]);
+      const head = headOf(subject.root);
+      const objects = gitOutput(subject.root, "count-objects");
 
-    const run = await replayedAll(subject.root);
+      const run = await replayedAll(subject.root);
 
-    expect(run.result).toBe(0);
-    expect(headOf(subject.root)).toBe(head);
-    expect(gitOutput(subject.root, "status", "--porcelain")).toBe("");
-    expect(gitOutput(subject.root, "count-objects")).toBe(objects);
-  }, 60_000);
+      expect(run.result).toBe(0);
+      expect(headOf(subject.root)).toBe(head);
+      expect(gitOutput(subject.root, "status", "--porcelain")).toBe("");
+      expect(gitOutput(subject.root, "count-objects")).toBe(objects);
+    },
+    oneFaultTimeout,
+  );
 
   test(
     "reports UNPARSED with the repair line and exits 1",
@@ -244,7 +359,7 @@ describe("replayAll", () => {
       write(subject.root, subject.fault.patch, unparseablePatch);
       recorded(subject.root, [subject.fault]);
 
-      const run = await replayedAll(subject.root, [], { [stepVariable]: "20" });
+      const run = await replayedAll(subject.root);
 
       expect(run.result).toBe(1);
       expect(run.stdout).toMatch(
@@ -258,7 +373,7 @@ describe("replayAll", () => {
       expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
     },
-    processWatchdog(12),
+    oneFaultTimeout,
   );
 
   test(
@@ -268,7 +383,7 @@ describe("replayAll", () => {
       write(subject.root, subject.fault.patch, loadThrowingPatch);
       recorded(subject.root, [subject.fault]);
 
-      const run = await replayedAll(subject.root, [], { [stepVariable]: "20" });
+      const run = await replayedAll(subject.root);
 
       expect(run.result).toBe(1);
       expect(run.stdout).toMatch(
@@ -282,7 +397,7 @@ describe("replayAll", () => {
       expect(run.stdout).toContain("0 of 1 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
     },
-    processWatchdog(12),
+    oneFaultTimeout,
   );
 
   test(
@@ -291,21 +406,18 @@ describe("replayAll", () => {
       const subject = planted();
       recorded(subject.root, [subject.fault]);
       write(subject.root, "untracked.txt", "dirty\n");
-      const objectsBefore = gitOutput(subject.root, "count-objects");
-      const gitEntriesBefore = readdirSync(join(subject.root, ".git")).sort();
+      const gitDir = join(subject.root, ".git");
+      const gitBefore = hashGitTree(gitDir);
 
       const run = await replayedAll(subject.root);
 
       expect(run.result).toBe(0);
       expect(run.stdout).toContain(`KILLED ${subject.id} in `);
+      expect(hashGitTree(gitDir)).toEqual(gitBefore);
       expect(worktrees(subject.root)).toEqual([subject.root]);
-      expect(gitOutput(subject.root, "count-objects")).toBe(objectsBefore);
-      expect(readdirSync(join(subject.root, ".git")).sort()).toEqual(
-        gitEntriesBefore,
-      );
       expect(run.leftovers).toEqual([]);
     },
-    processWatchdog(12),
+    oneFaultTimeout,
   );
 
   test(
@@ -337,7 +449,7 @@ test("L.refuses NaN with git", () => {
       expect(run.stdout).toContain(`KILLED ${subject.id} in `);
       expect(run.leftovers).toEqual([]);
     },
-    processWatchdog(12),
+    oneFaultTimeout,
   );
 
   test(
@@ -390,60 +502,13 @@ test("O.refuses negative while limit still refuses NaN", () => {
       expect(run.stdout).toContain("2 of 2 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
     },
-    processWatchdog(12),
+    twoFaultTimeout,
   );
 
   test(
     "resets test-created files between faults so a later fault keeps its verdict",
     async () => {
-      const subject = planted({
-        tests: `import { expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { limit } from "../src/limit.ts";
-
-test("L.refuses NaN after writing a file", () => {
-  writeFileSync("marker.txt", "left behind\\n");
-  expect(() => limit(Number.NaN)).toThrow("limit must be a number");
-});
-`,
-      });
-      commit(subject.root, "add second guard expecting clean tree", {
-        "src/other.ts": `export function check(value: number): number {
-  if (value < 0) throw new RangeError("must be non-negative");
-  return value;
-}
-`,
-        "tests/other.test.ts": `import { expect, test } from "bun:test";
-import { existsSync } from "node:fs";
-import { check } from "../src/other.ts";
-
-test("O.refuses negative on a clean tree", () => {
-  expect(existsSync("marker.txt")).toBe(false);
-  expect(() => check(-1)).toThrow("must be non-negative");
-});
-`,
-      });
-      const second: Fault = {
-        id: "zzz9999-other",
-        patch: "tests/planted-faults/patches/zzz9999-other.patch",
-        testFile: "tests/other.test.ts",
-        title: "^O\\.refuses ",
-        source: "zzz9999 fix: refuse negative",
-      };
-      write(
-        subject.root,
-        second.patch,
-        `diff --git a/src/other.ts b/src/other.ts
---- a/src/other.ts
-+++ b/src/other.ts
-@@ -1,4 +1,3 @@
- export function check(value: number): number {
--  if (value < 0) throw new RangeError("must be non-negative");
-   return value;
- }
-`,
-      );
-      recorded(subject.root, [subject.fault, second]);
+      const { subject, second } = twoFaultMarkerFixture(false);
 
       const run = await replayedAll(subject.root);
 
@@ -453,6 +518,22 @@ test("O.refuses negative on a clean tree", () => {
       expect(run.stdout).toContain("2 of 2 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
     },
-    processWatchdog(12),
+    twoFaultTimeout,
+  );
+
+  test(
+    "resets gitignored test-created files between faults so a later fault keeps its verdict",
+    async () => {
+      const { subject, second } = twoFaultMarkerFixture(true);
+
+      const run = await replayedAll(subject.root);
+
+      expect(run.result).toBe(0);
+      expect(run.stdout).toContain(`KILLED ${subject.id} in `);
+      expect(run.stdout).toContain(`KILLED ${second.id} in `);
+      expect(run.stdout).toContain("2 of 2 planted faults KILLED in ");
+      expect(run.leftovers).toEqual([]);
+    },
+    twoFaultTimeout,
   );
 });
