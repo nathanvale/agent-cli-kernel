@@ -3,7 +3,6 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -30,6 +29,8 @@ export type Copy = {
   readonly tracked: ReadonlySet<string>;
 };
 
+const baselineRef = "refs/fault-replay/baseline";
+
 const ownGitSteps: readonly (readonly string[])[] = [
   ["git", "init", "-q", "--initial-branch=main"],
   ["git", "add", "-A", "-f"],
@@ -52,6 +53,12 @@ const ownGitSteps: readonly (readonly string[])[] = [
     "-m",
     "fault-replay: working tree",
   ],
+  ["git", "update-ref", baselineRef, "HEAD"],
+];
+
+const resetCopySteps: readonly (readonly string[])[] = [
+  ["git", "reset", "--hard", "-q", baselineRef],
+  ["git", "clean", "-fd", "-q", "-e", "node_modules"],
 ];
 
 async function initOwnGit(
@@ -61,6 +68,18 @@ async function initOwnGit(
   runStep: Step,
 ): Promise<void> {
   for (const argv of ownGitSteps) {
+    const done = await runStep(id, dir, argv, limitMilliseconds);
+    if (!done.passed) throw new Error(done.output.trim());
+  }
+}
+
+async function resetCopy(
+  dir: string,
+  id: string,
+  limitMilliseconds: number,
+  runStep: Step,
+): Promise<void> {
+  for (const argv of resetCopySteps) {
     const done = await runStep(id, dir, argv, limitMilliseconds);
     if (!done.passed) throw new Error(done.output.trim());
   }
@@ -193,16 +212,13 @@ export async function replayInCopy(
   const testArgs = ["test", `./${fault.testFile}`, "-t", fault.title];
   const bunInTree = (argv: readonly string[]) =>
     runStep(fault.id, copy.dir, [process.execPath, ...argv], limitMilliseconds);
-  const clean = await bunInTree(testArgs);
-  if (!clean.passed) return { kind: "BROKEN", output: clean.output };
-  const unparsed = unparsedFiles(placement.files);
-  if (unparsed !== undefined) return { kind: "UNPARSED", ...unparsed };
-  const originals = new Map<string, Buffer>();
-  for (const path of placement.files.keys())
-    originals.set(path, readFileSync(join(copy.dir, path)));
   const reportPath = join(copy.folder, "junit.xml");
   rmSync(reportPath, { force: true });
   try {
+    const clean = await bunInTree(testArgs);
+    if (!clean.passed) return { kind: "BROKEN", output: clean.output };
+    const unparsed = unparsedFiles(placement.files);
+    if (unparsed !== undefined) return { kind: "UNPARSED", ...unparsed };
     for (const [path, text] of placement.files)
       writeFileSync(join(copy.dir, path), text);
     const faulted = await bunInTree([
@@ -217,8 +233,7 @@ export async function replayInCopy(
       fault.title,
     );
   } finally {
-    for (const [path, bytes] of originals)
-      writeFileSync(join(copy.dir, path), bytes);
     rmSync(reportPath, { force: true });
+    await resetCopy(copy.dir, fault.id, limitMilliseconds, runStep);
   }
 }

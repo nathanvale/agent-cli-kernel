@@ -166,6 +166,7 @@ async function step(
   argv: readonly string[],
   limitMilliseconds: number,
 ) {
+  haltIfStopped(id);
   const { exitCode, signalCode, timedOut, output } = await runWithOwnTools(
     argv,
     cwd,
