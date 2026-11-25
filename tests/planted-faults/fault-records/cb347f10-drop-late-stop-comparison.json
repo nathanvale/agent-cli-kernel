@@ -1,0 +1,7 @@
+{
+  "id": "cb347f10-drop-late-stop-comparison",
+  "patch": "tests/planted-faults/patches/cb347f10-drop-late-stop-comparison.patch",
+  "testFile": "tests/kernel/state/supersede-class-detector.test.ts",
+  "title": "^SU28\\.class-detector:",
+  "source": "cb347f10 test(state): pin the class-detector deadline at 250 ms and prove the late-stop comparison"
+}

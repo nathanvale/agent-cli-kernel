@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/fixtures/class-detector-worker.ts b/tests/kernel/state/fixtures/class-detector-worker.ts
+--- a/tests/kernel/state/fixtures/class-detector-worker.ts
++++ b/tests/kernel/state/fixtures/class-detector-worker.ts
+@@ -656,7 +656,7 @@ function caseEvents(
+   return out;
+ }
+ 
+-const deadlineMilliseconds = 250;
++const deadlineMilliseconds = 1_000;
+ const settleKinds: readonly string[] = [
+   "effect-confirmed",
+   "effect-unconfirmed",

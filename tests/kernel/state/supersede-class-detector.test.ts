@@ -36,6 +36,36 @@ function parseSummary(value: unknown): DetectorSummary {
   };
 }
 
+function readNumberArray(source: object, key: string): readonly number[] {
+  const value: unknown = Object.hasOwn(source, key)
+    ? Reflect.get(source, key)
+    : undefined;
+  if (!Array.isArray(value))
+    throw new Error(`Detector output field ${key} must be a number array.`);
+  const out: number[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "number")
+      throw new Error(`Detector output field ${key} must be a number array.`);
+    out.push(entry);
+  }
+  return out;
+}
+
+function readStringArray(source: object, key: string): readonly string[] {
+  const value: unknown = Object.hasOwn(source, key)
+    ? Reflect.get(source, key)
+    : undefined;
+  if (!Array.isArray(value))
+    throw new Error(`Detector output field ${key} must be a string array.`);
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string")
+      throw new Error(`Detector output field ${key} must be a string array.`);
+    out.push(entry);
+  }
+  return out;
+}
+
 function parseOutput(stdout: string): DetectorOutput {
   const parsed: unknown = JSON.parse(stdout);
   if (typeof parsed !== "object" || parsed === null)
@@ -48,7 +78,12 @@ function parseOutput(stdout: string): DetectorOutput {
     : undefined;
   if (typeof report !== "string")
     throw new Error("Detector worker returned no report string.");
-  return { summary: parseSummary(summary), report };
+  return {
+    summary: parseSummary(summary),
+    deadlineAnswersMs: readNumberArray(parsed, "deadlineAnswersMs"),
+    lateStopProblems: readStringArray(parsed, "lateStopProblems"),
+    report,
+  };
 }
 
 supportingTest(
@@ -65,7 +100,8 @@ supportingTest(
       exit: 0,
       stderr: "",
     });
-    const { summary, report } = parseOutput(run.stdout);
+    const { summary, deadlineAnswersMs, lateStopProblems, report } =
+      parseOutput(run.stdout);
     const red =
       summary.class1RedFindings > 0 ||
       summary.class2RedScenarios > 0 ||
@@ -78,6 +114,12 @@ supportingTest(
       class2RedDistinctChanges: 0,
       detectorErrors: 0,
     });
+    const expectedDeadlineMs = 250;
+    expect(deadlineAnswersMs.length).toBeGreaterThan(0);
+    expect([...new Set(deadlineAnswersMs)]).toEqual([expectedDeadlineMs]);
+    expect(lateStopProblems).toEqual([
+      `stop reached after the deadline (${expectedDeadlineMs} ms)`,
+    ]);
   },
   120_000,
 );

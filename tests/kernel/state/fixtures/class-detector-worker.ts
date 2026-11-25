@@ -1,3 +1,4 @@
+import { jest } from "bun:test";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
 import {
@@ -32,6 +33,7 @@ import {
 } from "../../kernel-repair/shapes.ts";
 import { deferred } from "../../lifecycle/recording-host.ts";
 import { testFolder } from "../../../support/test-folder.ts";
+import { answerAtStop } from "../harness.ts";
 import { getFsTrace } from "./trace-fs-preload.ts";
 
 const trace = getFsTrace();
@@ -160,6 +162,7 @@ type HostRun = {
   readonly root: string;
   readonly phase?: (name: Phase) => Promise<void>;
   readonly argv?: readonly string[];
+  readonly onDeadline?: () => void;
   readonly handler: (
     ctx: HostContext,
   ) => Promise<TransactionResult<Effects> | undefined>;
@@ -186,6 +189,10 @@ async function runHost(options: HostRun) {
     run: async (_input, context) => {
       const boundary = holder.boundary;
       if (!boundary) throw new Error("Boundary expected.");
+      if (options.onDeadline)
+        context.signal.addEventListener("abort", options.onDeadline, {
+          once: true,
+        });
       const outcome = await options.handler({
         state,
         capability: context.state,
@@ -585,6 +592,7 @@ type Class2Scenario = {
   readonly mode: "deadline" | "early-return" | "early-throw";
   readonly stop: Stop;
   readonly unflagged?: true;
+  readonly lateStopControl?: true;
 };
 
 function stopName(stop: Stop): string {
@@ -681,6 +689,30 @@ type ClassifiedChange = {
   readonly site: string;
 };
 
+type ScenarioClock = {
+  startedAt: number;
+  deadlineFiredAt: number | undefined;
+};
+
+async function runScenarioHost(
+  mode: Class2Scenario["mode"],
+  name: string,
+  reached: Promise<void>,
+  clock: ScenarioClock,
+  options: HostRun,
+) {
+  const start = () => {
+    clock.startedAt = performance.now();
+    return runHost({
+      ...options,
+      onDeadline: () => {
+        clock.deadlineFiredAt ??= performance.now() - clock.startedAt;
+      },
+    });
+  };
+  return mode === "deadline" ? answerAtStop(start, reached, name) : start();
+}
+
 async function runClass2(scenario: Class2Scenario) {
   const name = scenarioName(scenario);
   const folder = testFolder("c94-c2-");
@@ -728,9 +760,14 @@ async function runClass2(scenario: Class2Scenario) {
     workAfterAnswer: false,
     answered: false,
   };
-  const startedAt = performance.now();
+  const clock: ScenarioClock = {
+    startedAt: performance.now(),
+    deadlineFiredAt: undefined,
+  };
   const hit = async (): Promise<void> => {
-    flags.reachedAt ??= performance.now() - startedAt;
+    if (scenario.lateStopControl && flags.reachedAt === undefined)
+      jest.advanceTimersByTime(deadlineMilliseconds);
+    flags.reachedAt ??= performance.now() - clock.startedAt;
     reached.resolve();
     await gate.promise;
   };
@@ -772,85 +809,92 @@ async function runClass2(scenario: Class2Scenario) {
       () => Promise.resolve(true),
     );
   };
-  const { ran } = await runHost({
-    root,
-    argv:
-      scenario.mode === "deadline"
-        ? ["open", "--deadline-ms", String(deadlineMilliseconds)]
-        : ["open"],
-    phase: async (phase) => {
-      if (stop.kind === "phase" && phase === stop.phase) {
-        seen += 1;
-        if (seen === stop.nth) await hit();
-      }
-    },
-    handler: async ({ state, capability, boundary }) => {
-      const approvalSpec =
-        scenario.approval === "none"
-          ? undefined
-          : {
-              runtime: {
-                check: () => Promise.resolve(true),
-                revalidateAndConsume: async (
-                  request: Parameters<
-                    ReturnType<
-                      ReturnType<typeof approval>["runtime"]
-                    >["revalidateAndConsume"]
-                  >[0],
-                  coordination: Parameters<
-                    ReturnType<
-                      ReturnType<typeof approval>["runtime"]
-                    >["revalidateAndConsume"]
-                  >[1],
-                ) => {
-                  if (stop.kind === "approval") await hit();
-                  if (scenario.approval === "custom") return { consumed: true };
-                  return approval({
-                    operation: "su.open",
-                    runId: coordination.runId,
-                    store,
-                  })
-                    .runtime(state.descriptor)
-                    .revalidateAndConsume(request, coordination);
+  const { ran } = await runScenarioHost(
+    scenario.mode,
+    name,
+    reached.promise,
+    clock,
+    {
+      root,
+      argv:
+        scenario.mode === "deadline"
+          ? ["open", "--deadline-ms", String(deadlineMilliseconds)]
+          : ["open"],
+      phase: async (phase) => {
+        if (stop.kind === "phase" && phase === stop.phase) {
+          seen += 1;
+          if (seen === stop.nth) await hit();
+        }
+      },
+      handler: async ({ state, capability, boundary }) => {
+        const approvalSpec =
+          scenario.approval === "none"
+            ? undefined
+            : {
+                runtime: {
+                  check: () => Promise.resolve(true),
+                  revalidateAndConsume: async (
+                    request: Parameters<
+                      ReturnType<
+                        ReturnType<typeof approval>["runtime"]
+                      >["revalidateAndConsume"]
+                    >[0],
+                    coordination: Parameters<
+                      ReturnType<
+                        ReturnType<typeof approval>["runtime"]
+                      >["revalidateAndConsume"]
+                    >[1],
+                  ) => {
+                    if (stop.kind === "approval") await hit();
+                    if (scenario.approval === "custom")
+                      return { consumed: true };
+                    return approval({
+                      operation: "su.open",
+                      runId: coordination.runId,
+                      store,
+                    })
+                      .runtime(state.descriptor)
+                      .revalidateAndConsume(request, coordination);
+                  },
                 },
-              },
-              request: {
-                authority: boundary.authority("operator"),
-                resource: boundary.resource("doc"),
-                resourceRevision: "v1",
-                effects: [...defaultEffects],
-                preview: "preview-c2",
-              },
-            };
-      const declaration: Declaration = {
-        command: "su.open",
-        scope: {
-          resources: [
-            { resource: "doc", key: "alpha" },
-            { resource: "doc", key: "beta" },
-          ],
-        },
-        ...(scenario.unflagged ? {} : { supersedeUnresolved: true }),
-        ...(approvalSpec ? { approval: approvalSpec } : {}),
-      };
-      const running = state
-        .transaction(capability, declaration, work)
-        .finally(() => settled.resolve());
-      if (scenario.mode === "deadline") return running;
-      const finished = running.then(
-        (outcome) => ({ outcome }),
-        () => ({ outcome: undefined }),
-      );
-      const first = await Promise.race([
-        reached.promise.then(() => undefined),
-        finished,
-      ]);
-      if (first !== undefined) return first.outcome;
-      if (scenario.mode === "early-throw")
-        throw new Error("handler threw with its transaction still open");
-      return undefined;
+                request: {
+                  authority: boundary.authority("operator"),
+                  resource: boundary.resource("doc"),
+                  resourceRevision: "v1",
+                  effects: [...defaultEffects],
+                  preview: "preview-c2",
+                },
+              };
+        const declaration: Declaration = {
+          command: "su.open",
+          scope: {
+            resources: [
+              { resource: "doc", key: "alpha" },
+              { resource: "doc", key: "beta" },
+            ],
+          },
+          ...(scenario.unflagged ? {} : { supersedeUnresolved: true }),
+          ...(approvalSpec ? { approval: approvalSpec } : {}),
+        };
+        const running = state
+          .transaction(capability, declaration, work)
+          .finally(() => settled.resolve());
+        if (scenario.mode === "deadline") return running;
+        const finished = running.then(
+          (outcome) => ({ outcome }),
+          () => ({ outcome: undefined }),
+        );
+        const first = await Promise.race([
+          reached.promise.then(() => undefined),
+          finished,
+        ]);
+        if (first !== undefined) return first.outcome;
+        if (scenario.mode === "early-throw")
+          throw new Error("handler threw with its transaction still open");
+        return undefined;
+      },
     },
-  });
+  );
   flags.answered = true;
   const answerSeq = trace.seq();
   const before = snapshotTree(folder);
@@ -994,6 +1038,10 @@ async function runClass2(scenario: Class2Scenario) {
   return {
     name,
     answer: ran.kind === "envelope" ? ran.envelope.result.causeCode : ran.kind,
+    deadlineElapsedMs:
+      scenario.mode === "deadline" && flags.reachedAt !== undefined
+        ? (clock.deadlineFiredAt ?? -1)
+        : undefined,
     problems,
     notes,
     recovered,
@@ -1129,23 +1177,12 @@ async function discoverPhases(targets: 0 | 2 | "fresh"): Promise<string[]> {
   return seen;
 }
 
-async function pool<T, R>(
+async function runSequential<T, R>(
   items: readonly T[],
-  size: number,
   body: (item: T) => Promise<R>,
 ): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: size }, async () => {
-      while (next < items.length) {
-        const index = next;
-        next += 1;
-        const item = items[index];
-        if (item !== undefined) out[index] = await body(item);
-      }
-    }),
-  );
+  const out: R[] = [];
+  for (const item of items) out.push(await body(item));
   return out;
 }
 
@@ -1160,6 +1197,8 @@ export type DetectorSummary = {
 
 export type DetectorOutput = {
   readonly summary: DetectorSummary;
+  readonly deadlineAnswersMs: readonly number[];
+  readonly lateStopProblems: readonly string[];
   readonly report: string;
 };
 
@@ -1225,7 +1264,14 @@ async function main(): Promise<void> {
   for (const targets of [0, 2, "fresh"] as const)
     for (const point of await discoverPhases(targets))
       if (!covered.has(point)) uncovered.push(point);
-  const all2 = await pool(scenarios, 10, runClass2);
+  const all2 = await runSequential(scenarios, runClass2);
+  const lateStopControl = await runClass2({
+    targets: 0,
+    approval: "none",
+    mode: "deadline",
+    stop: { kind: "phase", phase: "admission-wait", nth: 1 },
+    lateStopControl: true,
+  });
   const class2 = all2.filter((result) => !result.name.startsWith("UNFLAGGED"));
   const info2 = all2.filter((result) => result.name.startsWith("UNFLAGGED"));
 
@@ -1341,7 +1387,16 @@ async function main(): Promise<void> {
   const report = lines.join("\n");
   if (process.env.DETECTOR_OUT)
     fs.writeFileSync(process.env.DETECTOR_OUT, `${report}\n`);
-  const output: DetectorOutput = { summary, report };
+  const deadlineAnswersMs: number[] = [];
+  for (const result of all2)
+    if (result.deadlineElapsedMs !== undefined)
+      deadlineAnswersMs.push(result.deadlineElapsedMs);
+  const output: DetectorOutput = {
+    summary,
+    deadlineAnswersMs,
+    lateStopProblems: lateStopControl.problems,
+    report,
+  };
   process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
