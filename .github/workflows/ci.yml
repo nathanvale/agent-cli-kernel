@@ -179,15 +179,16 @@ jobs:
         run: bun run fault-replay --shard ${{ matrix.shard }}/4 --tooling-changed-since "$BASE"
   fault-replay:
     if: always() && github.event_name == 'pull_request'
-    needs: fault-replay-shard
+    needs: [test, fault-replay-shard]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - env:
+          TEST: ${{ needs.test.result }}
           SHARDS: ${{ needs.fault-replay-shard.result }}
         run: |
-          if [ "$SHARDS" != success ]; then
-            echo "The fault-replay-shard jobs ended $SHARDS. Repair: open the red fault-replay-shard job and follow its Repair line." >&2
+          if [ "$TEST" != success ] || [ "$SHARDS" != success ]; then
+            echo "test ended $TEST and the fault-replay-shard jobs ended $SHARDS. Repair: open the red test or fault-replay-shard job and fix its failure." >&2
             exit 1
           fi
-          echo "All four fault-replay-shard jobs passed."
+          echo "test and all four fault-replay-shard jobs passed."
