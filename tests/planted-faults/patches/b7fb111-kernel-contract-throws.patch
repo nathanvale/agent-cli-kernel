@@ -1,12 +1,12 @@
 diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
-index 29188c7..690167d 100644
+index 280faf2d..3a64a8e0 100644
 --- a/kernel/src/kernel/index.ts
 +++ b/kernel/src/kernel/index.ts
-@@ -64,6 +64,7 @@ export function contractFor<
+@@ -111,6 +111,7 @@ export function contractFor<
    readonly installedAddons?: readonly AddonName[];
  }) {
    freeze(spec);
 +  throw new Error("Planted kernel fault: building a contract throws.");
+   const cliVersion = validateVersion(spec.version);
    const installed = spec.installedAddons ?? [];
    if (!commandsArray(spec.commands))
-     throw new Error("Host callbacks never receive a state issuer.");
