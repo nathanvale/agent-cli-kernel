@@ -1,7 +1,0 @@
-{
-  "id": "a3380f01-refuse-cross-command-conflict",
-  "patch": "tests/planted-faults/patches/a3380f01-refuse-cross-command-conflict.patch",
-  "testFile": "tests/kernel/renamed-from.test.ts",
-  "title": "^renamedFrom route aliases refuses an old route equal to another command route or old route$",
-  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
-}

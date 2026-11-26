@@ -1,7 +1,0 @@
-{
-  "id": "a3380f01-refuse-invalid-old-route-token",
-  "patch": "tests/planted-faults/patches/a3380f01-refuse-invalid-old-route-token.patch",
-  "testFile": "tests/kernel/renamed-from.test.ts",
-  "title": "^renamedFrom route aliases refuses an old route with an invalid route token$",
-  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
-}

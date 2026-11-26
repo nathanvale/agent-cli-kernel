@@ -1,7 +1,0 @@
-{
-  "id": "a3380f01-refuse-duplicate-own-old-route",
-  "patch": "tests/planted-faults/patches/a3380f01-refuse-duplicate-own-old-route.patch",
-  "testFile": "tests/kernel/renamed-from.test.ts",
-  "title": "^renamedFrom route aliases refuses duplicate old routes on the same command$",
-  "source": "a3380f01 feat(kernel): keep a renamed command's old routes as aliases with renamedFrom"
-}

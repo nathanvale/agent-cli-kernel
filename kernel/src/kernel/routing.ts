@@ -152,70 +152,18 @@ export function invocationTokens(argv: readonly string[]): readonly string[] {
   const split = splitDeadline(tokens);
   return split.ok ? split.value.tokens : tokens;
 }
-type RouteMatch = {
-  readonly command: CommandDeclaration;
-  readonly route: readonly string[];
-  readonly renamed: boolean;
-};
-function candidateRoutes(
-  cli: string,
-  commands: readonly CommandDeclaration[],
-): RouteMatch[] {
-  return commands.flatMap((item) => {
-    if (item.commandIdentity === `${cli}.dispatch`) return [];
-    const current: RouteMatch = {
-      command: item,
-      route: item.route,
-      renamed: false,
-    };
-    const aliases: RouteMatch[] = (item.renamedFrom ?? []).map((route) => ({
-      command: item,
-      route,
-      renamed: true,
-    }));
-    return [current, ...aliases];
-  });
-}
-function selectRouteMatch(
-  cli: string,
-  commands: readonly CommandDeclaration[],
-  tokens: readonly string[],
-): RouteMatch | undefined {
-  return candidateRoutes(cli, commands)
-    .filter((entry) =>
-      entry.route.every((token, index) => tokens[index] === token),
-    )
-    .sort((a, b) => b.route.length - a.route.length)[0];
-}
 function selectCommand(
   cli: string,
   commands: readonly CommandDeclaration[],
   tokens: readonly string[],
 ): CommandDeclaration | undefined {
-  return selectRouteMatch(cli, commands, tokens)?.command;
-}
-export function invocationRoute(
-  cli: string,
-  commands: readonly CommandDeclaration[],
-  argv: readonly string[],
-): { readonly routeLength: number; readonly renamedHelp: boolean } {
-  const { tokens: globalTokens, navigation } = globalSwitches(argv);
-  const split = splitDeadline(globalTokens);
-  const tokens = split.ok ? split.value.tokens : globalTokens;
-  if (
-    navigation.length === 1 &&
-    navigation[0] === "--help" &&
-    tokens[0] !== "--help"
-  ) {
-    const match = selectRouteMatch(cli, commands, tokens);
-    return {
-      routeLength: 1,
-      renamedHelp:
-        match?.renamed === true && discoverable(match.command.commandIdentity),
-    };
-  }
-  const match = selectRouteMatch(cli, commands, tokens);
-  return { routeLength: match?.route.length ?? 0, renamedHelp: false };
+  return commands
+    .filter(
+      (item) =>
+        item.commandIdentity !== `${cli}.dispatch` &&
+        item.route.every((token, index) => tokens[index] === token),
+    )
+    .sort((a, b) => b.route.length - a.route.length)[0];
 }
 function askedNavigation(
   cli: string,
@@ -304,12 +252,12 @@ export async function resolveInvocation(
       deadlineMilliseconds,
     );
   }
-  const match = selectRouteMatch(cli, commands, tokens);
-  return match
+  const command = selectCommand(cli, commands, tokens);
+  return command
     ? resolveCommand(
         cli,
-        match.command,
-        tokens.slice(match.route.length),
+        command,
+        tokens.slice(command.route.length),
         machine,
         deadlineMilliseconds,
       )
