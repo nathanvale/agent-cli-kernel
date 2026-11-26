@@ -1,0 +1,12 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -308,8 +308,6 @@ export function readRootedFile(
+     throw new RangeError(
+       `Rooted file limit must be a non-negative integer, got ${String(limitBytes)}.`,
+     );
+-  const parentStep = checkParentStep(path);
+-  if (parentStep !== undefined) return parentStep;
+   const resolved = resolveRealRoot(root);
+   if (resolved.kind !== "ok") return resolved;
+   const { resolvedRoot, realRoot } = resolved;

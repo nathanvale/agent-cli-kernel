@@ -1,0 +1,12 @@
+diff --git a/kernel/src/shared/rooted-file.ts b/kernel/src/shared/rooted-file.ts
+--- a/kernel/src/shared/rooted-file.ts
++++ b/kernel/src/shared/rooted-file.ts
+@@ -143,7 +143,7 @@ function relativeInside(
+ }
+ 
+ function checkParentStep(path: string): RootedRefusal | undefined {
+-  if (path.split("/").includes(".."))
++  if (path.includes(".."))
+     return refusal(
+       path,
+       "parent-step",
