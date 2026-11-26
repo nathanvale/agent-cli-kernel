@@ -20,7 +20,6 @@ export type Resolution =
         readonly input: Readonly<Record<string, unknown>>;
         readonly args: readonly string[];
         readonly deadlineMilliseconds?: number;
-        readonly renamedHelp?: boolean;
       };
     };
 

@@ -858,10 +858,6 @@ type Output = {
   readonly machine: "always" | "as-asked";
 };
 
-function isRenamedHelp(resolution: Resolution): boolean {
-  return resolution.ok && resolution.value.renamedHelp === true;
-}
-
 async function deliver(
   run: Run,
   argv: unknown,
@@ -875,7 +871,6 @@ async function deliver(
     host: output.host,
     runtime: run.runtime,
     machine: output.machine === "always" || asked,
-    renamedHelp: isRenamedHelp(resolution),
     stopping: () => run.stopped !== undefined,
   });
   const delivery = await route(run, resolution);

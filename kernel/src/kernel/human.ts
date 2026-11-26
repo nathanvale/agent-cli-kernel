@@ -108,17 +108,15 @@ function slot(item: unknown): string {
   return `  ${texts(item, "name")}${aliases.join("")}${words ? ` <${words}>` : ""}  ${presence}${repeatable}  ${texts(item, "summary")}`;
 }
 
-function commandDiscovery(data: unknown, renamedHelp = false): string[] {
+function commandDiscovery(data: unknown): string[] {
   const command = record(data) ? data.command : undefined;
   const input = record(data) ? data.input : undefined;
   const slotArguments = list(input, "arguments");
   const options = list(input, "options");
-  const currentRoute = route(command);
   return [
     `${texts(command, "commandIdentity")} (${texts(command, "effectClass")})`,
     texts(command, "summary"),
-    ...(renamedHelp ? [`Renamed to \`${currentRoute}\`.`] : []),
-    `Route: ${currentRoute}`,
+    `Route: ${route(command)}`,
     ...(slotArguments.length > 0
       ? ["Arguments:", ...slotArguments.map(slot)]
       : []),
@@ -169,43 +167,31 @@ function diagnosticsLine(
 export function renderHuman(
   cli: string,
   envelope: Envelope,
-  options?: { readonly renamedHelp?: boolean },
 ): readonly HumanWrite[] {
-  return [
-    resultText(cli, envelope, options?.renamedHelp === true),
-    ...diagnosticsLine(envelope.diagnostics),
-  ];
+  return [resultText(cli, envelope), ...diagnosticsLine(envelope.diagnostics)];
 }
 
-function successLines(
-  cli: string,
-  envelope: Envelope,
-  renamedHelp: boolean,
-): string[] {
+function successLines(cli: string, envelope: Envelope): string[] {
   const { commandIdentity, data } = envelope.result;
   if (commandIdentity === `${cli}.help`) return help(data);
   if (commandIdentity === `${cli}.version`) return version(cli, data);
   if (commandIdentity === `${cli}.discovery`) return discovery(data);
   if (commandIdentity === `${cli}.full-discovery`) return fullDiscovery(data);
   if (commandIdentity === `${cli}.command-discovery`)
-    return commandDiscovery(data, renamedHelp);
+    return commandDiscovery(data);
   return [
     oneLine(envelope.message),
     ...(data === null ? [] : [JSON.stringify(data, null, 2)]),
   ];
 }
 
-function resultText(
-  cli: string,
-  envelope: Envelope,
-  renamedHelp: boolean,
-): HumanWrite {
+function resultText(cli: string, envelope: Envelope): HumanWrite {
   const result = envelope.result;
   if (result.outcome !== "success")
     return {
       stream: "stderr",
       text: `${oneLine(cli)}: ${oneLine(envelope.message)} [${result.causeCode}]\n`,
     };
-  const lines = successLines(cli, envelope, renamedHelp);
+  const lines = successLines(cli, envelope);
   return { stream: "stdout", text: `${lines.join("\n")}\n` };
 }

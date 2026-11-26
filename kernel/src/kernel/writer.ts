@@ -45,10 +45,9 @@ export function createWriter(options: {
   readonly host: ProcessHost;
   readonly runtime: ContractRuntime;
   readonly machine: boolean;
-  readonly renamedHelp?: boolean;
   readonly stopping: () => boolean;
 }): Writer {
-  const { host, runtime, machine, renamedHelp, stopping } = options;
+  const { host, runtime, machine, stopping } = options;
   let used = false;
 
   async function validateForWrite(value: unknown, trusted: TrustedRun) {
@@ -66,11 +65,7 @@ export function createWriter(options: {
 
   function output(text: string, envelope: Envelope): readonly HumanWrite[] {
     if (machine) return [{ stream: "stdout", text: `${text}\n` }];
-    return renderHuman(
-      runtime.cli,
-      envelope,
-      renamedHelp === true ? { renamedHelp: true } : undefined,
-    );
+    return renderHuman(runtime.cli, envelope);
   }
 
   async function write(stream: "stdout" | "stderr", text: string) {
