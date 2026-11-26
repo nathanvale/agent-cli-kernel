@@ -1,12 +1,12 @@
 diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
-index 85796869..1f84f931 100644
+index 9644df82..fc0d4e27 100644
 --- a/kernel/src/kernel/routing.ts
 +++ b/kernel/src/kernel/routing.ts
-@@ -200,7 +200,7 @@ function unknownCommand(
+@@ -210,7 +210,7 @@ function unknownCommand(
        return {
          kind: "unknown-command",
          word,
--        closest: closestRoute(matched, word, index),
+-        closest: closestRoute(matched, words, index),
 +        closest: null,
        };
      matched = next;

@@ -1,0 +1,7 @@
+{
+  "id": "f46ed2a3-unknown-route-suggestion-ignores-later-words",
+  "patch": "tests/planted-faults/patches/f46ed2a3-unknown-route-suggestion-ignores-later-words.patch",
+  "testFile": "tests/kernel/unknown-route.test.ts",
+  "title": "^an unknown route is refused by name with or without --help famly list is refused with the suggestion family list, the route its later words match$",
+  "source": "f46ed2a3 fix(kernel): suggest the route whose later words the invocation matches"
+}

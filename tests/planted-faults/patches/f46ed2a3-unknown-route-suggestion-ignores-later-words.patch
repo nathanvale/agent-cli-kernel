@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+index 9644df82..1e648202 100644
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -191,7 +191,7 @@ export function closestRoute(
+     words[index] ?? "",
+     commands
+       .filter((item) => item.route.length > index)
+-      .sort((a, b) => later(b) - later(a) || a.route.length - b.route.length)
++      .sort((a, b) => a.route.length - b.route.length)
+       .map((item) => [item.route[index] ?? "", item] as const),
+   );
+   return command === null ? null : command.route.join(" ");
