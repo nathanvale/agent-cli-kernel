@@ -19,7 +19,6 @@ const unordered = new Set([
   "stations",
   "effectExclusions",
   "aliases",
-  "renamedFrom",
   "constraints",
   "members",
 ]);

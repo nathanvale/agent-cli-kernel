@@ -75,9 +75,6 @@ export function summary(command: CommandDeclaration): CommandSummary {
   return {
     commandIdentity: command.commandIdentity,
     route: command.route,
-    ...(command.renamedFrom !== undefined && command.renamedFrom.length > 0
-      ? { renamedFrom: command.renamedFrom.map((route) => [...route]) }
-      : {}),
     summary: command.summary,
     effectClass: command.effectClass,
   };
