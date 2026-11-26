@@ -290,6 +290,7 @@ describe("--discover-all full discovery route", () => {
       "catalog.help",
       "catalog.pending",
       "catalog.show",
+      "catalog.version",
       "catalog.write",
     ]);
 
@@ -514,6 +515,12 @@ describe("--discover-all full discovery route", () => {
         effectClass: "inspect",
       },
       {
+        commandIdentity: "catalog.version",
+        route: ["--version"],
+        summary: "Show the version.",
+        effectClass: "inspect",
+      },
+      {
         commandIdentity: "catalog.write",
         route: ["write"],
         summary: "Write one catalog item.",
@@ -551,7 +558,7 @@ describe("--discover-all full discovery route", () => {
     expect(extra.envelope.result.commandIdentity).toBe("catalog.dispatch");
     expect(extra.envelope.result.causeCode).toBe("USAGE_INVALID_INVOCATION");
     expect(extra.envelope.message).toBe(
-      "Give --help, --discover or --discover-all alone, or --discover-command with one command identity.",
+      "Give --help, -h, --version, --discover or --discover-all alone, or --discover-command with one command identity.",
     );
 
     const afterRoute = await runEnvelope(["show", "--discover-all", "--json"]);
@@ -561,7 +568,7 @@ describe("--discover-all full discovery route", () => {
       "USAGE_INVALID_INVOCATION",
     );
     expect(afterRoute.envelope.message).toBe(
-      "Give --help, --discover or --discover-all alone, or --discover-command with one command identity.",
+      "Give --help, -h, --version, --discover or --discover-all alone, or --discover-command with one command identity.",
     );
 
     const conflict = await runEnvelope([
@@ -573,7 +580,7 @@ describe("--discover-all full discovery route", () => {
     expect(conflict.envelope.result.commandIdentity).toBe("catalog.dispatch");
     expect(conflict.envelope.result.causeCode).toBe("USAGE_INVALID_INVOCATION");
     expect(conflict.envelope.message).toBe(
-      "Use only one of --help, --discover, --discover-all and --discover-command.",
+      "Use only one of --help, -h, --version, --discover, --discover-all and --discover-command.",
     );
   });
 

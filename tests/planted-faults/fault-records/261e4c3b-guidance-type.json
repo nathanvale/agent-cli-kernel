@@ -1,0 +1,7 @@
+{
+  "id": "261e4c3b-guidance-type",
+  "patch": "tests/planted-faults/patches/261e4c3b-guidance-type.patch",
+  "testFile": "tests/kernel/compiler-locks.test.ts",
+  "title": "^next-version: native rejects only its invalid line, valid twin and TS6 comparison agree$",
+  "source": "261e4c3b feat(kernel): add --version built-in and -h short help spelling"
+}

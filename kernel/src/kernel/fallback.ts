@@ -13,6 +13,7 @@ import {
   withinLevel,
 } from "./validation/level.ts";
 import { record } from "./validation/primitives.ts";
+import { contractVersion } from "./validation/version.ts";
 
 const fallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
@@ -78,7 +79,7 @@ function construct(
   const superseded =
     command.effectClass === "inspect" ? undefined : trusted.superseded;
   const envelope = {
-    contractVersion: "3.0.0",
+    contractVersion,
     message: fallbackMessage,
     availablePaths: [],
     result: {

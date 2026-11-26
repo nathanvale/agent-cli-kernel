@@ -1,0 +1,7 @@
+{
+  "id": "261e4c3b-version-null-when-absent",
+  "patch": "tests/planted-faults/patches/261e4c3b-version-null-when-absent.patch",
+  "testFile": "tests/kernel/version-and-short-help.test.ts",
+  "title": "^--version built-in route --version --json with no declared version returns null version$",
+  "source": "261e4c3b feat(kernel): add --version built-in and -h short help spelling"
+}

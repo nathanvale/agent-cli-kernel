@@ -283,6 +283,7 @@ runFamily("R04", {
       ["specimen.dispatch", []],
       ["specimen.full-discovery", ["--discover-all"]],
       ["specimen.help", ["--help"]],
+      ["specimen.version", ["--version"]],
     ]);
   },
   "R04.apply-twin-selectable": async () => {

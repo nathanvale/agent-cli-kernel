@@ -63,6 +63,7 @@ function listed(entry: unknown): Listed | undefined {
 
 const kernelCommands = [
   "help",
+  "version",
   "discovery",
   "full-discovery",
   "command-discovery",

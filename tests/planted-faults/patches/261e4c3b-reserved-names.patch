@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/validation/input.ts b/kernel/src/kernel/validation/input.ts
+--- a/kernel/src/kernel/validation/input.ts
++++ b/kernel/src/kernel/validation/input.ts
+@@ -10,8 +10,6 @@ import { integer, json, keys, record, text } from "./primitives.ts";
+ const reserved = [
+   "--json",
+   "--help",
+-  "-h",
+-  "--version",
+   "--discover",
+   "--discover-all",
+   "--discover-command",

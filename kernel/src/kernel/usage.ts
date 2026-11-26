@@ -90,9 +90,9 @@ const words: {
   invalid: () => "The invocation is not valid for the selected command.",
   "unknown-command": () => "No declared command matches this invocation.",
   "navigation-conflict": () =>
-    "Use only one of --help, --discover, --discover-all and --discover-command.",
+    "Use only one of --help, -h, --version, --discover, --discover-all and --discover-command.",
   "navigation-shape": () =>
-    "Give --help, --discover or --discover-all alone, or --discover-command with one command identity.",
+    "Give --help, -h, --version, --discover or --discover-all alone, or --discover-command with one command identity.",
   deadline: () =>
     "The option --deadline-ms needs one positive whole number of milliseconds.",
   "deadline-unsupported": () => "This command does not accept --deadline-ms.",

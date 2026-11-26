@@ -155,5 +155,7 @@ test("supplementary compiler boundaries retain their independent identities", ()
     "handler-result-global-envelope",
     "next-full-discovery",
     "handoff-full-discovery",
+    "next-version",
+    "handoff-version",
   ]);
 });

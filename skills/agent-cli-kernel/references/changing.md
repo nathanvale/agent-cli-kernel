@@ -75,19 +75,19 @@ Give each run the add-ons' run setup, and pass it to `runProcess` and
 
 `changing` and `contractFor` throw these when the CLI starts.
 
-| Message                                                                | Cause                                                                                                                |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `Invalid changing declaration.`                                        | `effects` is empty or repeats an identifier.                                                                         |
-| `Changing commands require the state add-on.`                          | `installedAddons` does not list `"state"`.                                                                           |
-| `ifNoResult must come from the state add-on descriptor.`               | `ifNoResult` is a copy, not the value `state.descriptor` holds.                                                      |
-| `ifNoResult must name a declared inspect command.`                     | `report` names a command that `commands` does not hold, or one that is not `inspect`.                                |
-| `ifNoResult step <identity> <args> carries a global switch before --.` | The `ifNoResult` step passes `--json`, `--help`, `--discover`, `--discover-all` or `--discover-command` before `--`. |
-| `ifNoResult step <identity> [] can never parse: ...`                   | The `report` command requires an argument or option. It is run with none.                                            |
-| `ifNoResult step <identity> <args> routes to <other>.`                 | The `report` command's route plus its `ifNoResult` arguments match another command instead of the `report` command.  |
-| `ifNoResult needs explicit further inspection guidance.`               | The `report` command's success guidance is `{ kind: "done" }`.                                                       |
-| `Changing commands need distinct coordination refusal stations.`       | `heldLockCause` and `unresolvedCaseCause` are one cause, or either is not one of the command's declared stations.    |
-| `Coordination refusal causes are host-owned.`                          | Either names a kernel cause, such as `DOMAIN_AUTHORITY_REQUIRED`. Add your own rows.                                 |
-| `Coordination refusal requires an unchanged handoff.`                  | Either station is not refused and unchanged with a `handoff`.                                                        |
+| Message                                                                | Cause                                                                                                                                   |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `Invalid changing declaration.`                                        | `effects` is empty or repeats an identifier.                                                                                            |
+| `Changing commands require the state add-on.`                          | `installedAddons` does not list `"state"`.                                                                                              |
+| `ifNoResult must come from the state add-on descriptor.`               | `ifNoResult` is a copy, not the value `state.descriptor` holds.                                                                         |
+| `ifNoResult must name a declared inspect command.`                     | `report` names a command that `commands` does not hold, or one that is not `inspect`.                                                   |
+| `ifNoResult step <identity> <args> carries a global switch before --.` | The `ifNoResult` step passes `--json`, `--help`, `-h`, `--version`, `--discover`, `--discover-all` or `--discover-command` before `--`. |
+| `ifNoResult step <identity> [] can never parse: ...`                   | The `report` command requires an argument or option. It is run with none.                                                               |
+| `ifNoResult step <identity> <args> routes to <other>.`                 | The `report` command's route plus its `ifNoResult` arguments match another command instead of the `report` command.                     |
+| `ifNoResult needs explicit further inspection guidance.`               | The `report` command's success guidance is `{ kind: "done" }`.                                                                          |
+| `Changing commands need distinct coordination refusal stations.`       | `heldLockCause` and `unresolvedCaseCause` are one cause, or either is not one of the command's declared stations.                       |
+| `Coordination refusal causes are host-owned.`                          | Either names a kernel cause, such as `DOMAIN_AUTHORITY_REQUIRED`. Add your own rows.                                                    |
+| `Coordination refusal requires an unchanged handoff.`                  | Either station is not refused and unchanged with a `handoff`.                                                                           |
 
 The `report` command's success guidance tells the caller what to do with
 the list:

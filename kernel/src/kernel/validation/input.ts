@@ -10,6 +10,8 @@ import { integer, json, keys, record, text } from "./primitives.ts";
 const reserved = [
   "--json",
   "--help",
+  "-h",
+  "--version",
   "--discover",
   "--discover-all",
   "--discover-command",

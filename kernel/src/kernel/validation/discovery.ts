@@ -12,6 +12,7 @@ import { freeze } from "../stations.ts";
 import type { WireResult } from "../types.ts";
 import { record } from "./primitives.ts";
 import { sameJson } from "./json-equality.ts";
+import { contractVersion } from "./version.ts";
 
 const unordered = new Set([
   "commands",
@@ -44,6 +45,7 @@ export function navigationData(
   cli: string,
   commands: readonly CommandDeclaration[],
   stations: ReadonlyMap<string, readonly DeclaredStation[]>,
+  cliVersion: string | null = null,
 ) {
   const builtinIdentities = new Set(
     builtins(cli).map((item) => item.commandIdentity),
@@ -67,6 +69,11 @@ export function navigationData(
           summary: "Emit one machine-readable result.",
         },
         { name: "--help", valueName: null, summary: "Show help." },
+        {
+          name: "--version",
+          valueName: null,
+          summary: "Show the version.",
+        },
         { name: "--discover", valueName: null, summary: "Discover commands." },
         {
           name: "--discover-all",
@@ -81,6 +88,9 @@ export function navigationData(
       ],
     };
   }
+  function version() {
+    return freeze({ cli, version: cliVersion });
+  }
   function commandEntry(command: CommandDeclaration) {
     return {
       command: summary(command),
@@ -94,7 +104,7 @@ export function navigationData(
   }
   function discover() {
     return freeze({
-      contractVersion: "3.0.0",
+      contractVersion,
       commands: commands.map(summary),
       exitMeanings: { ...exitMeanings },
       signalExits: { ...signalExits },
@@ -106,7 +116,7 @@ export function navigationData(
   }
   function discoverAll() {
     return freeze({
-      contractVersion: "3.0.0",
+      contractVersion,
       stationProseSource:
         "Run --discover-command <identity> for trigger, guidance and repairAction.",
       commands: commands.map((command) => {
@@ -134,6 +144,8 @@ export function navigationData(
     if (result.outcome !== "success") return true;
     if (result.commandIdentity === `${cli}.help`)
       return sameProjection(result.data, help());
+    if (result.commandIdentity === `${cli}.version`)
+      return sameProjection(result.data, version());
     if (result.commandIdentity === `${cli}.discovery`)
       return sameProjection(result.data, discover());
     if (result.commandIdentity === `${cli}.full-discovery`)
@@ -147,5 +159,5 @@ export function navigationData(
       sameProjection(data, discoverCommand(identity))
     );
   }
-  return { help, discover, discoverAll, discoverCommand, validData };
+  return { help, version, discover, discoverAll, discoverCommand, validData };
 }

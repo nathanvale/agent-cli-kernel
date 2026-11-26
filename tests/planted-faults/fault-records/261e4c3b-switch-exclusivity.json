@@ -1,0 +1,7 @@
+{
+  "id": "261e4c3b-switch-exclusivity",
+  "patch": "tests/planted-faults/patches/261e4c3b-switch-exclusivity.patch",
+  "testFile": "tests/kernel/version-and-short-help.test.ts",
+  "title": "^navigation switch guards for -h and --version -h --version --json is declined naming the navigation switches$",
+  "source": "261e4c3b feat(kernel): add --version built-in and -h short help spelling"
+}
