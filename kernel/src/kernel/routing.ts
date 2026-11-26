@@ -172,16 +172,26 @@ function selectCommand(
     )
     .sort((a, b) => b.route.length - a.route.length)[0];
 }
+function laterWordsMatched(
+  command: CommandDeclaration,
+  words: readonly string[],
+  index: number,
+): number {
+  return command.route.filter((token, at) => at > index && words[at] === token)
+    .length;
+}
 export function closestRoute(
   commands: readonly CommandDeclaration[],
-  word: string,
+  words: readonly string[],
   index: number,
 ): string | null {
+  const later = (item: CommandDeclaration) =>
+    laterWordsMatched(item, words, index);
   const command = nearestWord(
-    word,
+    words[index] ?? "",
     commands
       .filter((item) => item.route.length > index)
-      .sort((a, b) => a.route.length - b.route.length)
+      .sort((a, b) => later(b) - later(a) || a.route.length - b.route.length)
       .map((item) => [item.route[index] ?? "", item] as const),
   );
   return command === null ? null : command.route.join(" ");
@@ -200,7 +210,7 @@ function unknownCommand(
       return {
         kind: "unknown-command",
         word,
-        closest: closestRoute(matched, word, index),
+        closest: closestRoute(matched, words, index),
       };
     matched = next;
   }

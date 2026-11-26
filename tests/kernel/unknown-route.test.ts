@@ -101,6 +101,14 @@ describe("an unknown route is refused by name with or without --help", () => {
     expect(await run(["family", "lsit"])).toEqual(refusedWith(lsit));
   });
 
+  test("famly list is refused with the suggestion family list, the route its later words match", async () => {
+    expect(await run(["famly", "list"])).toEqual(
+      refusedWith(
+        'No declared command matches "famly". Did you mean "family list"?',
+      ),
+    );
+  });
+
   test("family lsit --help is refused like family lsit", async () => {
     expect(await run(["family", "lsit", "--help"])).toEqual(refusedWith(lsit));
   });
