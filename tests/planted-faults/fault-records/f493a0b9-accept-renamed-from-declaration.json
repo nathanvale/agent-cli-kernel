@@ -1,0 +1,7 @@
+{
+  "id": "f493a0b9-accept-renamed-from-declaration",
+  "patch": "tests/planted-faults/patches/f493a0b9-accept-renamed-from-declaration.patch",
+  "testFile": "tests/kernel/compiler-locks.test.ts",
+  "title": "^unknown-declaration-renamed-from: native rejects only its invalid line, valid twin and TS6 comparison agree$",
+  "source": "f493a0b9 refactor(kernel): remove renamedFrom route aliases and help path"
+}

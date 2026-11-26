@@ -1,0 +1,11 @@
+--- a/kernel/src/kernel/declarations.ts
++++ b/kernel/src/kernel/declarations.ts
+@@ -359,6 +359,8 @@
+         AbortContext &
+         ResultContext<Identity, S, "inspect", C, P>,
+     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
++  } & {
++    readonly renamedFrom?: readonly (readonly string[])[];
+   } & ApprovalFor<C, I>,
+ ) {
+   admitSpecification(spec);
