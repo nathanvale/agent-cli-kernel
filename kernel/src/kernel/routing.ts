@@ -1,6 +1,6 @@
 import { splitDeadline, splitDeadlineTokens } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { acceptsRootInput, parseSlots } from "./input.ts";
+import { acceptsRootInput, nearestWord, parseSlots } from "./input.ts";
 import { discoverable } from "./navigation.ts";
 import { usageRefusal } from "./usage.ts";
 import type { UsageFault } from "./usage.ts";
@@ -114,7 +114,7 @@ async function resolveBuiltin(
   )
     return refused(
       cli,
-      { kind: "unknown-command" },
+      { kind: "unknown-command", word: null, closest: null },
       machine,
       command.commandIdentity,
     );
@@ -171,6 +171,55 @@ function selectCommand(
         item.route.every((token, index) => tokens[index] === token),
     )
     .sort((a, b) => b.route.length - a.route.length)[0];
+}
+export function closestRoute(
+  commands: readonly CommandDeclaration[],
+  word: string,
+  index: number,
+): string | null {
+  const command = nearestWord(
+    word,
+    commands
+      .filter((item) => item.route.length > index)
+      .sort((a, b) => a.route.length - b.route.length)
+      .map((item) => [item.route[index] ?? "", item] as const),
+  );
+  return command === null ? null : command.route.join(" ");
+}
+function unknownCommand(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  words: readonly string[],
+): UsageFault {
+  let matched = commands.filter(
+    (item) => item.commandIdentity !== `${cli}.dispatch`,
+  );
+  for (const [index, word] of words.entries()) {
+    const next = matched.filter((item) => item.route[index] === word);
+    if (!next.length)
+      return {
+        kind: "unknown-command",
+        word,
+        closest: closestRoute(matched, word, index),
+      };
+    matched = next;
+  }
+  return { kind: "unknown-command", word: null, closest: null };
+}
+function unknownHelpRoute(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  tokens: readonly string[],
+  flag: string | undefined,
+): UsageFault | undefined {
+  if (!isHelpSwitch(flag)) return undefined;
+  const at = tokens.indexOf(flag ?? "");
+  const words = tokens.filter((_token, index) => index !== at);
+  const first = words[0];
+  if (first === undefined || first.startsWith("-")) return undefined;
+  return selectCommand(cli, commands, words)
+    ? undefined
+    : unknownCommand(cli, commands, words);
 }
 function askedNavigation(
   cli: string,
@@ -251,6 +300,8 @@ export async function resolveInvocation(
   if (navigation.length > 1)
     return refused(cli, { kind: "navigation-conflict" }, machine);
   if (navigation.length === 1) {
+    const unknown = unknownHelpRoute(cli, commands, tokens, navigation[0]);
+    if (unknown) return refused(cli, unknown, machine);
     const asked = askedNavigation(cli, commands, tokens, navigation[0]);
     return resolveBuiltin(
       cli,
@@ -270,5 +321,5 @@ export async function resolveInvocation(
         machine,
         deadlineMilliseconds,
       )
-    : refused(cli, { kind: "unknown-command" }, machine);
+    : refused(cli, unknownCommand(cli, commands, tokens), machine);
 }

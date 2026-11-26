@@ -37,7 +37,7 @@ const listed = [
 ];
 
 const unknownLine =
-  "liar: No declared command matches this invocation. [USAGE_UNKNOWN_COMMAND]\n";
+  'liar: No declared command matches "--verify-cli-undeclared-option". [USAGE_UNKNOWN_COMMAND]\n';
 
 function readyProbe(): Answer {
   return {
