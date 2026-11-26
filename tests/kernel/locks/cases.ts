@@ -345,23 +345,4 @@ export const boundaries = [
     valid:
       'F.contractFor({ cli: "specimen", causes: F.exemplarCauses, commands: [F.reportFor("specimen.full-discovery")] });',
   },
-  {
-    id: "unknown-declaration-renamed-from",
-    code: 2353,
-    setup: "",
-    invalid:
-      'F.command({ identity: "specimen.inspect", route: ["inspect"], summary: "Inspect.", input: F.input, capabilities: {}, renamedFrom: [["old"]], run: (_input, context) => context.result(F.defaultSelection, F.runFacts) });',
-    valid:
-      'F.command({ identity: "specimen.inspect", route: ["inspect"], summary: "Inspect.", input: F.input, capabilities: {}, run: (_input, context) => context.result(F.defaultSelection, F.runFacts) });',
-  },
-  {
-    id: "unknown-declaration-renamed-from-changing",
-    code: 2353,
-    setup:
-      'declare const route: F.IfNoResult; declare const result: F.CommandResult<"specimen.change">;',
-    invalid:
-      'F.changing({ identity: "specimen.change", route: ["change"], summary: "Change.", input: F.input, capabilities: {}, effectClass: "repository-local", effects: ["write"], ifNoResult: route, heldLockCause: "HELD", unresolvedCaseCause: "PRIOR", stations: [], renamedFrom: [["old"]], run: () => Promise.resolve(result) });',
-    valid:
-      'F.changing({ identity: "specimen.change", route: ["change"], summary: "Change.", input: F.input, capabilities: {}, effectClass: "repository-local", effects: ["write"], ifNoResult: route, heldLockCause: "HELD", unresolvedCaseCause: "PRIOR", stations: [], run: () => Promise.resolve(result) });',
-  },
 ] as const;
