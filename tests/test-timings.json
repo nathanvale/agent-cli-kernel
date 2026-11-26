@@ -112,6 +112,7 @@
     "tests/kernel/static-controls.test.ts": 7886,
     "tests/kernel/stations.test.ts": 29,
     "tests/kernel/strict-checks.test.ts": 1130,
+    "tests/kernel/unknown-route.test.ts": 24,
     "tests/kernel/usage.test.ts": 2949,
     "tests/kernel/version-and-short-help.test.ts": 63,
     "tests/kernel/verify-skill/check-bounds.test.ts": 3119,

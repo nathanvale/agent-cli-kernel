@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+index 67f09ba7..cd9ea27d 100644
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -222,7 +222,7 @@ function helpRouteWords(
+   tokens: readonly string[],
+   flag: string | undefined,
+ ): readonly string[] | undefined {
+-  if (!isHelpSwitch(flag)) return undefined;
++  if (isHelpSwitch(flag)) return undefined;
+   const at = tokens.indexOf(flag ?? "");
+   const words = tokens.filter((_token, index) => index !== at);
+   const first = words[0];

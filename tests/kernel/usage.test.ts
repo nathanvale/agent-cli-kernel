@@ -898,7 +898,6 @@ const asHelp: readonly (readonly [readonly string[], readonly string[]])[] = [
     ["show", "--nope", "--help"],
     ["--discover-command", "x.show"],
   ],
-  [["nope", "--help"], ["--help"]],
 ];
 
 function asked(argv: readonly string[]) {
@@ -925,7 +924,7 @@ function sharedPrefix() {
 
 describe("a command followed by --help answers with that command's discovery", () => {
   test(
-    "the production entry prints what --discover-command prints for the command, or plain help for no command, and exits 0",
+    "the production entry prints what --discover-command prints for the command and exits 0",
     async () => {
       const shown = await asked(["--discover-command", "x.show"]);
       expect(
@@ -933,34 +932,28 @@ describe("a command followed by --help answers with that command's discovery", (
           "x.show (inspect)\nShow a title.\nRoute: show\n",
         ),
       ).toBe(true);
-      const help = await asked(["--help"]);
-      expect(help.stdout.startsWith("Usage: x <command> [options]\n")).toBe(
-        true,
-      );
-      for (const [argv, same] of asHelp) {
-        const expected = same[0] === "--help" ? help : shown;
+      for (const [argv] of asHelp) {
         const run = await asked(argv);
         expect({
           exit: run.exit,
           stdout: run.stdout,
           stderr: run.stderr,
-        }).toEqual({ exit: 0, stdout: expected.stdout, stderr: "" });
+        }).toEqual({ exit: 0, stdout: shown.stdout, stderr: "" });
       }
     },
-    processWatchdog(2 + asHelp.length),
+    processWatchdog(1 + asHelp.length),
   );
 
   test(
     "the production entry's JSON envelope names command discovery and carries the data --discover-command carries",
     async () => {
       const shown = await asked(["--json", "--discover-command", "x.show"]);
-      const help = await asked(["--json", "--help"]);
       const run = await asked(["show", "--help", "--json"]);
       const none = await asked(["nope", "--help", "--json"]);
       expect([run.exit, run.stderr, none.exit, none.stderr]).toEqual([
         0,
         "",
-        0,
+        2,
         "",
       ]);
       const ran = facts(JSON.parse(run.stdout));
@@ -968,10 +961,12 @@ describe("a command followed by --help answers with that command's discovery", (
       expect(discovered(ran.data)).toBe("x.show");
       expect(ran).toEqual(facts(JSON.parse(shown.stdout)));
       const unmatched = facts(JSON.parse(none.stdout));
-      expect(unmatched.commandIdentity).toBe("x.help");
-      expect(unmatched).toEqual(facts(JSON.parse(help.stdout)));
+      expect([unmatched.causeCode, unmatched.message]).toEqual([
+        "USAGE_UNKNOWN_COMMAND",
+        "No declared command matches this invocation.",
+      ]);
     },
-    processWatchdog(4),
+    processWatchdog(3),
   );
 
   test("an in-process run answers each form as its discovery or help twin", async () => {

@@ -209,20 +209,32 @@ function distance(a: string, b: string): number {
       );
   return at(a.length, b.length);
 }
-function closestOption(schema: InputSchema, token: string): Slot | null {
-  const typed = bare(token);
-  let closest: Slot | null = null;
+export function nearestWord<T>(
+  typed: string,
+  candidates: readonly (readonly [word: string, value: T])[],
+): T | null {
+  let closest: T | null = null;
   let best = nearest + 1;
-  for (const option of schema.options)
-    for (const name of [option.name, ...option.aliases].map(bare)) {
-      if (Math.abs(name.length - typed.length) > nearest) continue;
-      const found = distance(typed, name);
-      if (found < best && found * 2 < name.length) {
-        closest = { kind: "option", name: option.name };
-        best = found;
-      }
+  for (const [word, value] of candidates) {
+    if (Math.abs(word.length - typed.length) > nearest) continue;
+    const found = distance(typed, word);
+    if (found < best && found * 2 < word.length) {
+      closest = value;
+      best = found;
     }
+  }
   return closest;
+}
+function closestOption(schema: InputSchema, token: string): Slot | null {
+  const name = nearestWord(
+    bare(token),
+    schema.options.flatMap((option) =>
+      [option.name, ...option.aliases].map(
+        (alias) => [bare(alias), option.name] as const,
+      ),
+    ),
+  );
+  return name === null ? null : { kind: "option", name };
 }
 export type SplitOption = {
   readonly name: string;

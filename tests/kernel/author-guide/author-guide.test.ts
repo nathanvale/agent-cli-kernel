@@ -1102,6 +1102,21 @@ describe("kernel behaviour the author skill states in words", () => {
     );
   });
 
+  test("commands.md: an unknown command is refused with USAGE_UNKNOWN_COMMAND and exit code 2, with or without --help, suggesting the closest route without naming the word", async () => {
+    const run = kernel.runInProcess(readContract());
+    for (const argv of [["raed"], ["raed", "--help"]]) {
+      expect(await run(argv)).toMatchObject({
+        kind: "envelope",
+        exitCode: 2,
+        envelope: {
+          message:
+            'No declared command matches this invocation. Did you mean "read"?',
+          result: { causeCode: "USAGE_UNKNOWN_COMMAND" },
+        },
+      });
+    }
+  });
+
   test("commands.md: --discover-all returns every command's input and results without trigger, guidance or repairAction", async () => {
     const contract = readContract();
     const run = kernel.runInProcess(contract);

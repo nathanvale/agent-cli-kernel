@@ -1,9 +1,10 @@
 import { splitDeadline, splitDeadlineTokens } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { acceptsRootInput, parseSlots } from "./input.ts";
+import { acceptsRootInput, nearestWord, parseSlots } from "./input.ts";
 import { discoverable } from "./navigation.ts";
 import { usageRefusal } from "./usage.ts";
 import type { UsageFault } from "./usage.ts";
+type UnknownCommandFault = Extract<UsageFault, { kind: "unknown-command" }>;
 export function refused(
   cli: string,
   fault: UsageFault,
@@ -114,7 +115,7 @@ async function resolveBuiltin(
   )
     return refused(
       cli,
-      { kind: "unknown-command" },
+      { kind: "unknown-command", closest: null },
       machine,
       command.commandIdentity,
     );
@@ -172,6 +173,62 @@ function selectCommand(
     )
     .sort((a, b) => b.route.length - a.route.length)[0];
 }
+function laterWordsMatched(
+  command: CommandDeclaration,
+  words: readonly string[],
+  index: number,
+): number {
+  return command.route.filter((token, at) => at > index && words[at] === token)
+    .length;
+}
+export function closestRoute(
+  commands: readonly CommandDeclaration[],
+  words: readonly string[],
+  index: number,
+): string | null {
+  const later = (item: CommandDeclaration) =>
+    laterWordsMatched(item, words, index);
+  const command = nearestWord(
+    words[index] ?? "",
+    commands
+      .filter((item) => item.route.length > index)
+      .sort((a, b) => later(b) - later(a) || a.route.length - b.route.length)
+      .map((item) => [item.route[index] ?? "", item] as const),
+  );
+  return command === null ? null : command.route.join(" ");
+}
+function unmatchedRoute(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  words: readonly string[],
+): UnknownCommandFault | undefined {
+  let matched = commands.filter(
+    (item) => item.commandIdentity !== `${cli}.dispatch`,
+  );
+  for (const [index, word] of words.entries()) {
+    const next = matched.filter((item) => item.route[index] === word);
+    if (!next.length)
+      return {
+        kind: "unknown-command",
+        closest: closestRoute(matched, words, index),
+      };
+    matched = next;
+  }
+  return undefined;
+}
+function helpRouteWords(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  tokens: readonly string[],
+  flag: string | undefined,
+): readonly string[] | undefined {
+  if (!isHelpSwitch(flag)) return undefined;
+  const at = tokens.indexOf(flag ?? "");
+  const words = tokens.filter((_token, index) => index !== at);
+  const first = words[0];
+  if (first === undefined || first.startsWith("-")) return undefined;
+  return selectCommand(cli, commands, words) ? undefined : words;
+}
 function askedNavigation(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -188,6 +245,29 @@ function askedNavigation(
         tokens: ["--discover-command", command.commandIdentity],
       }
     : { flag: "--help", tokens: ["--help"] };
+}
+async function resolveNavigation(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  tokens: readonly string[],
+  flag: string | undefined,
+  machine: boolean,
+  deadlineMilliseconds?: number,
+) {
+  const words = helpRouteWords(cli, commands, tokens, flag);
+  const unknown = words && unmatchedRoute(cli, commands, words);
+  if (unknown) return refused(cli, unknown, machine);
+  const asked = words
+    ? { flag: "--help", tokens: ["--help"] }
+    : askedNavigation(cli, commands, tokens, flag);
+  return resolveBuiltin(
+    cli,
+    commands,
+    asked.tokens,
+    machine,
+    asked.flag,
+    deadlineMilliseconds,
+  );
 }
 export function routedIdentity(
   cli: string,
@@ -250,17 +330,16 @@ export async function resolveInvocation(
   }
   if (navigation.length > 1)
     return refused(cli, { kind: "navigation-conflict" }, machine);
-  if (navigation.length === 1) {
-    const asked = askedNavigation(cli, commands, tokens, navigation[0]);
-    return resolveBuiltin(
+  if (navigation.length === 1)
+    return resolveNavigation(
       cli,
       commands,
-      asked.tokens,
+      tokens,
+      navigation[0],
       machine,
-      asked.flag,
       deadlineMilliseconds,
     );
-  }
+
   const command = selectCommand(cli, commands, tokens);
   return command
     ? resolveCommand(
@@ -270,5 +349,12 @@ export async function resolveInvocation(
         machine,
         deadlineMilliseconds,
       )
-    : refused(cli, { kind: "unknown-command" }, machine);
+    : refused(
+        cli,
+        unmatchedRoute(cli, commands, tokens) ?? {
+          kind: "unknown-command",
+          closest: null,
+        },
+        machine,
+      );
 }

@@ -237,6 +237,10 @@ it out and the CLI uses none.
   answers with exit code 0 and that command's discovery: its arguments,
   options and possible results, the same as
   `--discover-command <identity>`.
+- An unknown command is refused with `USAGE_UNKNOWN_COMMAND` and exit code
+  2, with or without `--help`. The message never repeats what was typed; it
+  suggests the closest declared route when one is near:
+  `No declared command matches this invocation. Did you mean "read"?`
 - `--version` reports `{ cli, version }` (or `<cli> <version> (kernel contract 3.0.0)`
   in plain output, with `version not declared` when `version` is omitted).
 - `--discover-all` returns every command's input and results in one call,

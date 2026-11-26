@@ -44,7 +44,7 @@ export type UsageFault =
   | { readonly kind: "deadline-unsupported" }
   | { readonly kind: "root-input" }
   | { readonly kind: "later-step" }
-  | { readonly kind: "unknown-command" };
+  | { readonly kind: "unknown-command"; readonly closest: string | null };
 type Kind = UsageFault["kind"];
 type FaultOf<K extends Kind> = Extract<UsageFault, { readonly kind: K }>;
 type Rule = ValueCheck["rule"];
@@ -58,6 +58,12 @@ function unknownOptionSubject(option: string): string {
     !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]/u.test(option)
     ? `${option}, an option`
     : "an option";
+}
+function unknownCommandWords(fault: FaultOf<"unknown-command">): string {
+  const plain = "No declared command matches this invocation.";
+  return fault.closest === null
+    ? plain
+    : `${plain} Did you mean "${fault.closest}"?`;
 }
 
 const checkWords: {
@@ -88,7 +94,7 @@ const words: {
   "no-command": (_fault, cli) =>
     `No command was given. Run ${cli} --help to list the commands.`,
   invalid: () => "The invocation is not valid for the selected command.",
-  "unknown-command": () => "No declared command matches this invocation.",
+  "unknown-command": unknownCommandWords,
   "navigation-conflict": () =>
     "Use only one of --help, -h, --version, --discover, --discover-all and --discover-command.",
   "navigation-shape": () =>
