@@ -1,0 +1,7 @@
+{
+  "id": "99ba1a46-rooted-file-parent-step-substring",
+  "patch": "tests/planted-faults/patches/99ba1a46-rooted-file-parent-step-substring.patch",
+  "testFile": "tests/kernel/rooted-file.test.ts",
+  "title": "^readRootedFile does not decline filenames containing \\.\\. such as a/\\.\\.b\\.txt or a/b\\.\\.txt$",
+  "source": "99ba1a46 feat(rooted-file): decline any path with a .. segment as parent-step"
+}

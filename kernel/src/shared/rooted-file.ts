@@ -8,13 +8,14 @@ import {
   realpathSync,
 } from "node:fs";
 import type { Stats } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export type RootedRefusal = {
   readonly kind: "refused";
   readonly path: string;
   readonly message: string;
   readonly reason:
+    | "parent-step"
     | "outside-root"
     | "symbolic-link"
     | "linked-folder"
@@ -141,27 +142,14 @@ function relativeInside(
   return rel;
 }
 
-function checkParentSteps(
-  realRoot: string,
-  path: string,
-): { readonly kind: "ok" } | { readonly kind: "missing" } | RootedRefusal {
-  const given = isAbsolute(path) ? path : `${realRoot}${sep}${path}`;
-  const segments = given.split(sep);
-  for (const [index, segment] of segments.entries()) {
-    if (segment !== "..") continue;
-    const before = segments.slice(0, index).join(sep) || sep;
-    const physical = realpathOptional(before);
-    const lexical = realpathOptional(resolve(before, ".."));
-    if (physical === undefined || lexical === undefined)
-      return { kind: "missing" };
-    if (dirname(physical) !== lexical)
-      return refusal(
-        path,
-        "linked-folder",
-        `${path} steps to ".." from linked folder ${before}, which leaves the written path. Repair: pass the path without "..", or replace the symbolic link with a real folder inside ${realRoot}.`,
-      );
-  }
-  return { kind: "ok" };
+function checkParentStep(path: string): RootedRefusal | undefined {
+  if (path.split("/").includes(".."))
+    return refusal(
+      path,
+      "parent-step",
+      `${path} contains a ".." segment. Repair: pass the path as written, without "..".`,
+    );
+  return undefined;
 }
 
 function walkAncestors(
@@ -320,13 +308,13 @@ export function readRootedFile(
     throw new RangeError(
       `Rooted file limit must be a non-negative integer, got ${String(limitBytes)}.`,
     );
+  const parentStep = checkParentStep(path);
+  if (parentStep !== undefined) return parentStep;
   const resolved = resolveRealRoot(root);
   if (resolved.kind !== "ok") return resolved;
   const { resolvedRoot, realRoot } = resolved;
   const rel = relativeInside(resolvedRoot, realRoot, path);
   if (typeof rel !== "string") return rel;
-  const stepped = checkParentSteps(realRoot, path);
-  if (stepped.kind !== "ok") return stepped;
   const segments = rel.split(sep);
   const parentSegments = segments.slice(0, -1);
   const walked = walkAncestors(realRoot, parentSegments, path);

@@ -1,0 +1,7 @@
+{
+  "id": "99ba1a46-rooted-file-parent-step-skips-absolute",
+  "patch": "tests/planted-faults/patches/99ba1a46-rooted-file-parent-step-skips-absolute.patch",
+  "testFile": "tests/kernel/rooted-file.test.ts",
+  "title": "^readRootedFile declines absolute path <root>/a/\\.\\./a/b\\.txt with parent-step$",
+  "source": "99ba1a46 feat(rooted-file): decline any path with a .. segment as parent-step"
+}

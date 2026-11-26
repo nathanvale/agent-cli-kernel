@@ -9,7 +9,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { readRootedFile } from "../../kernel/src/shared/rooted-file.ts";
 import { ownedFolders } from "../support/fixture-files.ts";
 import { spawnBounded } from "./kernel-repair/swarm-process.ts";
@@ -69,10 +69,11 @@ describe("readRootedFile", () => {
         message: `linked/secret.txt crosses linked folder ${join(realRoot, "linked")}. Repair: replace the symbolic link with a real folder inside ${realRoot}.`,
       },
       {
-        name: "relative outside-root escape",
+        name: "relative parent-step escape",
         path: "../outside/secret.txt",
-        reason: "outside-root",
-        message: `../outside/secret.txt is outside root ${realRoot}. Repair: pass a path inside ${realRoot}.`,
+        reason: "parent-step",
+        message:
+          '../outside/secret.txt contains a ".." segment. Repair: pass the path as written, without "..".',
       },
       {
         name: "absolute outside-root path",
@@ -166,36 +167,160 @@ describe("readRootedFile", () => {
       expect(text(physicalViaDotDot.bytes)).toBe("IN_ROOT");
   });
 
-  test("refuses .. after a linked folder, relative and absolute, and admits .. after a real folder", () => {
+  test("declines .. after a linked, real, or absent folder as parent-step", () => {
     const base = folder("rooted-file-linked-parent-step-");
     const root = join(base, "root");
-    const realBase = realpathSync.native(base);
-    const realRoot = join(realBase, "root");
     mkdirSync(join(root, "nested"), { recursive: true });
     mkdirSync(join(base, "outside"));
     writeFileSync(join(root, "plain.txt"), "INSIDE");
     writeFileSync(join(base, "plain.txt"), "OUTSIDE");
     symlinkSync("../outside", join(root, "middle"));
 
-    const absolute = `${root}/middle/../plain.txt`;
-    for (const [path, linked] of [
-      ["middle/../plain.txt", join(realRoot, "middle")],
-      [absolute, join(root, "middle")],
-    ] as const)
+    for (const path of [
+      "middle/../plain.txt",
+      `${root}/middle/../plain.txt`,
+      "nested/../plain.txt",
+      `${root}/nested/../plain.txt`,
+      "absent/../plain.txt",
+    ]) {
       expect(readRootedFile(root, path, limitBytes)).toEqual({
         kind: "refused",
         path,
-        reason: "linked-folder",
-        message: `${path} steps to ".." from linked folder ${linked}, which leaves the written path. Repair: pass the path without "..", or replace the symbolic link with a real folder inside ${realRoot}.`,
+        reason: "parent-step",
+        message: `${path} contains a ".." segment. Repair: pass the path as written, without "..".`,
       });
-
-    for (const path of ["nested/../plain.txt", `${root}/nested/../plain.txt`]) {
-      const read = readRootedFile(root, path, limitBytes);
-      expect(read.kind).toBe("read");
-      if (read.kind === "read") expect(text(read.bytes)).toBe("INSIDE");
     }
-    expect(readRootedFile(root, "absent/../plain.txt", limitBytes)).toEqual({
+  });
+
+  test("reads a plain nested path a/b.txt", () => {
+    const base = folder("rooted-file-plain-nested-");
+    const root = join(base, "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+
+    const result = readRootedFile(root, "a/b.txt", limitBytes);
+    expect(result.kind).toBe("read");
+    if (result.kind === "read") {
+      expect(text(result.bytes)).toBe("body");
+      expect(result.facts.size).toBe(4);
+    }
+  });
+
+  test("declines relative path a/../a/b.txt with parent-step", () => {
+    const base = folder("rooted-file-rel-parent-step-");
+    const root = join(base, "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+
+    expect(readRootedFile(root, "a/../a/b.txt", limitBytes)).toEqual({
+      kind: "refused",
+      path: "a/../a/b.txt",
+      reason: "parent-step",
+      message:
+        'a/../a/b.txt contains a ".." segment. Repair: pass the path as written, without "..".',
+    });
+    expect(
+      readRootedFile(join(base, "no-such-root"), "a/../a/b.txt", limitBytes),
+    ).toEqual({
+      kind: "refused",
+      path: "a/../a/b.txt",
+      reason: "parent-step",
+      message:
+        'a/../a/b.txt contains a ".." segment. Repair: pass the path as written, without "..".',
+    });
+  });
+
+  test("declines ../outside.txt with parent-step rather than outside-root", () => {
+    const base = folder("rooted-file-escape-parent-step-");
+    const root = join(base, "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+    writeFileSync(join(base, "outside.txt"), "outside");
+
+    expect(readRootedFile(root, "../outside.txt", limitBytes)).toEqual({
+      kind: "refused",
+      path: "../outside.txt",
+      reason: "parent-step",
+      message:
+        '../outside.txt contains a ".." segment. Repair: pass the path as written, without "..".',
+    });
+  });
+
+  test("declines absolute path <root>/a/../a/b.txt with parent-step", () => {
+    const base = folder("rooted-file-abs-parent-step-");
+    const root = join(base, "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+    const absolute = `${root}/a/../a/b.txt`;
+
+    expect(readRootedFile(root, absolute, limitBytes)).toEqual({
+      kind: "refused",
+      path: absolute,
+      reason: "parent-step",
+      message: `${absolute} contains a ".." segment. Repair: pass the path as written, without "..".`,
+    });
+  });
+
+  test("does not decline filenames containing .. such as a/..b.txt or a/b..txt", () => {
+    const base = folder("rooted-file-dots-in-name-");
+    const root = join(base, "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "..b.txt"), "dots");
+
+    const present = readRootedFile(root, "a/..b.txt", limitBytes);
+    expect(present.kind).toBe("read");
+    if (present.kind === "read") {
+      expect(text(present.bytes)).toBe("dots");
+      expect(present.facts.size).toBe(4);
+    }
+    expect(readRootedFile(root, "a/b..txt", limitBytes)).toEqual({
       kind: "missing",
+    });
+  });
+
+  test("reads ./a/b.txt", () => {
+    const base = folder("rooted-file-dot-prefix-");
+    const root = join(base, "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+
+    const result = readRootedFile(root, "./a/b.txt", limitBytes);
+    expect(result.kind).toBe("read");
+    if (result.kind === "read") {
+      expect(text(result.bytes)).toBe("body");
+      expect(result.facts.size).toBe(4);
+    }
+  });
+
+  test("refuses a path through a symbolic-link folder with no .. as linked-folder", () => {
+    const base = folder("rooted-file-symlink-dir-no-dotdot-");
+    const root = join(base, "root");
+    const realRoot = join(realpathSync.native(base), "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+    symlinkSync(join(root, "a"), join(root, "link"));
+
+    expect(readRootedFile(root, "link/b.txt", limitBytes)).toEqual({
+      kind: "refused",
+      path: "link/b.txt",
+      reason: "linked-folder",
+      message: `link/b.txt crosses linked folder ${join(realRoot, "link")}. Repair: replace the symbolic link with a real folder inside ${realRoot}.`,
+    });
+  });
+
+  test("refuses /etc/passwd with root elsewhere as outside-root", () => {
+    const base = folder("rooted-file-etc-passwd-");
+    const root = join(base, "root");
+    const realRoot = join(realpathSync.native(base), "root");
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "a", "b.txt"), "body");
+    const etcPasswd = join(sep, "etc", "passwd");
+
+    expect(readRootedFile(root, etcPasswd, limitBytes)).toEqual({
+      kind: "refused",
+      path: etcPasswd,
+      reason: "outside-root",
+      message: `${etcPasswd} is outside root ${realRoot}. Repair: pass a path inside ${realRoot}.`,
     });
   });
 
