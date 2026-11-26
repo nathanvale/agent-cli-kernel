@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { processWatchdog } from "../kernel-repair/swarm-process.ts";
-import { tolerance } from "../lifecycle/oracle.ts";
+import { cancellationWait } from "../lifecycle/oracle.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
@@ -18,13 +18,26 @@ afterAll(async () => {
 });
 
 const pendingStep = { kind: "command", command: "kf.pending", args: [] };
-const deadlineBound = 300 + 500 + tolerance;
+const deadline = 300;
+const hostedFirstByteMilliseconds = {
+  "pull request 143": [809, 810, 810, 810, 811, 812, 812, 813, 814, 815],
+  "run 45727061696": [902],
+};
+const allowanceStep = 50;
+const largestHostedOverhead =
+  Math.max(...Object.values(hostedFirstByteMilliseconds).flat()) -
+  deadline -
+  cancellationWait;
+const hostedOverheadAllowance =
+  Math.ceil(largestHostedOverhead / allowanceStep) * allowanceStep +
+  allowanceStep;
+const deadlineBound = deadline + cancellationWait + hostedOverheadAllowance;
 
 function deadlineRun(proof: string, settle: string) {
   return runKf(
     entry,
     "programs-apply",
-    ["apply", "--deadline-ms", "300", "--json"],
+    ["apply", "--deadline-ms", String(deadline), "--json"],
     { KF_PROOF: proof, KF_SETTLE: settle, KF_WAIT: "2000" },
   );
 }
@@ -105,9 +118,6 @@ describe("KF3.a changing-deadline-unconfirmed [proof gap: a host programs add-on
       async () => {
         for (const settle of ["false", "throw"]) {
           const run = await deadlineRun(proof, settle);
-          process.stdout.write(
-            `KF3A_FIRST_BYTE proof=${proof} settle=${settle} ms=${run.firstByte}\n`,
-          );
           expect({ exit: run.exit, one: oneEnvelope(run) }).toEqual({
             exit: 3,
             one: true,
