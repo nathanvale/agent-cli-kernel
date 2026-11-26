@@ -1,0 +1,7 @@
+{
+  "id": "e15f27b4-unknown-route-word-not-shown",
+  "patch": "tests/planted-faults/patches/e15f27b4-unknown-route-word-not-shown.patch",
+  "testFile": "tests/kernel/unknown-route.test.ts",
+  "title": "^an unknown route is refused by name with or without --help nosuch -h is refused as an unknown command naming nosuch$",
+  "source": "e15f27b4 fix(kernel): refuse an unknown route given --help and name the word"
+}

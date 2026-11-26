@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+index 85796869..f315f3ad 100644
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -212,7 +212,7 @@ function unknownHelpRoute(
+   tokens: readonly string[],
+   flag: string | undefined,
+ ): UsageFault | undefined {
+-  if (!isHelpSwitch(flag)) return undefined;
++  if (isHelpSwitch(flag)) return undefined;
+   const at = tokens.indexOf(flag ?? "");
+   const words = tokens.filter((_token, index) => index !== at);
+   const first = words[0];

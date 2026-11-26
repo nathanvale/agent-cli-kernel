@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/usage.ts b/kernel/src/kernel/usage.ts
+index a332a737..655b6f8e 100644
+--- a/kernel/src/kernel/usage.ts
++++ b/kernel/src/kernel/usage.ts
+@@ -67,7 +67,7 @@ function unknownOptionSubject(option: string): string {
+   return displayable(option) ? `${option}, an option` : "an option";
+ }
+ function unknownCommandWords(fault: FaultOf<"unknown-command">): string {
+-  if (fault.word === null || !displayable(fault.word))
++  if (fault.word === null)
+     return "No declared command matches this invocation.";
+   const named = `No declared command matches "${fault.word}".`;
+   return fault.closest === null
