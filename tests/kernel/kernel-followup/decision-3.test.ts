@@ -105,6 +105,9 @@ describe("KF3.a changing-deadline-unconfirmed [proof gap: a host programs add-on
       async () => {
         for (const settle of ["false", "throw"]) {
           const run = await deadlineRun(proof, settle);
+          process.stdout.write(
+            `KF3A_FIRST_BYTE proof=${proof} settle=${settle} ms=${run.firstByte}\n`,
+          );
           expect({ exit: run.exit, one: oneEnvelope(run) }).toEqual({
             exit: 3,
             one: true,
