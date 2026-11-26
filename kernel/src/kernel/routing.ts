@@ -20,15 +20,22 @@ export function refused(
 const booleanSwitches = [
   "--json",
   "--help",
+  "-h",
+  "--version",
   "--discover",
   "--discover-all",
 ] as const;
 const navigationSwitches = [
   "--help",
+  "-h",
+  "--version",
   "--discover",
   "--discover-all",
   "--discover-command",
 ];
+function isHelpSwitch(flag: string | undefined): boolean {
+  return flag === "--help" || flag === "-h";
+}
 const discoverCommandPrefix = "--discover-command=";
 type SwitchScan = {
   readonly tokens: string[];
@@ -204,8 +211,8 @@ export function invocationRoute(
   const tokens = split.ok ? split.value.tokens : globalTokens;
   if (
     navigation.length === 1 &&
-    navigation[0] === "--help" &&
-    tokens[0] !== "--help"
+    isHelpSwitch(navigation[0]) &&
+    !isHelpSwitch(tokens[0])
   ) {
     const match = selectRouteMatch(cli, commands, tokens);
     return {
@@ -223,14 +230,16 @@ function askedNavigation(
   tokens: readonly string[],
   flag: string | undefined,
 ) {
-  if (flag !== "--help" || tokens[0] === flag) return { flag, tokens };
+  if (!isHelpSwitch(flag)) return { flag, tokens };
+  if (tokens[0] === flag)
+    return { flag: "--help", tokens: ["--help", ...tokens.slice(1)] };
   const command = selectCommand(cli, commands, tokens);
   return command && discoverable(command.commandIdentity)
     ? {
         flag: "--discover-command",
         tokens: ["--discover-command", command.commandIdentity],
       }
-    : { flag, tokens: [flag] };
+    : { flag: "--help", tokens: ["--help"] };
 }
 export function routedIdentity(
   cli: string,

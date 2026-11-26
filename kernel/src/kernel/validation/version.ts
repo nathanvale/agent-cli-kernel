@@ -1,3 +1,4 @@
+export const contractVersion = "3.0.0";
 export type VersionClassification =
   | "malformed"
   | "other-major"

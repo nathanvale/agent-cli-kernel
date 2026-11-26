@@ -44,6 +44,7 @@ export type ContractRuntime = {
   ) => Promise<Resolution>;
   readonly navigation: {
     readonly help: () => JsonValue;
+    readonly version: () => JsonValue;
     readonly discover: () => JsonValue;
     readonly discoverAll: () => JsonValue;
     readonly discoverCommand: (identity: string) => JsonValue | undefined;

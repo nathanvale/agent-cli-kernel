@@ -1,5 +1,6 @@
 import type { Diagnostics, Envelope } from "./types.ts";
 import { record } from "./validation/primitives.ts";
+import { contractVersion } from "./validation/version.ts";
 
 function oneLine(value: string): string {
   return value
@@ -40,6 +41,16 @@ function help(data: unknown): string[] {
       const valueName = texts(item, "valueName");
       return `  ${texts(item, "name")}${valueName ? ` <${valueName}>` : ""}  ${texts(item, "summary")}`;
     }),
+  ];
+}
+
+function version(cli: string, data: unknown): string[] {
+  const name = texts(data, "cli") || oneLine(cli);
+  const declared = texts(data, "version");
+  return [
+    declared
+      ? `${name} ${declared} (kernel contract ${contractVersion})`
+      : `${name} version not declared (kernel contract ${contractVersion})`,
   ];
 }
 
@@ -173,6 +184,7 @@ function successLines(
 ): string[] {
   const { commandIdentity, data } = envelope.result;
   if (commandIdentity === `${cli}.help`) return help(data);
+  if (commandIdentity === `${cli}.version`) return version(cli, data);
   if (commandIdentity === `${cli}.discovery`) return discovery(data);
   if (commandIdentity === `${cli}.full-discovery`) return fullDiscovery(data);
   if (commandIdentity === `${cli}.command-discovery`)

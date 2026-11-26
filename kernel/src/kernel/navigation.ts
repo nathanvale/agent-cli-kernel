@@ -16,6 +16,11 @@ const navigationBuiltins = [
     summary: "Show help.",
   },
   {
+    name: "version",
+    route: ["--version"],
+    summary: "Show the version.",
+  },
+  {
     name: "discovery",
     route: ["--discover"],
     summary: "Discover commands.",

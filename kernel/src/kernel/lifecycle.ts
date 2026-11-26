@@ -52,6 +52,7 @@ const messages = {
   programStop:
     "The deadline passed. Nothing changed, but a program this command started was not confirmed stopped.",
   help: "Help for this CLI.",
+  version: "Version of this CLI.",
   discovery: "Discovery data for this CLI.",
   fullDiscovery: "Full discovery data for this CLI.",
   commandDiscovery: "Discovery data for one command.",
@@ -406,6 +407,8 @@ function builtin(run: Run, value: Resolved) {
   switch (value.commandIdentity) {
     case `${cli}.help`:
       return { message: messages.help, data: navigation.help() };
+    case `${cli}.version`:
+      return { message: messages.version, data: navigation.version() };
     case `${cli}.discovery`:
       return { message: messages.discovery, data: navigation.discover() };
     case `${cli}.full-discovery`:

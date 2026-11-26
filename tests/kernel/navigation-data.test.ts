@@ -65,6 +65,7 @@ test("help data is complete and agrees with executable declarations", async () =
     "--discover-command",
     "--help",
     "--json",
+    "--version",
   ]);
   expect((await helpCli.validate(envelope("specimen.help", valid))).ok).toBe(
     true,
@@ -92,6 +93,7 @@ test("discovery rejects missing built-ins and altered public contract fields", a
     "specimen.dispatch",
     "specimen.full-discovery",
     "specimen.help",
+    "specimen.version",
   ]);
   expect(valid.exitMeanings).toEqual({
     "0": "success",

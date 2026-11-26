@@ -22,6 +22,7 @@ const expectedAllPaths = [
   "specimen.help",
   "specimen.list",
   "specimen.read",
+  "specimen.version",
 ] as const;
 
 const specimenCauses = {

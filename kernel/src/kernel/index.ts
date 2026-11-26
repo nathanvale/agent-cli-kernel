@@ -39,12 +39,12 @@ import { builtins, stationsFor } from "./navigation.ts";
 import { freeze } from "./stations.ts";
 import { commonCauses } from "./causes.ts";
 
-import { classifyVersion } from "./validation/version.ts";
+import { classifyVersion, contractVersion } from "./validation/version.ts";
 import { validateEnvelope } from "./validation/envelope.ts";
 import { renderGuidance } from "./guidance.ts";
 import { wireResult } from "./validation/result.ts";
 import { stepVectorProblem } from "./step-vector.ts";
-import { record } from "./validation/primitives.ts";
+import { record, text } from "./validation/primitives.ts";
 
 export { command, changing } from "./declarations.ts";
 export { runInProcess, runProcess } from "./lifecycle.ts";
@@ -90,11 +90,20 @@ function validateDefaultCommand(
     );
   return candidate;
 }
+function validateVersion(version: unknown): string | null {
+  if (version === undefined) return null;
+  if (!text(version))
+    throw new Error(
+      "Invalid CLI version. Repair: pass a non-empty string for version, or omit it.",
+    );
+  return version;
+}
 export function contractFor<
   const Cli extends string,
   const D extends readonly CommandDeclaration[],
 >(spec: {
   readonly cli: Cli;
+  readonly version?: string;
   readonly commands: D & ValidatedCommands<D, Cli>;
   readonly defaultCommand?: NoInfer<D[number]>;
   readonly state?: StateAddonDescriptor;
@@ -102,6 +111,7 @@ export function contractFor<
   readonly installedAddons?: readonly AddonName[];
 }) {
   freeze(spec);
+  const cliVersion = validateVersion(spec.version);
   const installed = spec.installedAddons ?? [];
   if (!commandsArray(spec.commands))
     throw new Error("Host callbacks never receive a state issuer.");
@@ -167,7 +177,7 @@ export function contractFor<
   );
   const acceptedResults = new WeakSet<object>();
   const forgetters = new WeakMap<Enter, () => void>();
-  const navigation = navigationData(spec.cli, commands, stationMap);
+  const navigation = navigationData(spec.cli, commands, stationMap, cliVersion);
   async function validate(value: unknown) {
     const checked = await validateEnvelope(
       spec.cli,
@@ -243,7 +253,7 @@ export function contractFor<
         : [];
     try {
       return await validate({
-        contractVersion: "3.0.0",
+        contractVersion,
         message,
         availablePaths,
         result: { ...result, ...renderGuidance(station, result) },
@@ -493,6 +503,7 @@ export function contractFor<
       return resolveInvocation(spec.cli, commands, argv);
     },
     help: navigation.help,
+    version: navigation.version,
     discover: navigation.discover,
     discoverAll: navigation.discoverAll,
     discoverCommand: navigation.discoverCommand,
@@ -572,6 +583,7 @@ export function contractFor<
     },
     navigation: {
       help: navigation.help,
+      version: navigation.version,
       discover: navigation.discover,
       discoverAll: navigation.discoverAll,
       discoverCommand: navigation.discoverCommand,

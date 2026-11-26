@@ -345,4 +345,22 @@ export const boundaries = [
     valid:
       'F.contractFor({ cli: "specimen", causes: F.exemplarCauses, commands: [F.reportFor("specimen.full-discovery")] });',
   },
+  {
+    id: "next-version",
+    code: 2719,
+    setup: "",
+    invalid:
+      'F.contractFor({ cli: "specimen", commands: [F.inspectFor("specimen.no-such-built-in")] });',
+    valid:
+      'F.contractFor({ cli: "specimen", commands: [F.inspectFor("specimen.version")] });',
+  },
+  {
+    id: "handoff-version",
+    code: 2719,
+    setup: "",
+    invalid:
+      'F.contractFor({ cli: "specimen", causes: F.exemplarCauses, commands: [F.reportFor("specimen.no-such-built-in")] });',
+    valid:
+      'F.contractFor({ cli: "specimen", causes: F.exemplarCauses, commands: [F.reportFor("specimen.version")] });',
+  },
 ] as const;

@@ -161,6 +161,7 @@ const bareHelpText = [
   "Options:",
   "  --json  Emit one machine-readable result.",
   "  --help  Show help.",
+  "  --version  Show the version.",
   "  --discover  Discover commands.",
   "  --discover-all  Discover all commands.",
   "  --discover-command <identity>  Discover one command.",

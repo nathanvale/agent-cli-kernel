@@ -122,6 +122,7 @@ test("declared stations bind identity and words, with built-ins and fallback sta
     "notes.full-discovery",
     "notes.help",
     "notes.list",
+    "notes.version",
   ]);
   expect(
     contract
