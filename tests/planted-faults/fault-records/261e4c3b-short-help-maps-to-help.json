@@ -1,0 +1,7 @@
+{
+  "id": "261e4c3b-short-help-maps-to-help",
+  "patch": "tests/planted-faults/patches/261e4c3b-short-help-maps-to-help.patch",
+  "testFile": "tests/kernel/version-and-short-help.test.ts",
+  "title": "^-h short help spelling -h --json matches --help --json in identity, data and exit code$",
+  "source": "261e4c3b feat(kernel): add --version built-in and -h short help spelling"
+}

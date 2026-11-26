@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -92,11 +92,7 @@ function validateDefaultCommand(
+ }
+ function validateVersion(version: unknown): string | null {
+   if (version === undefined) return null;
+-  if (!text(version))
+-    throw new Error(
+-      "Invalid CLI version. Repair: pass a non-empty string for version, or omit it.",
+-    );
+-  return version;
++  return String(version);
+ }
+ export function contractFor<
+   const Cli extends string,

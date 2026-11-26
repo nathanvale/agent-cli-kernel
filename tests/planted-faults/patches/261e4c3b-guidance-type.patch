@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/navigation.ts b/kernel/src/kernel/navigation.ts
+--- a/kernel/src/kernel/navigation.ts
++++ b/kernel/src/kernel/navigation.ts
+@@ -15,11 +15,6 @@ const navigationBuiltins = [
+     route: ["--help"],
+     summary: "Show help.",
+   },
+-  {
+-    name: "version",
+-    route: ["--version"],
+-    summary: "Show the version.",
+-  },
+   {
+     name: "discovery",
+     route: ["--discover"],

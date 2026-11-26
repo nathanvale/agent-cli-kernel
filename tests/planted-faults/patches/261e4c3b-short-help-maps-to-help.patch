@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -33,7 +33,7 @@ const navigationSwitches = [
+   "--discover-all",
+   "--discover-command",
+ ];
+ function isHelpSwitch(flag: string | undefined): boolean {
+-  return flag === "--help" || flag === "-h";
++  return flag === "--help";
+ }
+ const discoverCommandPrefix = "--discover-command=";

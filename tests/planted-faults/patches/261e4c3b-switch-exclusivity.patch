@@ -1,0 +1,11 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -27,7 +27,6 @@ const booleanSwitches = [
+ ] as const;
+ const navigationSwitches = [
+   "--help",
+-  "-h",
+   "--version",
+   "--discover",
+   "--discover-all",

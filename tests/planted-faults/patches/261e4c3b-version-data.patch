@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/validation/discovery.ts b/kernel/src/kernel/validation/discovery.ts
+--- a/kernel/src/kernel/validation/discovery.ts
++++ b/kernel/src/kernel/validation/discovery.ts
+@@ -90,7 +90,7 @@ export function navigationData(
+     };
+   }
+   function version() {
+-    return freeze({ cli, version: cliVersion });
++    return freeze({ cli, version: null });
+   }
+   function commandEntry(command: CommandDeclaration) {
+     return {

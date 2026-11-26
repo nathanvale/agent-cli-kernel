@@ -1,0 +1,7 @@
+{
+  "id": "261e4c3b-version-option-check",
+  "patch": "tests/planted-faults/patches/261e4c3b-version-option-check.patch",
+  "testFile": "tests/kernel/version-and-short-help.test.ts",
+  "title": "^declaration guards for version and reserved option names contractFor rejects non-string or empty version with a Repair: line$",
+  "source": "261e4c3b feat(kernel): add --version built-in and -h short help spelling"
+}

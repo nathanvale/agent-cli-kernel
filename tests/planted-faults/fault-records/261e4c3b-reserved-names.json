@@ -1,0 +1,7 @@
+{
+  "id": "261e4c3b-reserved-names",
+  "patch": "tests/planted-faults/patches/261e4c3b-reserved-names.patch",
+  "testFile": "tests/kernel/version-and-short-help.test.ts",
+  "title": "^declaration guards for version and reserved option names a host option declared with name --version or alias -h or --version is declined$",
+  "source": "261e4c3b feat(kernel): add --version built-in and -h short help spelling"
+}
