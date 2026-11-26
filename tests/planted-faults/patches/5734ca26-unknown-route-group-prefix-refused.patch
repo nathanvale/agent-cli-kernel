@@ -1,13 +1,18 @@
 diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
-index bcd88e6d..2ba15ff6 100644
+index 67f09ba7..fb10b96f 100644
 --- a/kernel/src/kernel/routing.ts
 +++ b/kernel/src/kernel/routing.ts
-@@ -258,7 +258,7 @@ async function resolveNavigation(
-   deadlineMilliseconds?: number,
+@@ -256,7 +256,12 @@ async function resolveNavigation(
  ) {
-   const unknown = unknownHelpRoute(cli, commands, tokens, flag);
--  if (unknown && unknown.word !== null) return refused(cli, unknown, machine);
-+  if (unknown) return refused(cli, unknown, machine);
-   const knownGroupPrefix = unknown !== undefined;
-   const asked = knownGroupPrefix
+   const words = helpRouteWords(cli, commands, tokens, flag);
+   const unknown = words && unmatchedRoute(cli, commands, words);
+-  if (unknown) return refused(cli, unknown, machine);
++  if (words)
++    return refused(
++      cli,
++      unknown ?? { kind: "unknown-command", closest: null },
++      machine,
++    );
+   const asked = words
      ? { flag: "--help", tokens: ["--help"] }
+     : askedNavigation(cli, commands, tokens, flag);

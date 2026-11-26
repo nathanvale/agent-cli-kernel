@@ -1,11 +1,11 @@
 diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
-index bcd88e6d..093a4536 100644
+index 67f09ba7..cd9ea27d 100644
 --- a/kernel/src/kernel/routing.ts
 +++ b/kernel/src/kernel/routing.ts
-@@ -223,7 +223,7 @@ function unknownHelpRoute(
+@@ -222,7 +222,7 @@ function helpRouteWords(
    tokens: readonly string[],
    flag: string | undefined,
- ): UnknownCommandFault | undefined {
+ ): readonly string[] | undefined {
 -  if (!isHelpSwitch(flag)) return undefined;
 +  if (isHelpSwitch(flag)) return undefined;
    const at = tokens.indexOf(flag ?? "");

@@ -1,13 +1,12 @@
 diff --git a/kernel/src/kernel/usage.ts b/kernel/src/kernel/usage.ts
-index a332a737..c944a348 100644
 --- a/kernel/src/kernel/usage.ts
 +++ b/kernel/src/kernel/usage.ts
-@@ -55,7 +55,7 @@ type Rule = ValueCheck["rule"];
+@@ -51,7 +51,7 @@ type Rule = ValueCheck["rule"];
  type CheckOf<R extends Rule> = Extract<ValueCheck, { readonly rule: R }>;
  
  const label = (slot: Slot) => `${slot.kind} ${slot.name}`;
--const maxDisplayLength = 64;
-+const maxDisplayLength = 65;
- function displayable(word: string): boolean {
-   return (
-     word.length > 0 &&
+-const maxOptionDisplayLength = 64;
++const maxOptionDisplayLength = 65;
+ function unknownOptionSubject(option: string): string {
+   return option.length > 0 &&
+     option.length <= maxOptionDisplayLength &&

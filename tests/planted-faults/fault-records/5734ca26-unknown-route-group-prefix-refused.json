@@ -2,6 +2,6 @@
   "id": "5734ca26-unknown-route-group-prefix-refused",
   "patch": "tests/planted-faults/patches/5734ca26-unknown-route-group-prefix-refused.patch",
   "testFile": "tests/kernel/unknown-route.test.ts",
-  "title": "^an unknown route is refused by name with or without --help a group prefix with --help or -h, before or after it, prints root help with exit 0$",
+  "title": "^an unknown route is refused with or without --help a group prefix with --help or -h, before or after it, prints root help with exit 0$",
   "source": "5734ca26 fix(kernel): answer a known group prefix given --help with root help"
 }

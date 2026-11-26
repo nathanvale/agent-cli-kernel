@@ -2,6 +2,6 @@
   "id": "e15f27b4-unknown-route-suggestion-dropped",
   "patch": "tests/planted-faults/patches/e15f27b4-unknown-route-suggestion-dropped.patch",
   "testFile": "tests/kernel/unknown-route.test.ts",
-  "title": "^an unknown route is refused by name with or without --help family lsit is refused naming lsit with the suggestion family list$",
+  "title": "^an unknown route is refused with or without --help family lsit is refused with the suggestion family list$",
   "source": "e15f27b4 fix(kernel): refuse an unknown route given --help and name the word"
 }
