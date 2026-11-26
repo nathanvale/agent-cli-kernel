@@ -4,6 +4,7 @@ import { acceptsRootInput, nearestWord, parseSlots } from "./input.ts";
 import { discoverable } from "./navigation.ts";
 import { usageRefusal } from "./usage.ts";
 import type { UsageFault } from "./usage.ts";
+type UnknownCommandFault = Extract<UsageFault, { kind: "unknown-command" }>;
 export function refused(
   cli: string,
   fault: UsageFault,
@@ -200,7 +201,7 @@ function unknownCommand(
   cli: string,
   commands: readonly CommandDeclaration[],
   words: readonly string[],
-): UsageFault {
+): UnknownCommandFault {
   let matched = commands.filter(
     (item) => item.commandIdentity !== `${cli}.dispatch`,
   );
@@ -221,7 +222,7 @@ function unknownHelpRoute(
   commands: readonly CommandDeclaration[],
   tokens: readonly string[],
   flag: string | undefined,
-): UsageFault | undefined {
+): UnknownCommandFault | undefined {
   if (!isHelpSwitch(flag)) return undefined;
   const at = tokens.indexOf(flag ?? "");
   const words = tokens.filter((_token, index) => index !== at);
@@ -247,6 +248,29 @@ function askedNavigation(
         tokens: ["--discover-command", command.commandIdentity],
       }
     : { flag: "--help", tokens: ["--help"] };
+}
+async function resolveNavigation(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  tokens: readonly string[],
+  flag: string | undefined,
+  machine: boolean,
+  deadlineMilliseconds?: number,
+) {
+  const unknown = unknownHelpRoute(cli, commands, tokens, flag);
+  if (unknown && unknown.word !== null) return refused(cli, unknown, machine);
+  const knownGroupPrefix = unknown !== undefined;
+  const asked = knownGroupPrefix
+    ? { flag: "--help", tokens: ["--help"] }
+    : askedNavigation(cli, commands, tokens, flag);
+  return resolveBuiltin(
+    cli,
+    commands,
+    asked.tokens,
+    machine,
+    asked.flag,
+    deadlineMilliseconds,
+  );
 }
 export function routedIdentity(
   cli: string,
@@ -309,19 +333,16 @@ export async function resolveInvocation(
   }
   if (navigation.length > 1)
     return refused(cli, { kind: "navigation-conflict" }, machine);
-  if (navigation.length === 1) {
-    const unknown = unknownHelpRoute(cli, commands, tokens, navigation[0]);
-    if (unknown) return refused(cli, unknown, machine);
-    const asked = askedNavigation(cli, commands, tokens, navigation[0]);
-    return resolveBuiltin(
+  if (navigation.length === 1)
+    return resolveNavigation(
       cli,
       commands,
-      asked.tokens,
+      tokens,
+      navigation[0],
       machine,
-      asked.flag,
       deadlineMilliseconds,
     );
-  }
+
   const command = selectCommand(cli, commands, tokens);
   return command
     ? resolveCommand(

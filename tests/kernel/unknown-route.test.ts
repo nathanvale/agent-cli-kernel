@@ -124,6 +124,35 @@ describe("an unknown route is refused by name with or without --help", () => {
     }
   });
 
+  test("a group prefix with --help or -h, before or after it, prints root help with exit 0", async () => {
+    const root = await run(["--help"]);
+    for (const argv of [
+      ["family", "--help"],
+      ["family", "-h"],
+      ["--help", "family"],
+    ])
+      expect(await run(argv)).toEqual(root);
+  });
+
+  test("family --help --json is the root help envelope and validates", async () => {
+    const result = await runInProcessOn(
+      contract,
+      {},
+      () => recordingHost().host,
+    )(["family", "--help", "--json"]);
+    if (result.kind !== "envelope")
+      throw new Error(`Expected an envelope, got ${result.kind}.`);
+    expect([result.exitCode, result.envelope.result.commandIdentity]).toEqual([
+      0,
+      "x.help",
+    ]);
+    expect((await contract.validate(result.envelope)).ok).toBe(true);
+  });
+
+  test("a group prefix without --help is still refused with the plain sentence", async () => {
+    expect(await run(["family"])).toEqual(refusedWith(plain));
+  });
+
   test("status --help still answers with the command's discovery", async () => {
     const help = await run(["status", "--help"]);
     expect([help.exitCode, help.commandIdentity]).toEqual([
