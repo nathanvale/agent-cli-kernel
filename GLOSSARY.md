@@ -234,10 +234,10 @@ deprecated aliases of those types under accepted decision N11.
 A path derived or given from outside under a folder root, read with
 `readRootedFile` from `agent-cli-kernel/rooted-file` (implemented in
 `kernel/src/shared/rooted-file.ts`). It reads regular files inside the
-resolved root up to a byte limit, and refuses paths outside the root,
-symbolic links, linked folders, hard links, non-regular files, over-limit
-files and post-open swaps, returning a `RootedRefusal` whose message ends
-with a `Repair:` line.
+resolved root up to a byte limit, and refuses paths with a `..` segment
+(`parent-step`), paths outside the root, symbolic links, linked folders, hard
+links, non-regular files, over-limit files and post-open swaps, returning a
+`RootedRefusal` whose message ends with a `Repair:` line.
 _Avoid_: safe path, guard (unqualified), helper (for a rooted-file module)
 
 **RootedFileResult**:
