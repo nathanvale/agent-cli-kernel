@@ -179,7 +179,7 @@ describe("a bare invocation gives one line of usage guidance", () => {
       ["nosuch"],
       refusal(
         "x.dispatch",
-        'No declared command matches "nosuch".',
+        "No declared command matches this invocation.",
         {
           kind: "instruction",
           text: "Select a command identity from availablePaths, then run that command's route.",
@@ -963,7 +963,7 @@ describe("a command followed by --help answers with that command's discovery", (
       const unmatched = facts(JSON.parse(none.stdout));
       expect([unmatched.causeCode, unmatched.message]).toEqual([
         "USAGE_UNKNOWN_COMMAND",
-        'No declared command matches "nope".',
+        "No declared command matches this invocation.",
       ]);
     },
     processWatchdog(3),

@@ -162,7 +162,7 @@ describe("how ready judges its two probes", () => {
     exitCode: 2,
     stdout: "",
     stderr:
-      'moons: No declared command matches "--verify-cli-undeclared-option". [USAGE_UNKNOWN_COMMAND]\n',
+      "moons: No declared command matches this invocation. [USAGE_UNKNOWN_COMMAND]\n",
   };
   const discovery = {
     exitCode: 0,

@@ -69,48 +69,45 @@ function refusedWith(message: string) {
   };
 }
 
-const nosuch = 'No declared command matches "nosuch".';
-const lsit = 'No declared command matches "lsit". Did you mean "family list"?';
+const familyList = `${plain} Did you mean "family list"?`;
 
-describe("an unknown route is refused by name with or without --help", () => {
-  test("nosuch thing --help is refused as an unknown command naming nosuch", async () => {
+describe("an unknown route is refused with or without --help", () => {
+  test("nosuch thing --help is refused as an unknown command", async () => {
     expect(await run(["nosuch", "thing", "--help"])).toEqual(
-      refusedWith(nosuch),
+      refusedWith(plain),
     );
   });
 
   test("--help nosuch thing is refused like nosuch thing --help", async () => {
     expect(await run(["--help", "nosuch", "thing"])).toEqual(
-      refusedWith(nosuch),
+      refusedWith(plain),
     );
   });
 
-  test("nosuch -h is refused as an unknown command naming nosuch", async () => {
-    expect(await run(["nosuch", "-h"])).toEqual(refusedWith(nosuch));
+  test("nosuch thing and nosuch -h are refused as an unknown command", async () => {
+    expect(await run(["nosuch", "thing"])).toEqual(refusedWith(plain));
+    expect(await run(["nosuch", "-h"])).toEqual(refusedWith(plain));
   });
 
-  test("statsu is refused with the suggestion status", async () => {
-    expect(await run(["statsu"])).toEqual(
-      refusedWith(
-        'No declared command matches "statsu". Did you mean "status"?',
-      ),
-    );
+  test("statsu, with or without --help, is refused with the suggestion status", async () => {
+    for (const argv of [["statsu"], ["statsu", "--help"]])
+      expect(await run(argv)).toEqual(
+        refusedWith(`${plain} Did you mean "status"?`),
+      );
   });
 
-  test("family lsit is refused naming lsit with the suggestion family list", async () => {
-    expect(await run(["family", "lsit"])).toEqual(refusedWith(lsit));
+  test("family lsit is refused with the suggestion family list", async () => {
+    expect(await run(["family", "lsit"])).toEqual(refusedWith(familyList));
   });
 
   test("famly list is refused with the suggestion family list, the route its later words match", async () => {
-    expect(await run(["famly", "list"])).toEqual(
-      refusedWith(
-        'No declared command matches "famly". Did you mean "family list"?',
-      ),
-    );
+    expect(await run(["famly", "list"])).toEqual(refusedWith(familyList));
   });
 
   test("family lsit --help is refused like family lsit", async () => {
-    expect(await run(["family", "lsit", "--help"])).toEqual(refusedWith(lsit));
+    expect(await run(["family", "lsit", "--help"])).toEqual(
+      refusedWith(familyList),
+    );
   });
 
   test("root --help and -h still print root help with exit 0", async () => {
@@ -162,16 +159,6 @@ describe("an unknown route is refused by name with or without --help", () => {
     expect(help).toEqual(await run(["--discover-command", "x.status"]));
   });
 
-  test("an unmatched word of 65 or more characters or one holding a tab is not shown", async () => {
-    for (const word of ["a".repeat(65), "a".repeat(80), "sta\ttus"]) {
-      expect(await run([word])).toEqual(refusedWith(plain));
-      expect(await run([word, "--help"])).toEqual(refusedWith(plain));
-    }
-    expect(await run(["a".repeat(64)])).toEqual(
-      refusedWith(`No declared command matches "${"a".repeat(64)}".`),
-    );
-  });
-
   test("nosuch --json is the same refusal as an envelope that lists every command", async () => {
     const result = await runInProcessOn(
       contract,
@@ -188,7 +175,7 @@ describe("an unknown route is refused by name with or without --help", () => {
     }).toEqual({
       exitCode: 2,
       causeCode: unknownCause,
-      message: nosuch,
+      message: plain,
       availablePaths: [
         "x.command-discovery",
         "x.discovery",

@@ -44,35 +44,26 @@ export type UsageFault =
   | { readonly kind: "deadline-unsupported" }
   | { readonly kind: "root-input" }
   | { readonly kind: "later-step" }
-  | {
-      readonly kind: "unknown-command";
-      readonly word: string | null;
-      readonly closest: string | null;
-    };
+  | { readonly kind: "unknown-command"; readonly closest: string | null };
 type Kind = UsageFault["kind"];
 type FaultOf<K extends Kind> = Extract<UsageFault, { readonly kind: K }>;
 type Rule = ValueCheck["rule"];
 type CheckOf<R extends Rule> = Extract<ValueCheck, { readonly rule: R }>;
 
 const label = (slot: Slot) => `${slot.kind} ${slot.name}`;
-const maxDisplayLength = 64;
-function displayable(word: string): boolean {
-  return (
-    word.length > 0 &&
-    word.length <= maxDisplayLength &&
-    !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]/u.test(word)
-  );
-}
+const maxOptionDisplayLength = 64;
 function unknownOptionSubject(option: string): string {
-  return displayable(option) ? `${option}, an option` : "an option";
+  return option.length > 0 &&
+    option.length <= maxOptionDisplayLength &&
+    !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]/u.test(option)
+    ? `${option}, an option`
+    : "an option";
 }
 function unknownCommandWords(fault: FaultOf<"unknown-command">): string {
-  if (fault.word === null || !displayable(fault.word))
-    return "No declared command matches this invocation.";
-  const named = `No declared command matches "${fault.word}".`;
+  const plain = "No declared command matches this invocation.";
   return fault.closest === null
-    ? named
-    : `${named} Did you mean "${fault.closest}"?`;
+    ? plain
+    : `${plain} Did you mean "${fault.closest}"?`;
 }
 
 const checkWords: {

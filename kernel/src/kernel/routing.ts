@@ -115,7 +115,7 @@ async function resolveBuiltin(
   )
     return refused(
       cli,
-      { kind: "unknown-command", word: null, closest: null },
+      { kind: "unknown-command", closest: null },
       machine,
       command.commandIdentity,
     );
@@ -197,11 +197,11 @@ export function closestRoute(
   );
   return command === null ? null : command.route.join(" ");
 }
-function unknownCommand(
+function unmatchedRoute(
   cli: string,
   commands: readonly CommandDeclaration[],
   words: readonly string[],
-): UnknownCommandFault {
+): UnknownCommandFault | undefined {
   let matched = commands.filter(
     (item) => item.commandIdentity !== `${cli}.dispatch`,
   );
@@ -210,27 +210,24 @@ function unknownCommand(
     if (!next.length)
       return {
         kind: "unknown-command",
-        word,
         closest: closestRoute(matched, words, index),
       };
     matched = next;
   }
-  return { kind: "unknown-command", word: null, closest: null };
+  return undefined;
 }
-function unknownHelpRoute(
+function helpRouteWords(
   cli: string,
   commands: readonly CommandDeclaration[],
   tokens: readonly string[],
   flag: string | undefined,
-): UnknownCommandFault | undefined {
+): readonly string[] | undefined {
   if (!isHelpSwitch(flag)) return undefined;
   const at = tokens.indexOf(flag ?? "");
   const words = tokens.filter((_token, index) => index !== at);
   const first = words[0];
   if (first === undefined || first.startsWith("-")) return undefined;
-  return selectCommand(cli, commands, words)
-    ? undefined
-    : unknownCommand(cli, commands, words);
+  return selectCommand(cli, commands, words) ? undefined : words;
 }
 function askedNavigation(
   cli: string,
@@ -257,10 +254,10 @@ async function resolveNavigation(
   machine: boolean,
   deadlineMilliseconds?: number,
 ) {
-  const unknown = unknownHelpRoute(cli, commands, tokens, flag);
-  if (unknown && unknown.word !== null) return refused(cli, unknown, machine);
-  const knownGroupPrefix = unknown !== undefined;
-  const asked = knownGroupPrefix
+  const words = helpRouteWords(cli, commands, tokens, flag);
+  const unknown = words && unmatchedRoute(cli, commands, words);
+  if (unknown) return refused(cli, unknown, machine);
+  const asked = words
     ? { flag: "--help", tokens: ["--help"] }
     : askedNavigation(cli, commands, tokens, flag);
   return resolveBuiltin(
@@ -352,5 +349,12 @@ export async function resolveInvocation(
         machine,
         deadlineMilliseconds,
       )
-    : refused(cli, unknownCommand(cli, commands, tokens), machine);
+    : refused(
+        cli,
+        unmatchedRoute(cli, commands, tokens) ?? {
+          kind: "unknown-command",
+          closest: null,
+        },
+        machine,
+      );
 }
