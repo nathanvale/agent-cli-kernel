@@ -1,7 +1,0 @@
-{
-  "id": "0d1e5a9c-rooted-file-parent-step",
-  "patch": "tests/planted-faults/patches/0d1e5a9c-rooted-file-parent-step.patch",
-  "testFile": "tests/kernel/rooted-file.test.ts",
-  "title": "^readRootedFile refuses \\.\\. after a linked folder, relative and absolute, and admits \\.\\. after a real folder$",
-  "source": "0d1e5a9c fix(rooted-file): refuse .. that follows a linked folder before lexical normalisation"
-}

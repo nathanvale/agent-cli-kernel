@@ -227,6 +227,11 @@ const linkedFolder: RootedFileResult = readRootedFile(
 );
 const outsideRoot: RootedFileResult = readRootedFile(
   root,
+  join(outside, "secret.txt"),
+  1024,
+);
+const parentStep: RootedFileResult = readRootedFile(
+  root,
   "../outside/secret.txt",
   1024,
 );
@@ -264,6 +269,7 @@ console.log(
     linked: asRefusal(linked),
     linkedFolder: asRefusal(linkedFolder),
     outsideRoot: asRefusal(outsideRoot),
+    parentStep: asRefusal(parentStep),
     hardLink: asRefusal(hardLink),
     overLimit: asRefusal(overLimit),
   }),
@@ -542,9 +548,16 @@ test(
       },
       outsideRoot: {
         kind: "refused",
-        path: "../outside/secret.txt",
+        path: join(base, "outside", "secret.txt"),
         reason: "outside-root",
-        message: `../outside/secret.txt is outside root ${realRoot}. Repair: pass a path inside ${realRoot}.`,
+        message: `${join(base, "outside", "secret.txt")} is outside root ${realRoot}. Repair: pass a path inside ${realRoot}.`,
+      },
+      parentStep: {
+        kind: "refused",
+        path: "../outside/secret.txt",
+        reason: "parent-step",
+        message:
+          '../outside/secret.txt contains a ".." segment. Repair: pass the path as written, without "..".',
       },
       hardLink: {
         kind: "refused",
