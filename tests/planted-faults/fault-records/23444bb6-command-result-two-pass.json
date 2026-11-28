@@ -1,0 +1,7 @@
+{
+  "id": "23444bb6-command-result-two-pass",
+  "patch": "tests/planted-faults/patches/23444bb6-command-result-two-pass.patch",
+  "testFile": "tests/kernel/result-copy.test.ts",
+  "title": "RC05\\.c",
+  "source": "23444bb6 fix(kernel): validate and copy result data in a single pass"
+}

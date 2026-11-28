@@ -1,8 +1,18 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import type { ProgramRequest } from "agent-cli-kernel";
 import type { Refusal } from "agent-cli-kernel/addons/state";
+import { readRootedFile as readRootedFilePublic } from "agent-cli-kernel/rooted-file";
+import { readRootedFile } from "../../../kernel/src/shared/rooted-file.ts";
 import {
   helperContract,
   stateRoot,
@@ -890,6 +900,593 @@ describe("how drive runs and keeps a step", () => {
       content: null,
     });
   });
+
+  test(
+    "drive refuses a symbolic link at the path or in a parent folder, while regular files still hold",
+    async () => {
+      const at = world();
+      const outside = join(at.folder, "outside");
+      mkdirSync(outside);
+      const outsideFile = join(outside, "secret.txt");
+      writeFileSync(outsideFile, "outside");
+
+      const scratch = join(at.folder, "scratch");
+      mkdirSync(scratch);
+      const dangling = join(scratch, "lock");
+      symlinkSync(join(scratch, "nowhere"), dangling);
+      const liveLink = join(scratch, "alias.txt");
+      symlinkSync(outsideFile, liveLink);
+      symlinkSync(outside, join(scratch, "out"));
+      const regular = join(scratch, "plain.txt");
+      writeFileSync(regular, "plain");
+
+      expect<unknown>(await fileSeen(dangling)).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect<unknown>(await fileSeen(liveLink)).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect<unknown>(
+        await fileSeen(join(scratch, "out", "secret.txt")),
+      ).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect(await fileSeen(regular)).toEqual({
+        kind: "file",
+        content: "plain",
+      });
+
+      const run = runFolder(at, "r-links");
+      const launched = await helperContract(at.env, [
+        "launch",
+        run,
+        at.example,
+      ]).inProcess();
+      expect(launched.kind).toBe("envelope");
+      const place = verificationRun(run);
+      symlinkSync(join(place.scratch, "nowhere"), join(place.scratch, "lock"));
+      symlinkSync(outsideFile, join(place.scratch, "alias.txt"));
+      symlinkSync(outside, join(place.scratch, "out"));
+      writeFileSync(join(place.scratch, "plain.txt"), "plain");
+
+      const scenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "drive-links",
+        steps: [
+          {
+            name: "dangling-link-where-absent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/lock", absent: true }],
+            },
+          },
+          {
+            name: "live-link-at-path",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/alias.txt", content: "outside" }],
+            },
+          },
+          {
+            name: "file-through-linked-parent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/out/secret.txt", content: "outside" }],
+            },
+          },
+          {
+            name: "regular-file-holds",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/plain.txt", content: "plain" }],
+            },
+          },
+        ],
+      });
+
+      const driven = await helperContract(at.env, [
+        "drive",
+        run,
+        scenario,
+      ]).inProcess();
+      if (driven.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${driven.kind}.`);
+      expect(driven.envelope.result.causeCode).toBe(
+        "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      );
+
+      const readStep = (name: string): unknown =>
+        JSON.parse(
+          readFileSync(
+            join(place.evidence, "drive-links", `${name}.json`),
+            "utf8",
+          ),
+        );
+      for (const name of [
+        "dangling-link-where-absent",
+        "live-link-at-path",
+        "file-through-linked-parent",
+      ]) {
+        const kept = readStep(name);
+        expect({
+          verdict: field(kept, "verdict"),
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          fileKinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({
+          verdict: "unmet",
+          unmet: ["files.0"],
+          files: [null],
+          fileKinds: ["symbolic-link"],
+        });
+      }
+      const regularStep = readStep("regular-file-holds");
+      expect({
+        verdict: field(regularStep, "verdict"),
+        unmet: field(regularStep, "unmet"),
+        files: field(regularStep, "observed", "files"),
+        fileKinds: field(regularStep, "observed", "fileKinds"),
+      }).toEqual({
+        verdict: "met",
+        unmet: [],
+        files: ["plain"],
+        fileKinds: ["file"],
+      });
+    },
+    watchdog(4),
+  );
+
+  test(
+    "drive refuses a linked scratch folder while allowing a linked verification run folder",
+    async () => {
+      const at = world();
+      const outside = join(at.folder, "outside");
+      mkdirSync(outside);
+      writeFileSync(join(outside, "secret.txt"), "outside");
+
+      const run = runFolder(at, "r-linked-scratch");
+      const launched = await helperContract(at.env, [
+        "launch",
+        run,
+        at.example,
+      ]).inProcess();
+      expect(launched.kind).toBe("envelope");
+      const place = verificationRun(run);
+      const swapScratch =
+        'const fs = require("node:fs"); fs.rmSync(process.argv[1], { recursive: true, force: true }); fs.symlinkSync(process.argv[2], process.argv[1]);';
+
+      const scenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "linked-scratch",
+        steps: [
+          {
+            name: "live-linked-scratch",
+            runner: "bun",
+            argv: ["-e", swapScratch, "{scratch}", outside],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/secret.txt", content: "outside" }],
+            },
+          },
+          {
+            name: "dangling-linked-scratch",
+            runner: "bun",
+            argv: ["-e", swapScratch, "{scratch}", join(at.folder, "nowhere")],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/lock", absent: true }],
+            },
+          },
+        ],
+      });
+
+      const driven = await helperContract(at.env, [
+        "drive",
+        run,
+        scenario,
+      ]).inProcess();
+      if (driven.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${driven.kind}.`);
+      expect(driven.envelope.result.causeCode).toBe(
+        "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      );
+
+      for (const name of ["live-linked-scratch", "dangling-linked-scratch"]) {
+        const kept: unknown = JSON.parse(
+          readFileSync(
+            join(place.evidence, "linked-scratch", `${name}.json`),
+            "utf8",
+          ),
+        );
+        expect({
+          verdict: field(kept, "verdict"),
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          fileKinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({
+          verdict: "unmet",
+          unmet: ["files.0"],
+          files: [null],
+          fileKinds: ["symbolic-link"],
+        });
+      }
+
+      const realRun = runFolder(at, "r-linked-run-target");
+      const launchedReal = await helperContract(at.env, [
+        "launch",
+        realRun,
+        at.example,
+      ]).inProcess();
+      expect(launchedReal.kind).toBe("envelope");
+      writeFileSync(
+        join(verificationRun(realRun).scratch, "plain.txt"),
+        "plain",
+      );
+      const linkedRun = join(at.folder, "r-linked-run");
+      symlinkSync(realRun, linkedRun);
+
+      const linkedRunScenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "linked-run-folder",
+        steps: [
+          {
+            name: "file-under-linked-run",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/plain.txt", content: "plain" }],
+            },
+          },
+        ],
+      });
+
+      const drivenLinkedRun = await helperContract(at.env, [
+        "drive",
+        linkedRun,
+        linkedRunScenario,
+      ]).inProcess();
+      if (drivenLinkedRun.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${drivenLinkedRun.kind}.`);
+      expect(drivenLinkedRun.envelope.result.causeCode).toBe(
+        "SUCCESS_COMPLETED",
+      );
+      const keptLinkedRun: unknown = JSON.parse(
+        readFileSync(
+          join(
+            verificationRun(linkedRun).evidence,
+            "linked-run-folder",
+            "file-under-linked-run.json",
+          ),
+          "utf8",
+        ),
+      );
+      expect({
+        verdict: field(keptLinkedRun, "verdict"),
+        unmet: field(keptLinkedRun, "unmet"),
+        files: field(keptLinkedRun, "observed", "files"),
+        fileKinds: field(keptLinkedRun, "observed", "fileKinds"),
+      }).toEqual({
+        verdict: "met",
+        unmet: [],
+        files: ["plain"],
+        fileKinds: ["file"],
+      });
+    },
+    watchdog(4),
+  );
+
+  test(
+    "drive refuses an in-scratch or dangling linked parent folder",
+    async () => {
+      const at = world();
+      const run = runFolder(at, "r-ancestor-links");
+      const launched = await helperContract(at.env, [
+        "launch",
+        run,
+        at.example,
+      ]).inProcess();
+      expect(launched.kind).toBe("envelope");
+      const place = verificationRun(run);
+      const sub = join(place.scratch, "sub");
+      mkdirSync(sub);
+      writeFileSync(join(sub, "plain.txt"), "inside");
+      symlinkSync(sub, join(place.scratch, "alias-dir"));
+      symlinkSync(
+        join(place.scratch, "nowhere"),
+        join(place.scratch, "dangling-dir"),
+      );
+
+      const scenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "ancestor-links",
+        steps: [
+          {
+            name: "in-scratch-linked-parent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [
+                { path: "{scratch}/alias-dir/plain.txt", content: "inside" },
+              ],
+            },
+          },
+          {
+            name: "dangling-linked-parent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/dangling-dir/lock", absent: true }],
+            },
+          },
+        ],
+      });
+
+      const driven = await helperContract(at.env, [
+        "drive",
+        run,
+        scenario,
+      ]).inProcess();
+      if (driven.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${driven.kind}.`);
+      expect(driven.envelope.result.causeCode).toBe(
+        "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      );
+
+      for (const name of [
+        "in-scratch-linked-parent",
+        "dangling-linked-parent",
+      ]) {
+        const kept: unknown = JSON.parse(
+          readFileSync(
+            join(place.evidence, "ancestor-links", `${name}.json`),
+            "utf8",
+          ),
+        );
+        expect({
+          verdict: field(kept, "verdict"),
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          fileKinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({
+          verdict: "unmet",
+          unmet: ["files.0"],
+          files: [null],
+          fileKinds: ["symbolic-link"],
+        });
+      }
+    },
+    watchdog(4),
+  );
+
+  test(
+    "fileSeen refuses a parent or scratch folder swapped for a link between check and open",
+    async () => {
+      const at = world();
+      const outside = join(at.folder, "outside");
+      mkdirSync(outside);
+      writeFileSync(join(outside, "secret.txt"), "outside");
+
+      const scratch = join(at.folder, "scratch-parent-swap");
+      const sub = join(scratch, "sub");
+      mkdirSync(sub, { recursive: true });
+      writeFileSync(join(sub, "secret.txt"), "inside");
+
+      let parentSwapped = false;
+      const parentSwapResult = await fileSeen(
+        join(sub, "secret.txt"),
+        scratch,
+        {
+          beforeOpen: () => {
+            parentSwapped = true;
+            rmSync(sub, { recursive: true, force: true });
+            symlinkSync(outside, sub);
+          },
+        },
+      );
+      expect(parentSwapped).toBe(true);
+      expect(parentSwapResult).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+
+      const scratchSwap = join(at.folder, "scratch-self-swap");
+      mkdirSync(scratchSwap, { recursive: true });
+      writeFileSync(join(scratchSwap, "secret.txt"), "inside");
+
+      let scratchSwapped = false;
+      const scratchSwapResult = await fileSeen(
+        join(scratchSwap, "secret.txt"),
+        scratchSwap,
+        {
+          beforeOpen: () => {
+            scratchSwapped = true;
+            rmSync(scratchSwap, { recursive: true, force: true });
+            symlinkSync(outside, scratchSwap);
+          },
+        },
+      );
+      expect(scratchSwapped).toBe(true);
+      expect(scratchSwapResult).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+    },
+    watchdog(4),
+  );
+
+  test(
+    "fileSeen post-open recheck agrees with readRootedFile on replaced files and linked parents",
+    async () => {
+      const at = world();
+
+      const setup = (label: string) => {
+        const root = join(at.folder, label);
+        const sub = join(root, "sub");
+        mkdirSync(sub, { recursive: true });
+        const target = join(sub, "target.txt");
+        writeFileSync(target, "original");
+        return { root, sub, target };
+      };
+
+      const honestA = setup("agree-honest-a");
+      const honestB = setup("agree-honest-b");
+      const seenHonest = await fileSeen(honestA.target, honestA.root);
+      const rootedHonest = readRootedFilePublic(
+        honestB.root,
+        "sub/target.txt",
+        fileReadLimit,
+      );
+      expect(seenHonest).toEqual({ kind: "file", content: "original" });
+      expect(rootedHonest.kind).toBe("read");
+
+      const outsideFile = join(at.folder, "agree-outside.txt");
+      writeFileSync(outsideFile, "outside");
+
+      const staticLink = setup("agree-static-link");
+      const linkAtPath = join(staticLink.sub, "alias.txt");
+      symlinkSync(outsideFile, linkAtPath);
+      expect(await fileSeen(linkAtPath, staticLink.root)).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect(
+        readRootedFilePublic(staticLink.root, "sub/alias.txt", fileReadLimit),
+      ).toMatchObject({ kind: "refused", reason: "symbolic-link" });
+
+      const staticParent = setup("agree-static-parent");
+      const outsideDir = join(at.folder, "agree-outside-dir");
+      mkdirSync(outsideDir);
+      writeFileSync(join(outsideDir, "target.txt"), "outside");
+      symlinkSync(outsideDir, join(staticParent.root, "linked-dir"));
+      expect(
+        await fileSeen(
+          join(staticParent.root, "linked-dir", "target.txt"),
+          staticParent.root,
+        ),
+      ).toEqual({ kind: "symbolic-link", content: null });
+      expect(
+        readRootedFilePublic(
+          staticParent.root,
+          "linked-dir/target.txt",
+          fileReadLimit,
+        ),
+      ).toMatchObject({ kind: "refused", reason: "linked-folder" });
+
+      const linkSwapA = setup("agree-link-swap-a");
+      const seenLinkSwap = await fileSeen(linkSwapA.target, linkSwapA.root, {
+        afterOpen: () => {
+          rmSync(linkSwapA.target);
+          symlinkSync(outsideFile, linkSwapA.target);
+        },
+      });
+      const linkSwapB = setup("agree-link-swap-b");
+      const rootedLinkSwap = readRootedFile(
+        linkSwapB.root,
+        "sub/target.txt",
+        fileReadLimit,
+        {
+          afterOpen: () => {
+            rmSync(linkSwapB.target);
+            symlinkSync(outsideFile, linkSwapB.target);
+          },
+        },
+      );
+      expect(seenLinkSwap).toEqual({ kind: "symbolic-link", content: null });
+      expect(rootedLinkSwap).toMatchObject({
+        kind: "refused",
+        reason: "symbolic-link",
+      });
+
+      const inodeA = setup("agree-inode-a");
+      const replA = join(inodeA.sub, "replacement.txt");
+      writeFileSync(replA, "swapped");
+      const seenInode = await fileSeen(inodeA.target, inodeA.root, {
+        afterOpen: () => {
+          renameSync(replA, inodeA.target);
+        },
+      });
+      const inodeB = setup("agree-inode-b");
+      const replB = join(inodeB.sub, "replacement.txt");
+      writeFileSync(replB, "swapped");
+      const rootedInode = readRootedFile(
+        inodeB.root,
+        "sub/target.txt",
+        fileReadLimit,
+        {
+          afterOpen: () => {
+            renameSync(replB, inodeB.target);
+          },
+        },
+      );
+      expect(seenInode).toEqual({ kind: "symbolic-link", content: null });
+      expect(rootedInode).toMatchObject({
+        kind: "refused",
+        reason: "outside-root",
+      });
+
+      const parentA = setup("agree-parent-a");
+      const movedA = join(at.folder, "agree-moved-a");
+      const seenParent = await fileSeen(parentA.target, parentA.root, {
+        afterOpen: () => {
+          renameSync(parentA.sub, movedA);
+          symlinkSync(movedA, parentA.sub);
+        },
+      });
+      const parentB = setup("agree-parent-b");
+      const movedB = join(at.folder, "agree-moved-b");
+      const rootedParent = readRootedFile(
+        parentB.root,
+        "sub/target.txt",
+        fileReadLimit,
+        {
+          afterOpen: () => {
+            renameSync(parentB.sub, movedB);
+            symlinkSync(movedB, parentB.sub);
+          },
+        },
+      );
+      expect(seenParent).toEqual({ kind: "symbolic-link", content: null });
+      expect(rootedParent).toMatchObject({
+        kind: "refused",
+        reason: "linked-folder",
+      });
+
+      const hard = setup("agree-hard-link");
+      const hardAlias = join(hard.sub, "hard.txt");
+      linkSync(hard.target, hardAlias);
+      expect(
+        readRootedFilePublic(hard.root, "sub/hard.txt", fileReadLimit),
+      ).toMatchObject({ kind: "refused", reason: "hard-link" });
+      expect(await fileSeen(hardAlias, hard.root)).toEqual({
+        kind: "file",
+        content: "original",
+      });
+    },
+    watchdog(4),
+  );
 
   test("an expected file holds only as a file, and an absent one only when nothing stands there", () => {
     const step: ScenarioStep = {

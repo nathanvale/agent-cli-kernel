@@ -8,6 +8,7 @@ import { commonCauses } from "./causes.ts";
 import type { CapabilitySelection } from "./capabilities.ts";
 import { programStopOf } from "./program-stop.ts";
 import { deadlineCause } from "./state-causes.ts";
+import { copyJson } from "./validation/primitives.ts";
 const resultIdentity = Symbol("kernel.commandResult");
 export type CommandResult<Identity extends string = string> = {
   readonly commandIdentity: Identity;
@@ -72,6 +73,14 @@ export type ResultPlan = {
   readonly runId: string;
   readonly invocation: Invocation;
 };
+function copyData(facts: Record<string, unknown>): Record<string, unknown> {
+  if (Object.hasOwn(facts, "data")) {
+    const copied = copyJson(facts.data);
+    if (!copied.ok) throw new Error("Result data must be plain bounded JSON.");
+    facts.data = copied.value;
+  }
+  return facts;
+}
 const results = new WeakMap<CommandResult, ResultPlan>();
 export function resultContext<
   const Identity extends string,
@@ -110,7 +119,7 @@ export function resultContext<
       });
       results.set(result, {
         selected: Object.freeze({ ...selected }),
-        facts: freeze({ ...facts, runId }),
+        facts: freeze(copyData({ ...facts, runId })),
         runId,
         invocation,
       });

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -196,7 +196,7 @@ async function checkedScratchPath(
+ ): Promise<CheckResult<CheckedPath>> {
+   const parentSegments = segments.slice(0, -1);
+   const walked = await ancestorLinkUnder(realScratch, parentSegments);
+-  if (walked !== "ok") return { kind: "stop", status: walked };
++  void walked;
+   const canonicalParent =
+     segments.length === 0
+       ? dirname(realScratch)

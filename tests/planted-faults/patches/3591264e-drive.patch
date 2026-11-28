@@ -1,0 +1,21 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -97,7 +97,7 @@ async function verifyScratchUnchanged(
+   scratch: string,
+   realRoot: string,
+ ): Promise<ParentCheck> {
+-  const scratchNow = await resolveNonLink(scratch);
++  const scratchNow = await resolveReal(scratch);
+   if (scratchNow.kind !== "ok") return scratchNow.status;
+   return scratchNow.value === realRoot ? "ok" : "symbolic-link";
+ }
+@@ -224,7 +224,7 @@ async function parentWithinScratch(
+   scratch: string,
+ ): Promise<CheckResult<CheckedPath>> {
+   const resolvedScratch = resolve(scratch);
+-  const realScratch = await resolveNonLink(resolvedScratch);
++  const realScratch = await resolveReal(resolvedScratch);
+   if (realScratch.kind !== "ok") return realScratch;
+   const resolvedPath = resolve(path);
+   const rel =

@@ -19,6 +19,7 @@ export type FileKind =
   | "file"
   | "absent"
   | "folder"
+  | "symbolic-link"
   | "other"
   | "too-large"
   | "unreadable";

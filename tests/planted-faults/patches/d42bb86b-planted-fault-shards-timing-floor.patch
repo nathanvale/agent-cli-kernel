@@ -1,0 +1,15 @@
+diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
+--- a/scripts/planted-fault-shards.ts
++++ b/scripts/planted-fault-shards.ts
+@@ -37,10 +37,7 @@ export function writeTiming(
+     throw new Error(
+       `Timing for ${id} is ${quoted(String(seconds))}. Repair: pass a non-negative number of seconds.`,
+     );
+-  const rounded = Math.max(
+-    minimumRecordedSeconds,
+-    Math.round(seconds * 10) / 10,
+-  );
++  const rounded = Math.round(seconds * 10) / 10;
+   const directory = resolve(root, folder);
+   mkdirSync(directory, { recursive: true });
+   writeFileSync(

@@ -1,0 +1,14 @@
+diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
+--- a/scripts/planted-fault-shards.ts
++++ b/scripts/planted-fault-shards.ts
+@@ -33,10 +33,6 @@ export function writeTiming(
+   seconds: number,
+   folder: string = timingsPath,
+ ): void {
+-  if (!Number.isFinite(seconds) || seconds < 0)
+-    throw new Error(
+-      `Timing for ${id} is ${quoted(String(seconds))}. Repair: pass a non-negative number of seconds.`,
+-    );
+   const rounded = Math.max(
+     minimumRecordedSeconds,
+     Math.round(seconds * 10) / 10,
