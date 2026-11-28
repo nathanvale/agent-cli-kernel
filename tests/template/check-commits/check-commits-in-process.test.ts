@@ -16,8 +16,13 @@ import {
   ledgered,
   ledgerScript,
   refusal,
+  stepLimitMilliseconds,
 } from "../../support/check-commits-in-process-fixture.ts";
-import { git, worktreeLines } from "../../support/git-fixture.ts";
+import {
+  fixtureGitMilliseconds,
+  git,
+  worktreeLines,
+} from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
 
 const { folder, repositoryAt, inTemporaryFolder, worktreeAt } =
@@ -29,7 +34,13 @@ const lockfileListingADroppedDependency = JSON.stringify({
   packages: { dep: ["dep@file:dep", {}] },
 });
 
-const releaseTestTimeout = 10 * 4_000 + 5_000;
+const releaseGraceMilliseconds = 2_000;
+const timeoutMargin = 5_000;
+const releaseTestTimeout =
+  10 * fixtureGitMilliseconds +
+  stepLimitMilliseconds +
+  releaseGraceMilliseconds +
+  timeoutMargin;
 
 describe("release", () => {
   test(

@@ -12,7 +12,7 @@ const markers = {
   lint: "test ! -e lint-error",
 };
 
-const stepLimitMilliseconds = 4_000;
+export const stepLimitMilliseconds = 4_000;
 
 export const absentFixedPoint = "f".repeat(40);
 
