@@ -1,0 +1,7 @@
+{
+  "id": "37136c69-drive",
+  "patch": "tests/planted-faults/patches/37136c69-drive.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "drive refuses a symbolic link at the path or in a parent folder, while regular files still hold",
+  "source": "37136c69 fix(verify-cli): refuse symbolic links when drive judges files"
+}
