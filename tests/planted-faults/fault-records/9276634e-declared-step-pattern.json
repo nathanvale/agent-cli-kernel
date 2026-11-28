@@ -1,0 +1,7 @@
+{
+  "id": "9276634e-declared-step-pattern",
+  "patch": "tests/planted-faults/patches/9276634e-declared-step-pattern.patch",
+  "testFile": "tests/kernel/declared-step-input.test.ts",
+  "title": "^SP declared step input parser SP01\\.next-step-pattern-refused: contractFor refuses a literal next step or handoff inspect step that breaks its target pattern$",
+  "source": "9276634e refactor(kernel): use one input parser for start-up step checks and runs"
+}

@@ -7,6 +7,6 @@ diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
      throw new Error(`defaultCommand cannot name built-in command ${identity}.`);
 -  if (!hostCommands.includes(candidate))
 -    throw new Error("defaultCommand must be one of the declared commands.");
-   const problem = stepVectorProblem(candidate, [], true);
+   const problem = checkDeclaredStep(candidate, [], true);
    if (problem)
      throw new Error(
