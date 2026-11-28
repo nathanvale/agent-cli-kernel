@@ -3,10 +3,6 @@
   "ignoreBinaries": ["getconf"],
   "ignoreExports": [
     {
-      "file": "kernel/src/addons/diagnostics/records.ts",
-      "exports": ["markers"]
-    },
-    {
       "file": "kernel/src/addons/state/framing.ts",
       "exports": ["maxPayloadBytes", "checksum"]
     },
@@ -17,34 +13,6 @@
     {
       "file": "kernel/src/addons/state/store.ts",
       "exports": ["recordKinds", "dispositions", "revisionOf"]
-    },
-    {
-      "file": "kernel/src/kernel/fallback.ts",
-      "exports": ["fallbackLimits"]
-    },
-    {
-      "file": "kernel/src/kernel/guidance.ts",
-      "exports": ["guidanceTemplateSlots", "substitute"]
-    },
-    {
-      "file": "kernel/src/kernel/input.ts",
-      "exports": ["splitLongOption"]
-    },
-    {
-      "file": "kernel/src/kernel/routing.ts",
-      "exports": ["closestRoute"]
-    },
-    {
-      "file": "kernel/src/kernel/validation/context.ts",
-      "exports": ["capabilityAddonName"]
-    },
-    {
-      "file": "kernel/src/kernel/validation/input.ts",
-      "exports": ["valueSchema"]
-    },
-    {
-      "file": "kernel/src/kernel/validation/result.ts",
-      "exports": ["resultCorrelations"]
     }
   ],
   "typeAware": {

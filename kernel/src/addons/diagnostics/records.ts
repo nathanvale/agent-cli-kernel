@@ -3,7 +3,7 @@ import { DEFAULT_REDACT_FIELDS, redactByField } from "@logtape/redaction";
 import type { DiagnosticsLevel } from "../../kernel/index.ts";
 import { limits } from "./limits.ts";
 
-export const markers = {
+const markers = {
   redacted: "[REDACTED]",
   depth: "[truncated: depth]",
   cycle: "[truncated: cycle]",
