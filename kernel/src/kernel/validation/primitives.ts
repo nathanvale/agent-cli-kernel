@@ -38,56 +38,104 @@ function arrayIndex(key: string, length: number): boolean {
     index < length
   );
 }
-type JsonContainer = readonly unknown[] | Record<string, unknown>;
-function exactArray(value: JsonContainer): boolean {
-  if (!Array.isArray(value)) return true;
-  const keys = Reflect.ownKeys(value);
-  return (
-    Object.getPrototypeOf(value) === Array.prototype &&
-    keys.length === value.length + 1 &&
-    keys.every(
-      (key) =>
-        key === "length" ||
-        (typeof key === "string" && arrayIndex(key, value.length)),
-    )
-  );
-}
-function ownJsonValues(value: JsonContainer): unknown[] | undefined {
-  if (!exactArray(value)) return undefined;
-  const values: unknown[] = [];
-  for (const key of Reflect.ownKeys(value)) {
-    if (Array.isArray(value) && key === "length") continue;
-    const descriptor =
-      typeof key === "string"
-        ? Object.getOwnPropertyDescriptor(value, key)
-        : undefined;
-    if (!descriptor?.enumerable || !("value" in descriptor)) return undefined;
-    values.push(descriptor.value);
-  }
-  return values;
-}
+export type JsonCopy =
+  | { readonly ok: true; readonly value: JsonValue }
+  | { readonly ok: false };
+const invalidJson: JsonCopy = { ok: false };
 const jsonValueBudget = 1_000_000;
+function copyOwnValue(
+  value: object,
+  key: string,
+  depth: number,
+  ancestors: Set<object>,
+  budget: { remaining: number },
+): JsonCopy {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (!descriptor?.enumerable || !Object.hasOwn(descriptor, "value"))
+    return invalidJson;
+  return copyJson(descriptor.value, childLevel(depth), ancestors, budget);
+}
+function arrayLength(value: readonly unknown[]): number | undefined {
+  if (Object.getPrototypeOf(value) !== Array.prototype) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(value, "length");
+  return descriptor &&
+    Object.hasOwn(descriptor, "value") &&
+    integer(descriptor.value)
+    ? descriptor.value
+    : undefined;
+}
+function copyArray(
+  value: readonly unknown[],
+  depth: number,
+  ancestors: Set<object>,
+  budget: { remaining: number },
+): JsonCopy {
+  const length = arrayLength(value);
+  if (length === undefined) return invalidJson;
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.length !== length + 1) return invalidJson;
+  const copy: JsonValue[] = [];
+  for (const key of ownKeys) {
+    if (key === "length") continue;
+    if (typeof key !== "string" || !arrayIndex(key, length)) return invalidJson;
+    const child = copyOwnValue(value, key, depth, ancestors, budget);
+    if (!child.ok) return invalidJson;
+    copy[Number(key)] = child.value;
+  }
+  return { ok: true, value: copy };
+}
+function copyRecord(
+  value: object,
+  depth: number,
+  ancestors: Set<object>,
+  budget: { remaining: number },
+): JsonCopy {
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return invalidJson;
+  const copy: Record<string, JsonValue> = {};
+  if (prototype === null) Object.setPrototypeOf(copy, null);
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== "string") return invalidJson;
+    const child = copyOwnValue(value, key, depth, ancestors, budget);
+    if (!child.ok) return invalidJson;
+    Object.defineProperty(copy, key, {
+      value: child.value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return { ok: true, value: copy };
+}
+export function copyJson(
+  value: unknown,
+  depth = rootLevel,
+  ancestors = new Set<object>(),
+  budget = { remaining: jsonValueBudget },
+): JsonCopy {
+  if (!withinLevel(depth, resultLevelLimit) || --budget.remaining < 0)
+    return invalidJson;
+  if (value === null || typeof value === "boolean" || typeof value === "string")
+    return { ok: true, value };
+  if (typeof value === "number")
+    return Number.isFinite(value) ? { ok: true, value } : invalidJson;
+  if (typeof value !== "object" || ancestors.has(value)) return invalidJson;
+  ancestors.add(value);
+  try {
+    return Array.isArray(value)
+      ? copyArray(value, depth, ancestors, budget)
+      : copyRecord(value, depth, ancestors, budget);
+  } finally {
+    ancestors.delete(value);
+  }
+}
 export function json(
   value: unknown,
   depth = rootLevel,
   ancestors = new Set<object>(),
   budget = { remaining: jsonValueBudget },
 ): value is JsonValue {
-  if (!withinLevel(depth, resultLevelLimit) || --budget.remaining < 0)
-    return false;
-  if (value === null || typeof value === "boolean" || typeof value === "string")
-    return true;
-  if (typeof value === "number") return Number.isFinite(value);
-  if (typeof value !== "object" || ancestors.has(value)) return false;
-  if (!Array.isArray(value) && !record(value)) return false;
-  const values = ownJsonValues(value);
-  if (!values) return false;
-  ancestors.add(value);
-  const valid = values.every((child) =>
-    json(child, childLevel(depth), ancestors, budget),
-  );
-  ancestors.delete(value);
-  return valid;
+  return copyJson(value, depth, ancestors, budget).ok;
 }
 export function sortedStrings(value: unknown): value is readonly string[] {
   return (
