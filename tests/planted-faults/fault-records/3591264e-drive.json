@@ -1,0 +1,7 @@
+{
+  "id": "3591264e-drive",
+  "patch": "tests/planted-faults/patches/3591264e-drive.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "drive refuses a linked scratch folder while allowing a linked verification run folder",
+  "source": "3591264e fix(verify-cli): refuse linked scratch folder in parentWithinScratch"
+}

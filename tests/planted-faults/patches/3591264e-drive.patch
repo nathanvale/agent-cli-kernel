@@ -1,0 +1,44 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 559604ce..86f755cb 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -103,24 +103,6 @@ async function resolveReal(
+   }
+ }
+ 
+-async function resolveNonLink(
+-  target: string,
+-): Promise<
+-  | { readonly kind: "ok"; readonly value: string }
+-  | { readonly kind: "stop"; readonly status: Exclude<ParentCheck, "ok"> }
+-> {
+-  try {
+-    if ((await lstat(target)).isSymbolicLink())
+-      return { kind: "stop", status: "symbolic-link" };
+-  } catch (error) {
+-    return {
+-      kind: "stop",
+-      status: absentCode(at(error, "code")) ? "absent" : "unreadable",
+-    };
+-  }
+-  return resolveReal(target);
+-}
+-
+ async function ancestorLinkUnder(
+   realScratch: string,
+   segments: readonly string[],
+@@ -143,12 +125,11 @@ async function parentWithinScratch(
+   path: string,
+   scratch: string,
+ ): Promise<ParentCheck> {
+-  const resolvedScratch = resolve(scratch);
+-  const realScratch = await resolveNonLink(resolvedScratch);
++  const realScratch = await resolveReal(scratch);
+   if (realScratch.kind !== "ok") return realScratch.status;
+   const resolvedPath = resolve(path);
+   const rel =
+-    relativeUnder(resolvedScratch, resolvedPath) ??
++    relativeUnder(resolve(scratch), resolvedPath) ??
+     relativeUnder(realScratch.value, resolvedPath);
+   if (rel === undefined) return "symbolic-link";
+   const walked = await ancestorLinkUnder(

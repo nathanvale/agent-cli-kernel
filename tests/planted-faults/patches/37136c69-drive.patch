@@ -1,7 +1,7 @@
-diff --git b/skills/verify-cli/helper/drive.ts a/skills/verify-cli/helper/drive.ts
-index 86f755cb..a635e911 100644
---- b/skills/verify-cli/helper/drive.ts
-+++ a/skills/verify-cli/helper/drive.ts
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 559604ce..a635e911 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
 @@ -1,14 +1,6 @@
  import { constants, existsSync } from "node:fs";
 -import {
@@ -19,7 +19,7 @@ index 86f755cb..a635e911 100644
  import { changing, station } from "agent-cli-kernel";
  import type { ParsedPath, ProgramResult } from "agent-cli-kernel";
  import {
-@@ -70,120 +62,15 @@ async function openedFile(
+@@ -70,139 +62,15 @@ async function openedFile(
    };
  }
  
@@ -56,6 +56,24 @@ index 86f755cb..a635e911 100644
 -  }
 -}
 -
+-async function resolveNonLink(
+-  target: string,
+-): Promise<
+-  | { readonly kind: "ok"; readonly value: string }
+-  | { readonly kind: "stop"; readonly status: Exclude<ParentCheck, "ok"> }
+-> {
+-  try {
+-    if ((await lstat(target)).isSymbolicLink())
+-      return { kind: "stop", status: "symbolic-link" };
+-  } catch (error) {
+-    return {
+-      kind: "stop",
+-      status: absentCode(at(error, "code")) ? "absent" : "unreadable",
+-    };
+-  }
+-  return resolveReal(target);
+-}
+-
 -async function ancestorLinkUnder(
 -  realScratch: string,
 -  segments: readonly string[],
@@ -78,11 +96,12 @@ index 86f755cb..a635e911 100644
 -  path: string,
 -  scratch: string,
 -): Promise<ParentCheck> {
--  const realScratch = await resolveReal(scratch);
+-  const resolvedScratch = resolve(scratch);
+-  const realScratch = await resolveNonLink(resolvedScratch);
 -  if (realScratch.kind !== "ok") return realScratch.status;
 -  const resolvedPath = resolve(path);
 -  const rel =
--    relativeUnder(resolve(scratch), resolvedPath) ??
+-    relativeUnder(resolvedScratch, resolvedPath) ??
 -    relativeUnder(realScratch.value, resolvedPath);
 -  if (rel === undefined) return "symbolic-link";
 -  const walked = await ancestorLinkUnder(
@@ -145,7 +164,7 @@ index 86f755cb..a635e911 100644
    }
    try {
      return await openedFile(handle);
-@@ -222,11 +109,10 @@ export async function keptStep(
+@@ -241,11 +109,10 @@ export async function keptStep(
    step: ScenarioStep,
    ran: ProgramResult,
    repository: RepositoryFacts,
@@ -158,7 +177,7 @@ index 86f755cb..a635e911 100644
    );
    const kept = stepFile(feature, step, observed, files);
    const file = join(feature, `${step.name}.json`);
-@@ -483,7 +369,6 @@ export function driveCommand(
+@@ -502,7 +369,6 @@ export function driveCommand(
                      step,
                      ran,
                      repository,
