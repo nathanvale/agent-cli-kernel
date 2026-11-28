@@ -14,6 +14,7 @@
     "tests/kernel/correlations.test.ts": 76,
     "tests/kernel/deadline.test.ts": 19,
     "tests/kernel/declaration-admission.test.ts": 71,
+    "tests/kernel/declared-step-input.test.ts": 100,
     "tests/kernel/default-command.test.ts": 206,
     "tests/kernel/diagnostics/absence.test.ts": 1886,
     "tests/kernel/diagnostics/cases.test.ts": 40292,
