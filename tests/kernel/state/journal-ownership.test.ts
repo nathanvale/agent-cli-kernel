@@ -588,7 +588,10 @@ supportingTest(
           writeFileSync(intentPath, bytes, { mode: 0o600 });
         },
       });
-      expect(rootedInode.kind).toBe("refused");
+      expect(rootedInode).toMatchObject({
+        kind: "refused",
+        reason: "outside-root",
+      });
 
       const swappedFolder = join(outsideParent, "rooted-folder");
       const rootedFolder = readRootedFile(world.root, intentPath, 1_048_576, {
@@ -597,7 +600,10 @@ supportingTest(
           symlinkSync(swappedFolder, folder);
         },
       });
-      expect(rootedFolder.kind).toBe("refused");
+      expect(rootedFolder).toMatchObject({
+        kind: "refused",
+        reason: "linked-folder",
+      });
       rmSync(folder);
       renameSync(swappedFolder, folder);
 
@@ -612,8 +618,21 @@ supportingTest(
         "SCHEMA_SX_STATE_UNREADABLE",
         "The journal is unreadable.",
       );
+
+      const pendingFolder = await world.run(["pending", "--json"], {
+        BUN_OPTIONS: `--preload ${swapPreload}`,
+        SX_SWAP_MODE: "before-open",
+        SX_SWAP_TRIGGER: intentPath,
+        SX_SWAP_FOLDER: folder,
+        SX_SWAP_OUTSIDE: join(outsideParent, "store-folder"),
+      });
+      expectExactRefusal(
+        pendingFolder,
+        "SCHEMA_SX_STATE_UNREADABLE",
+        "The journal is unreadable.",
+      );
     }),
-  sequentialTimeout(2),
+  sequentialTimeout(3),
 );
 
 supportingTest(

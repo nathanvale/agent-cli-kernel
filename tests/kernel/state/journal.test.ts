@@ -1387,12 +1387,16 @@ supportingTest(
     if (!first) throw new Error("No case.");
     const settled = join(world.root, "settled");
     const elsewhere = join(world.base, "elsewhere");
-    const held = world.start(apply("b"), { SX_BARRIER: "staged" });
+    const held = world.start(apply("b"), {
+      SX_BARRIER: "staged",
+      SX_MOVER_REPORT: "1",
+    });
     await held.reached("staged");
     renameSync(settled, elsewhere);
     symlinkSync(elsewhere, settled);
     held.release("staged");
     expectCompleted(await held.done);
+    expect(moverLines(world)).toEqual(["mover examined 0 moved 0"]);
     expect(readdirSync(elsewhere)).toEqual([]);
     expect(caseFolders(world, "operations")).toContain(first);
     expect(world.noteLedger("b")).toBe(1);
