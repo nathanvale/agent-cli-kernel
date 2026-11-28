@@ -169,6 +169,155 @@
           "detail": "passed"
         }
       ]
+    },
+    {
+      "entry": "index.ts",
+      "commit": "870192a46f9610c6d8edac538d999f2d87fc9233",
+      "sourceHash": "d67057db0dc295b04fae9c55a8aa871616f61907ff00181708d3bb1b9bf3b8f1",
+      "started": "2026-11-28T07:19:01.288Z",
+      "ended": "2026-11-28T07:19:06.813Z",
+      "cases": [
+        {
+          "id": "K02.a-kill-after-effect-two-later-changes",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K03.a-absence-is-not-not-applied",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K03.b-exclusion-permits-not-applied",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.a-closure-retry-same-identity",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.b-conflicting-closure-refused",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.c-stale-revision-refused",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.d-closure-record-fields",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.e-kill-before-closure-publication",
+          "result": "not-runnable",
+          "reason": "Waits for the closure-staged pause point, which only the test entry has (decided by Nathan, 19 November 2026, 17:45 AEDT)."
+        },
+        {
+          "id": "K07.a-closed-stays-closed",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K08.a-live-writer-blocks-closure",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K08.b-recorded-delegate-blocks-closure",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K08.c-surviving-delegate-process",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.a-delegate-same-boot-refused",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.c-torn-tail-closes",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.d-corrupt-events-still-refuses",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.f-record-hidden-in-torn-tail-refuses",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.g-no-append-after-torn-tail",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.e-transaction-waits-for-started-effects",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O04.a-age-is-not-proof",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O04.b-stopped-process-still-owner",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O05.a-pid-not-consulted",
+          "result": "not-runnable",
+          "reason": "Expects no matching row, but an index.ts run has the row in the production capability qualification table (decided by Nathan, 19 November 2026, 17:45 AEDT)."
+        },
+        {
+          "id": "O07.a-two-closers",
+          "result": "not-runnable",
+          "reason": "Waits for the closure-staged pause point, which only the test entry has (decided by Nathan, 19 November 2026, 17:45 AEDT)."
+        },
+        {
+          "id": "O07.b-reclaim-race",
+          "result": "unproved",
+          "detail": "pending: Needs a reviewed capability qualification row that enables reclaim or takeover (REC-7b). Journal version 2 rows enable closure only, so the expected outcome is still O10 and Q01."
+        },
+        {
+          "id": "O09.a-reclaim-is-coordination-only",
+          "result": "not-runnable",
+          "reason": "Expects no matching row, but an index.ts run has the row in the production capability qualification table (decided by Nathan, 19 November 2026, 17:45 AEDT)."
+        },
+        {
+          "id": "Q02.e-production-row-closes",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.f-same-identity-different-content",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.g-unknown-operation-not-found",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.h-unreadable-case-unavailable",
+          "result": "pass",
+          "detail": "passed"
+        }
+      ]
     }
   ]
 }
