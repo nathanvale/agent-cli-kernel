@@ -58,7 +58,7 @@ const admit = (declaration: unknown) => () =>
   contractUnchecked(kernel.contractFor, {
     cli: "specimen",
     commands: [declaration, ...targets(kernel)],
-    causes: { HOLD: hold },
+    causes: { DOMAIN_HOLD: hold },
   });
 let changingRun: Promise<unknown> | undefined;
 async function changingObserved(id: string): Promise<unknown> {

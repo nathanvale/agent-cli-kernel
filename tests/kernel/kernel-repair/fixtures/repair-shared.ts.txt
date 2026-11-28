@@ -28,7 +28,7 @@ const refusal = {
   retryable: false,
   guidance: "handoff",
 } as const;
-export const causes = { HELD: refusal, PRIOR: refusal } as const;
+export const causes = { DOMAIN_HELD: refusal, DOMAIN_PRIOR: refusal } as const;
 export const words = {
   retryDelayPolicy: { kind: "none" },
   reachability: "required",
@@ -73,8 +73,8 @@ const lockHandoff = {
 export function coordination<const Identity extends string>(identity: Identity) {
   const refusal = { trigger: "Coordination refusal.", repairAction: "Inspect the lock.", guidance: lockHandoff, ...words } as const;
   return [
-    station(causes, { ...refusal, commandIdentity: identity, causeCode: "HELD" }),
-    station(causes, { ...refusal, commandIdentity: identity, causeCode: "PRIOR" }),
+    station(causes, { ...refusal, commandIdentity: identity, causeCode: "DOMAIN_HELD" }),
+    station(causes, { ...refusal, commandIdentity: identity, causeCode: "DOMAIN_PRIOR" }),
   ] as const;
 }
 

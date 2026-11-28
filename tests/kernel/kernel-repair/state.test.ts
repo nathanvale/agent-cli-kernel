@@ -47,7 +47,7 @@ runFamily(
     "R01.refusal-after-unchanged-admitted": async () =>
       expect(await observed("R01.refusal-after-unchanged-admitted")).toEqual({
         executed: true,
-        built: { ok: true, causeCode: "HELD", completed: [] },
+        built: { ok: true, causeCode: "DOMAIN_HELD", completed: [] },
         ledger: [],
         workStarts: 1,
       }),

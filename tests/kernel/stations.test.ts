@@ -501,6 +501,27 @@ const carriesDataValidProbe = typeProbe(
   ].join("\n"),
 );
 
+function causePrefixForRow(row: Record<string, unknown>): string {
+  if (row.outcome === "success") {
+    return "SUCCESS";
+  }
+  if (typeof row.failureClass === "string") {
+    return row.failureClass.toUpperCase();
+  }
+  throw new Error("Expected a success outcome or string failureClass.");
+}
+
+function causePrefixForRowSource(rowSource: string): string {
+  if (/outcome:\s*"success"/.test(rowSource)) {
+    return "SUCCESS";
+  }
+  const match = /failureClass:\s*"([^"]+)"/.exec(rowSource);
+  if (match?.[1]) {
+    return match[1].toUpperCase();
+  }
+  throw new Error("Expected a success outcome or string failureClass.");
+}
+
 const illegalCauseTableProbes = [
   {
     name: "success",
@@ -525,7 +546,7 @@ const illegalCauseTableProbes = [
 ].map(({ name, row }) => ({
   name,
   probe: typeProbe(
-    `${typeHeader}\nexport const bad = { ...commonCauses, BAD: ${row} } as const satisfies CauseTable;\n`,
+    `${typeHeader}\nexport const bad = { ...commonCauses, ${causePrefixForRowSource(row)}_BAD: ${row} } as const satisfies CauseTable;\n`,
   ),
 }));
 
@@ -569,7 +590,7 @@ const illegalAliasedCauseTableProbes = [
 ].map(({ name, row }) => ({
   name,
   probe: typeProbe(
-    `${typeHeader}\nconst row = ${row} as const;\nexport const bad = { ...commonCauses, BAD: row } as const satisfies CauseTable;\n`,
+    `${typeHeader}\nconst row = ${row} as const;\nexport const bad = { ...commonCauses, ${causePrefixForRowSource(row)}_BAD: row } as const satisfies CauseTable;\n`,
   ),
 }));
 
@@ -612,18 +633,19 @@ test("causeRow and contractFor accept carriesData: true only on an unchanged dom
     { ...commonCauses.DOMAIN_PRECONDITION_UNMET, carriesData: undefined },
   ];
   for (const row of illegalRows) {
+    const code = `${causePrefixForRow(row)}_BAD_ROW`;
     expect(causeRow(row)).toBe(false);
     expect(() => {
       Reflect.apply(contractFor, undefined, [
-        { cli: "notes", commands: [], causes: { BAD_ROW: row } },
+        { cli: "notes", commands: [], causes: { [code]: row } },
       ]);
     }).toThrow(invalidCauseRowMessage);
     expect(() => {
       Reflect.apply(station, undefined, [
-        { ...commonCauses, BAD_ROW: row },
+        { ...commonCauses, [code]: row },
         {
           commandIdentity: "notes.check",
-          causeCode: "BAD_ROW",
+          causeCode: code,
           trigger: "Triggered.",
           guidance: { next: { kind: "instruction", text: "Fix it." } },
           repairAction: "Fix it.",

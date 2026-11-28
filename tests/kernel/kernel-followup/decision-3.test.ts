@@ -208,7 +208,7 @@ test(
     });
     expect(twin.exit).toBe(3);
     expect(twin.result).toMatchObject({
-      causeCode: "KF_PARTIAL",
+      causeCode: "DOMAIN_KF_PARTIAL",
       effects: { ...emptyComplete, completed: ["kf.e1"], remaining: ["kf.e2"] },
     });
   },

@@ -102,7 +102,7 @@ test(
     expect(steady.exit).toBe(3);
     expect(steady.result).toMatchObject({
       commandIdentity: "specimen.apply",
-      causeCode: "HELD",
+      causeCode: "DOMAIN_HELD",
       outcome: "refused",
       transactionState: "unchanged",
     });
@@ -131,7 +131,7 @@ test(
       second: {
         executed: true,
         runId: "R2",
-        causeCode: "HELD",
+        causeCode: "DOMAIN_HELD",
         transactionState: "unchanged",
         completed: [],
       },
@@ -165,7 +165,7 @@ test(
           observed.push({
             hops,
             refusedUnchanged:
-              child.result?.causeCode === "HELD" &&
+              child.result?.causeCode === "DOMAIN_HELD" &&
               child.result.outcome === "refused" &&
               child.result.transactionState === "unchanged",
             ledger: lines,
@@ -222,7 +222,7 @@ test(
       expect(denied.lines).toEqual([]);
       const admitted = await attempt("admitted", { CHECK: "true" });
       expect(admitted.child.exit).toBe(3);
-      expect(admitted.child.result).toMatchObject({ causeCode: "HELD" });
+      expect(admitted.child.result).toMatchObject({ causeCode: "DOMAIN_HELD" });
       expect(admitted.lines).toEqual([
         "check",
         "state-attached",

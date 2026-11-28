@@ -65,7 +65,7 @@ function installation(
   }));
 }
 
-const held = { commandIdentity: "specimen.apply", causeCode: "HELD" } as const;
+const held = { commandIdentity: "specimen.apply", causeCode: "DOMAIN_HELD" } as const;
 const heldFacts = { message: "Held.", data: null, effects: empty } as const;
 
 type Handler =
@@ -92,8 +92,8 @@ function applyContract(
     effectClass: "repository-local",
     effects: ["e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "HELD",
-    unresolvedCaseCause: "PRIOR",
+    heldLockCause: "DOMAIN_HELD",
+    unresolvedCaseCause: "DOMAIN_PRIOR",
     stations: coordination("specimen.apply"),
     run: async (_input, context) => {
       if (handler.kind === "throw") throw new Error("Handler fault.");
@@ -233,9 +233,9 @@ export function coordinationContract(
   const state = installation(completedObservation);
   const table = { ...commonCauses, ...causes };
   const heldCause =
-    variant === "lock-common" ? "DOMAIN_AUTHORITY_REQUIRED" : "HELD";
+    variant === "lock-common" ? "DOMAIN_AUTHORITY_REQUIRED" : "DOMAIN_HELD";
   const priorCause =
-    variant === "unresolved-common" ? "DOMAIN_AUTHORITY_REQUIRED" : "PRIOR";
+    variant === "unresolved-common" ? "DOMAIN_AUTHORITY_REQUIRED" : "DOMAIN_PRIOR";
   const refusal = {
     trigger: "Coordination refusal.",
     repairAction: "Inspect the lock.",
@@ -337,8 +337,8 @@ export async function runReuse(secondRunId: string) {
     effectClass: "repository-local",
     effects: ["e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "HELD",
-    unresolvedCaseCause: "PRIOR",
+    heldLockCause: "DOMAIN_HELD",
+    unresolvedCaseCause: "DOMAIN_PRIOR",
     stations: [...coordination("specimen.apply"), done],
     run: async (_input, context) => {
       calls++;

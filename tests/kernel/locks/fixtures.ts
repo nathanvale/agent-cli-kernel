@@ -101,7 +101,7 @@ export const retry = {
   next: { kind: "retry" },
 } as const satisfies Result;
 export const exemplarCauses = {
-  JOURNAL_LIMIT: {
+  DOMAIN_JOURNAL_LIMIT: {
     outcome: "refused",
     transactionState: "unchanged",
     failureClass: "domain",
@@ -109,7 +109,7 @@ export const exemplarCauses = {
     retryable: false,
     guidance: "next",
   },
-  PRIOR_RUN: {
+  DOMAIN_PRIOR_RUN: {
     outcome: "refused",
     transactionState: "unchanged",
     failureClass: "domain",
@@ -117,7 +117,7 @@ export const exemplarCauses = {
     retryable: false,
     guidance: "handoff",
   },
-  PARTIAL_RECOVERY: {
+  DOMAIN_PARTIAL_RECOVERY: {
     outcome: "failed",
     transactionState: "partially-completed",
     failureClass: "domain",
@@ -129,18 +129,18 @@ export const exemplarCauses = {
 export type ExemplarResult = ResultFor<typeof exemplarCauses>;
 export const journal = {
   ...refusal,
-  causeCode: "JOURNAL_LIMIT",
+  causeCode: "DOMAIN_JOURNAL_LIMIT",
 } as const satisfies ExemplarResult;
 export const prior = {
   ...facts,
-  ...exemplarCauses.PRIOR_RUN,
-  causeCode: "PRIOR_RUN",
+  ...exemplarCauses.DOMAIN_PRIOR_RUN,
+  causeCode: "DOMAIN_PRIOR_RUN",
   handoff,
   effects: unchanged,
 } as const satisfies ExemplarResult;
 export const recovered = {
   ...partial,
-  causeCode: "PARTIAL_RECOVERY",
+  causeCode: "DOMAIN_PARTIAL_RECOVERY",
   failureClass: "domain",
   exitCode: 3,
 } as const satisfies ExemplarResult;
@@ -197,7 +197,7 @@ export function reportFor<const Target extends string>(target: Target) {
   const selected = station(exemplarCauses, {
     ...words,
     commandIdentity: "specimen.report",
-    causeCode: "PRIOR_RUN",
+    causeCode: "DOMAIN_PRIOR_RUN",
     guidance: {
       handoff: {
         ...handoff,

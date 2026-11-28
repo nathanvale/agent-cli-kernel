@@ -140,12 +140,12 @@ describe("KF5.a setup B: kf.apply2", () => {
         effects: { ...emptyComplete, inventoryComplete: false },
       });
       const twin = await runKf(entry, "apply2", ["apply2", "--json"], {
-        KF_SELECT: "KF_HELD",
+        KF_SELECT: "DOMAIN_KF_HELD",
         KF_DECLARED: "DOMAIN_AUTHORITY_REQUIRED",
       });
       expect(twin.exit).toBe(3);
       expect(twin.result).toMatchObject({
-        causeCode: "KF_HELD",
+        causeCode: "DOMAIN_KF_HELD",
         outcome: "refused",
       });
     },
