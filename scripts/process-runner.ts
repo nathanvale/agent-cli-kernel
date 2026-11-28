@@ -160,7 +160,7 @@ export function stepLimitMilliseconds(
   variable: string,
   defaultSeconds: number,
 ): number {
-  const given = env[variable];
+  const given = Object.hasOwn(env, variable) ? env[variable] : undefined;
   if (given === undefined || given === "") return defaultSeconds * 1000;
   const seconds = Number(given);
   if (

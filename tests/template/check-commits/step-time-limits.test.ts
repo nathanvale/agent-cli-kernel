@@ -16,8 +16,8 @@ import {
   repository,
 } from "../../support/check-commits-fixture.ts";
 import { gitEnv, inherited, worktreeLines } from "../../support/git-fixture.ts";
-import { spawnBounded } from "../../support/process.ts";
-import { signalIfPresent } from "../../support/signal.ts";
+import { processWatchdog, spawnBounded } from "../../support/process.ts";
+import { signalGroupIfPresent, signalIfPresent } from "../../support/signal.ts";
 import { jobOf } from "../../support/workflows.ts";
 
 const { folder, repositoryAt, checkCommits } = checkCommitsFixture();
@@ -70,7 +70,11 @@ function recordedPids(path: string): number[] {
 }
 
 function reapRecorded(path: string): void {
-  for (const pid of recordedPids(path)) signalIfPresent(pid, "SIGKILL");
+  const [leader, ...rest] = recordedPids(path);
+  if (leader !== undefined && leader !== process.pid)
+    signalGroupIfPresent(leader, "SIGKILL");
+  for (const pid of rest)
+    if (pid !== process.pid) signalIfPresent(pid, "SIGKILL");
 }
 
 function hangIgnoringTerm(ledger: string, pids: string): string {
@@ -266,60 +270,68 @@ exec '${realGit}' "$@"
     childRunBound + 10_000,
   );
 
-  test("TL.d check:commits refuses CHECK_COMMITS_STEP_SECONDS above 2,147,483 s and accepts 2,147,483 s", async () => {
-    const { root, base, commit } = repositoryAt();
-    commit("green commit", { "a.txt": "a" });
+  test(
+    "TL.d check:commits refuses CHECK_COMMITS_STEP_SECONDS above 2,147,483 s and accepts 2,147,483 s",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      commit("green commit", { "a.txt": "a" });
 
-    const refused = await checkCommits(root, [base.sha], {
-      CHECK_COMMITS_SINCE: base.sha,
-      CHECK_COMMITS_STEP_SECONDS: String(maxStepLimitSeconds + 1),
-    });
-    expect(refused.exit).toBe(2);
-    expect(refused.stderr.split("\n")).toContain(
-      `CHECK_COMMITS_STEP_SECONDS is '${maxStepLimitSeconds + 1}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 300 s.`,
-    );
+      const refused = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+        CHECK_COMMITS_STEP_SECONDS: String(maxStepLimitSeconds + 1),
+      });
+      expect(refused.exit).toBe(2);
+      expect(refused.stderr.split("\n")).toContain(
+        `CHECK_COMMITS_STEP_SECONDS is '${maxStepLimitSeconds + 1}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 300 s.`,
+      );
 
-    const admitted = await checkCommits(root, [base.sha], {
-      CHECK_COMMITS_SINCE: base.sha,
-      CHECK_COMMITS_STEP_SECONDS: String(maxStepLimitSeconds),
-    });
-    expect(admitted.exit).toBe(0);
-  }, 30_000);
+      const admitted = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+        CHECK_COMMITS_STEP_SECONDS: String(maxStepLimitSeconds),
+      });
+      expect(admitted.exit).toBe(0);
+    },
+    processWatchdog(2),
+  );
 
-  test("TL.e doctor refuses DOCTOR_STEP_SECONDS above 2,147,483 s and accepts 2,147,483 s", async () => {
-    const root = doctorProject(
-      '#!/bin/sh\necho \'{"status":"pass","checks":[]}\'\n',
-    );
+  test(
+    "TL.e doctor refuses DOCTOR_STEP_SECONDS above 2,147,483 s and accepts 2,147,483 s",
+    async () => {
+      const root = doctorProject(
+        '#!/bin/sh\necho \'{"status":"pass","checks":[]}\'\n',
+      );
 
-    const refused = await spawnBounded(
-      [process.execPath, join(root, "scripts/doctor.ts")],
-      {
-        cwd: root,
-        env: {
-          ...inherited(),
-          ...gitEnv,
-          DOCTOR_STEP_SECONDS: String(maxStepLimitSeconds + 1),
+      const refused = await spawnBounded(
+        [process.execPath, join(root, "scripts/doctor.ts")],
+        {
+          cwd: root,
+          env: {
+            ...inherited(),
+            ...gitEnv,
+            DOCTOR_STEP_SECONDS: String(maxStepLimitSeconds + 1),
+          },
         },
-      },
-    );
-    expect(refused.exit).toBe(2);
-    expect(refused.stderr).toBe(
-      `DOCTOR_STEP_SECONDS is '${maxStepLimitSeconds + 1}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 30 s.\n`,
-    );
+      );
+      expect(refused.exit).toBe(2);
+      expect(refused.stderr).toBe(
+        `DOCTOR_STEP_SECONDS is '${maxStepLimitSeconds + 1}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 30 s.\n`,
+      );
 
-    const admitted = await spawnBounded(
-      [process.execPath, join(root, "scripts/doctor.ts")],
-      {
-        cwd: root,
-        env: {
-          ...inherited(),
-          ...gitEnv,
-          DOCTOR_STEP_SECONDS: String(maxStepLimitSeconds),
+      const admitted = await spawnBounded(
+        [process.execPath, join(root, "scripts/doctor.ts")],
+        {
+          cwd: root,
+          env: {
+            ...inherited(),
+            ...gitEnv,
+            DOCTOR_STEP_SECONDS: String(maxStepLimitSeconds),
+          },
         },
-      },
-    );
-    expect(admitted.exit).toBe(0);
-  }, 30_000);
+      );
+      expect(admitted.exit).toBe(0);
+    },
+    processWatchdog(2),
+  );
 
   test("TL.f the CI commits-shard job sets a timeout-minutes", () => {
     const shard = jobOf("ci.yml", "commits-shard");

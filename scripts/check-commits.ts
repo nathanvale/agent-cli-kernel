@@ -73,7 +73,8 @@ async function git(run: Run, args: readonly string[]) {
   } finally {
     delete active.stop;
   }
-  if (isStopSignal(result.signalCode)) active.stoppedBy ??= result.signalCode;
+  if (!result.timedOut && isStopSignal(result.signalCode))
+    active.stoppedBy ??= result.signalCode;
   if (result.timedOut)
     throw new Error(
       `FAIL check:commits: git ${args.join(" ")} did not finish within ${limit / 1000} s. Repair: run git ${args.join(" ")} by hand in ${root} to see where it hangs, or raise ${stepLimitVariable}.`,
