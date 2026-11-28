@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { mappedGlossaryFiles } from "../../../scripts/glossary-map.ts";
 import {
   entryNames,
   exportProblems,
@@ -47,8 +48,15 @@ test("the export is the one whose hash glossary-ownership.json records", () => {
 });
 
 test("every entry glossary-ownership.json accepts is defined here, outside the shared tool words", () => {
+  const contextGlossaries = mappedGlossaryFiles(read("GLOSSARY-MAP.md"))
+    .filter((path) => path !== "GLOSSARY.md")
+    .map((path) => read(path));
   expect(
-    ownershipProblems(read("GLOSSARY.md"), readOwnership(read(ownershipFile))),
+    ownershipProblems(
+      read("GLOSSARY.md"),
+      readOwnership(read(ownershipFile)),
+      contextGlossaries,
+    ),
   ).toEqual([]);
 });
 

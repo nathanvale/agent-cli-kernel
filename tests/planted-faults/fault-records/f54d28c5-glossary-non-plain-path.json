@@ -1,0 +1,7 @@
+{
+  "id": "f54d28c5-glossary-non-plain-path",
+  "patch": "tests/planted-faults/patches/f54d28c5-glossary-non-plain-path.patch",
+  "testFile": "tests/template/names-check/context-glossaries.test.ts",
+  "title": "^CG\\.g ",
+  "source": "f54d28c5 fix(glossary): refuse non-plain mapped glossary paths"
+}

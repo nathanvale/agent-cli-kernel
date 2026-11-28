@@ -1,17 +1,7 @@
 diff --git a/tests/support/git-fixture.ts b/tests/support/git-fixture.ts
-index dbf77af..b659204 100644
 --- a/tests/support/git-fixture.ts
 +++ b/tests/support/git-fixture.ts
-@@ -1,8 +1,6 @@
- import { mkdirSync } from "node:fs";
- import { write } from "./fixture-files.ts";
- 
--const gitMilliseconds = 4_000;
--
- export const gitEnv = {
-   GIT_CONFIG_GLOBAL: "/dev/null",
-   GIT_CONFIG_NOSYSTEM: "1",
-@@ -32,19 +30,12 @@ export function inherited(): Record<string, string | undefined> {
+@@ -25,19 +25,12 @@ export function inherited(): Record<string, string | undefined> {
  }
  
  export function gitResult(root: string, ...args: string[]) {
@@ -21,12 +11,12 @@ index dbf77af..b659204 100644
      env: { ...inherited(), ...gitEnv },
      stdout: "pipe",
      stderr: "pipe",
--    timeout: gitMilliseconds,
+-    timeout: fixtureGitMilliseconds,
 -    killSignal: "SIGKILL",
    });
 -  if (result.exitedDueToTimeout)
 -    throw new Error(
--      `git ${args.join(" ")} did not exit within ${gitMilliseconds} ms.`,
+-      `git ${args.join(" ")} did not exit within ${fixtureGitMilliseconds} ms.`,
 -    );
 -  return result;
  }

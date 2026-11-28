@@ -1,0 +1,16 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -127,11 +127,7 @@ export function readRepositoryGlossary(root: string): Glossary {
+   const optional = (path: string) => readOptionalUtf8(join(root, path));
+   return readMappedGlossary((path) => {
+     const text = optional(path);
+-    if (text === undefined)
+-      throw new Error(
+-        `${mapFile} points to ${path}, which does not exist. Repair: correct the link, or remove its row.`,
+-      );
+-    return text;
++    return text ?? "";
+   }, optional);
+ }
+ 

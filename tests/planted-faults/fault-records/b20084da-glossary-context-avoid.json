@@ -1,0 +1,7 @@
+{
+  "id": "b20084da-glossary-context-avoid",
+  "patch": "tests/planted-faults/patches/b20084da-glossary-context-avoid.patch",
+  "testFile": "tests/template/names-check/context-glossaries.test.ts",
+  "title": "^CG\\.c ",
+  "source": "b20084da feat(glossary): read context glossaries from glossary map"
+}
