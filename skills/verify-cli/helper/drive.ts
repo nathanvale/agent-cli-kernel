@@ -78,17 +78,35 @@ function linkCode(code: unknown): boolean {
   return code === "ELOOP" || code === "EMLINK";
 }
 
-function withinRoot(root: string, target: string): string | undefined {
+type ParentCheck = "ok" | "symbolic-link" | "absent" | "unreadable";
+
+function relativeUnder(root: string, target: string): string | undefined {
   const rel = relative(root, target);
-  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))
-    return undefined;
-  return rel;
+  return rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)
+    ? undefined
+    : rel;
+}
+
+async function resolveReal(
+  target: string,
+): Promise<
+  | { readonly kind: "ok"; readonly value: string }
+  | { readonly kind: "stop"; readonly status: "absent" | "unreadable" }
+> {
+  try {
+    return { kind: "ok", value: await realpath(target) };
+  } catch (error) {
+    return {
+      kind: "stop",
+      status: absentCode(at(error, "code")) ? "absent" : "unreadable",
+    };
+  }
 }
 
 async function ancestorLinkUnder(
   realScratch: string,
   segments: readonly string[],
-): Promise<"ok" | "symbolic-link" | "absent" | "unreadable"> {
+): Promise<ParentCheck> {
   let current = realScratch;
   for (const segment of segments) {
     current = join(current, segment);
@@ -106,30 +124,22 @@ async function ancestorLinkUnder(
 async function parentWithinScratch(
   path: string,
   scratch: string,
-): Promise<"ok" | "symbolic-link" | "absent" | "unreadable"> {
-  let realScratch: string;
-  try {
-    realScratch = await realpath(scratch);
-  } catch (error) {
-    return absentCode(at(error, "code")) ? "absent" : "unreadable";
-  }
+): Promise<ParentCheck> {
+  const realScratch = await resolveReal(scratch);
+  if (realScratch.kind !== "ok") return realScratch.status;
   const resolvedPath = resolve(path);
   const rel =
-    withinRoot(resolve(scratch), resolvedPath) ??
-    withinRoot(realScratch, resolvedPath);
+    relativeUnder(resolve(scratch), resolvedPath) ??
+    relativeUnder(realScratch.value, resolvedPath);
   if (rel === undefined) return "symbolic-link";
   const walked = await ancestorLinkUnder(
-    realScratch,
+    realScratch.value,
     rel === "" ? [] : rel.split(sep).slice(0, -1),
   );
   if (walked !== "ok") return walked;
-  let realParent: string;
-  try {
-    realParent = await realpath(dirname(resolvedPath));
-  } catch (error) {
-    return absentCode(at(error, "code")) ? "absent" : "unreadable";
-  }
-  return withinRoot(realScratch, realParent) === undefined
+  const realParent = await resolveReal(dirname(resolvedPath));
+  if (realParent.kind !== "ok") return realParent.status;
+  return relativeUnder(realScratch.value, realParent.value) === undefined
     ? "symbolic-link"
     : "ok";
 }
