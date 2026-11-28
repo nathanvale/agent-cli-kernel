@@ -2,10 +2,12 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { recordedAdditionProblems } from "./glossary-additions.ts";
 import {
+  type Glossary,
   namesOnPaths,
   newNameProblems,
-  readGlossary,
   readRecordedHits,
+  readRepositoryGlossary,
+  readStagedGlossary,
   recordedHitsFile,
   stagedNewPaths,
   stagedText,
@@ -29,14 +31,12 @@ export type NamesCheckResult = {
   readonly code: number;
 };
 
-type TextOf = (path: string) => string;
-
-function problemsGiven(textOf: TextOf, names: readonly string[]): string[] {
-  return newNameProblems(
-    names,
-    readGlossary(textOf("GLOSSARY.md")),
-    readRecordedHits(textOf(recordedHitsFile)),
-  );
+function problemsGiven(
+  glossary: Glossary,
+  recordedText: string,
+  names: readonly string[],
+): string[] {
+  return newNameProblems(names, glossary, readRecordedHits(recordedText));
 }
 
 function placementProblems(tree: string, names: readonly string[]): string[] {
@@ -69,7 +69,11 @@ async function problemsIn(
   names: readonly string[],
 ): Promise<string[]> {
   return [
-    ...problemsGiven((path) => readFileSync(join(tree, path), "utf8"), names),
+    ...problemsGiven(
+      readRepositoryGlossary(tree),
+      readFileSync(join(tree, recordedHitsFile), "utf8"),
+      names,
+    ),
     ...placementProblems(tree, names),
     ...(await publicNameProblems(
       tree,
@@ -82,7 +86,11 @@ async function problemsIn(
 async function stagedProblems(root: string): Promise<string[]> {
   const names = namesOnPaths(stagedNewPaths(root));
   return [
-    ...problemsGiven((path) => stagedText(root, path), names),
+    ...problemsGiven(
+      readStagedGlossary(root),
+      stagedText(root, recordedHitsFile),
+      names,
+    ),
     ...placementProblems(root, names),
     ...(await publicNameProblems(root, true)),
   ];

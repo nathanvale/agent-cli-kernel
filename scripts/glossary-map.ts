@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const mapFile = "GLOSSARY-MAP.md";
+export const mapFile = "GLOSSARY-MAP.md";
+const glossaryFile = /(?:^|\/)GLOSSARY\.md$/;
 const linkPattern = /\]\(([^)\s#]+)(?:#([^)\s]*))?[^)\s]*\)/g;
 const termLine = /^\*\*(.+)\*\*:$/m;
+const termLines = /^\*\*(.+)\*\*:$/gm;
 
 type Link = { readonly path: string; readonly fragment: string | undefined };
 
@@ -155,6 +157,34 @@ function ownerProblems(map: string, root: string): string[] {
   );
 }
 
+export function mappedGlossaryFiles(map: string): string[] {
+  const files = new Set<string>();
+  for (const { path } of localLinks(map))
+    if (glossaryFile.test(path)) files.add(path);
+  return [...files];
+}
+
+export function duplicateTermProblems(
+  glossaries: readonly { readonly path: string; readonly text: string }[],
+): string[] {
+  const owners = new Map<string, string>();
+  const problems: string[] = [];
+  for (const { path, text } of glossaries) {
+    const seen = new Set<string>();
+    for (const [, name = ""] of text.matchAll(termLines)) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const previous = owners.get(name);
+      if (previous !== undefined)
+        problems.push(
+          `"${name}" is defined in both ${previous} and ${path}. Repair: keep its definition in the one glossary that owns it.`,
+        );
+      else owners.set(name, path);
+    }
+  }
+  return problems;
+}
+
 export function mapProblems(map: string, root: string): string[] {
   const links = localLinks(map);
   if (links.length === 0)
@@ -162,6 +192,9 @@ export function mapProblems(map: string, root: string): string[] {
       `${mapFile} points to no glossary file, so this check would check nothing. Repair: link each glossary it names.`,
     ];
   const ownGlossary = links.some(({ path }) => path === "GLOSSARY.md");
+  const existingGlossaries = mappedGlossaryFiles(map)
+    .filter((path) => isFile(root, path))
+    .map((path) => ({ path, text: readFileSync(join(root, path), "utf8") }));
   return [
     ...(ownGlossary
       ? []
@@ -170,5 +203,6 @@ export function mapProblems(map: string, root: string): string[] {
         ]),
     ...linkProblems(links, root),
     ...ownerProblems(map, root),
+    ...duplicateTermProblems(existingGlossaries),
   ];
 }

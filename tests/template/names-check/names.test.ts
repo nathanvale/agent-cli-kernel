@@ -6,6 +6,7 @@ import {
   newNameProblems,
   readGlossary,
   readRecordedHits,
+  readRepositoryGlossary,
   recordedHitsFile,
   trackedNames,
 } from "../../../scripts/glossary.ts";
@@ -26,9 +27,7 @@ _Qualify_: host, proof
 `);
 
 test("every tracked name uses glossary words, apart from its recorded hits", () => {
-  const glossary = readGlossary(
-    readFileSync(join(root, "GLOSSARY.md"), "utf8"),
-  );
+  const glossary = readRepositoryGlossary(root);
   const recorded = readRecordedHits(
     readFileSync(join(root, recordedHitsFile), "utf8"),
   );

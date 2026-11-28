@@ -2,11 +2,12 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { matchesSurface, type PublicSurface } from "./surface-match.ts";
 import { stagedTexts } from "./staged-texts.ts";
-import { stagedText } from "./glossary.ts";
 import {
-  readGlossary,
   readRecordedHits,
+  readRepositoryGlossary,
+  readStagedGlossary,
   recordedHitsFile,
+  stagedText,
 } from "./glossary.ts";
 
 export const publicSurfaceFile =
@@ -101,7 +102,7 @@ export async function publicNameProblems(
     staged ? stagedText(root, path) : readFileSync(join(root, path), "utf8");
   return declarationProblems(
     declarations,
-    readGlossary(textOf("GLOSSARY.md")),
+    staged ? readStagedGlossary(root) : readRepositoryGlossary(root),
     readRecordedHits(textOf(recordedHitsFile)),
     stale,
   );
