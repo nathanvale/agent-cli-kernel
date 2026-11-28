@@ -17,7 +17,7 @@ const reserved = [
   "--discover-command",
   "--deadline-ms",
 ];
-export function valueSchema(value: unknown): value is ValueSchema {
+function valueSchema(value: unknown): value is ValueSchema {
   if (!record(value)) return false;
   if (value.kind === "integer")
     return (

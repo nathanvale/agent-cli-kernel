@@ -298,11 +298,11 @@ function closestOption(schema: InputSchema, token: string): Slot | null {
   );
   return name === null ? null : { kind: "option", name };
 }
-export type SplitOption = {
+type SplitOption = {
   readonly name: string;
   readonly value?: string;
 };
-export function splitLongOption(token: string): SplitOption {
+function splitLongOption(token: string): SplitOption {
   const equals = token.startsWith("--") ? token.indexOf("=") : -1;
   return equals < 0
     ? { name: token }
