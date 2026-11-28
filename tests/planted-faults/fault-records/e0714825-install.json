@@ -1,0 +1,7 @@
+{
+  "id": "e0714825-install",
+  "patch": "tests/planted-faults/patches/e0714825-install.patch",
+  "testFile": "tests/kernel/state/admission-release.test.ts",
+  "title": "AR0[123]\\.",
+  "source": "e0714825 fix(state): release admission lock on every unflagged exit"
+}

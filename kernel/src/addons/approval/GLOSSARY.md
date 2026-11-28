@@ -8,6 +8,9 @@ This file holds the words of the approval add-on; `GLOSSARY-MAP.md` lists every 
 The add-on that checks authority before a command attempts its approved
 effects.
 
+**Grant**:
+The approval add-on's single-use record that lets one approved effect run.
+
 **ApprovalRejection**:
 The approval add-on's public error when authority storage, exclusive
 coordination or confirmation of durable consumption prevents an approved effect
