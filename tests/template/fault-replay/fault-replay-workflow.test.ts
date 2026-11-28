@@ -34,6 +34,7 @@ describe("the fault-replay gate in Hosted check", () => {
     const uploadStep = shard.steps.find((step) =>
       step.uses?.startsWith("actions/upload-artifact@"),
     );
+    expect(uploadStep?.if).toBe("always()");
     expect(uploadStep?.with).toEqual({
       name: "fault-timings-${{ matrix.shard }}",
       path: "tests/planted-faults/fault-timings/",

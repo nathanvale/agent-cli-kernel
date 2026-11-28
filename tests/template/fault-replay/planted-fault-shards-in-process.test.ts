@@ -70,17 +70,17 @@ describe("shardIds", () => {
     expect(split(faults, timings, 3)).toEqual([["a"], ["b"], ["c", "d"]]);
   });
 
-  test("counts a fault the timings do not list as more than a third and less than half a second", () => {
+  test("counts a fault the timings do not list at the hosted default of 1.7 s", () => {
     const faults = faultsNamed("measured", "u1", "u2", "u3", "u4");
-    expect(split(faults, new Map([["measured", 1]]), 2)).toEqual([
+    expect(split(faults, new Map([["measured", 5]]), 2)).toEqual([
       ["measured", "u4"],
       ["u1", "u2", "u3"],
     ]);
   });
 
   test("uses the stated default for a fault with no recorded time", () => {
-    expect(unlistedSeconds).toBe(0.35);
-    expect(faultSeconds("missing", new Map())).toBe(0.35);
+    expect(unlistedSeconds).toBe(1.7);
+    expect(faultSeconds("missing", new Map())).toBe(1.7);
     expect(faultSeconds("timed", new Map([["timed", 4.2]]))).toBe(4.2);
   });
 
@@ -178,7 +178,7 @@ describe("shardOf", () => {
       ["--shard", "2/4", "--tooling-changed-since", "origin/main", "HEAD"],
     ])
       expect(() => shardOf(argv)).toThrow(
-        `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
+        `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>] [--update-timings], with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
       );
   });
 });

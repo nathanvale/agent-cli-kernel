@@ -16,7 +16,11 @@ import {
   type Source,
 } from "./planted-fault-patch.ts";
 import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
-import { faultsInShard, writeTiming } from "./planted-fault-shards.ts";
+import {
+  faultsInShard,
+  updateTimingsOption,
+  writeTiming,
+} from "./planted-fault-shards.ts";
 import { type Verdict } from "./planted-fault-verdict.ts";
 import {
   runWithOwnTools,
@@ -362,8 +366,6 @@ async function replayOne(
 
 export type ReplayOptions = { readonly updateTimings?: boolean };
 
-const updateTimingsOption = "--update-timings";
-
 async function replayFault(
   root: string,
   copy: Copy,
@@ -572,7 +574,7 @@ async function main(
   }
   if (command === "add") return add(root, rest);
   process.stderr.write(
-    "Usage: bun run fault-replay [id ...] | bun run fault-replay --changed-since <base> | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
+    `Usage: bun run fault-replay [${updateTimingsOption}] [id ...] | bun run fault-replay --changed-since <base> [${updateTimingsOption}] | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n`,
   );
   return 2;
 }

@@ -9,10 +9,11 @@ export type Recorded = { readonly id: string; readonly testFile: string };
 
 export const timingsPath = "tests/planted-faults/fault-timings";
 const timingExtension = ".json";
-export const unlistedSeconds = 0.35;
+export const unlistedSeconds = 1.7;
 const minimumRecordedSeconds = 0.1;
 const toolingTests = "tests/template/";
 const toolingOption = "--tooling-changed-since";
+export const updateTimingsOption = "--update-timings";
 const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
 
 export function timingFile(id: string): string {
@@ -49,7 +50,7 @@ export function shardOf(argv: readonly string[]): Selection {
     (option === toolingOption && (toolingBase ?? "") !== "");
   if (found === undefined || part > parts || !toolingRead || extra.length > 0)
     throw new Error(
-      `Usage: bun run fault-replay --shard <part>/<parts> [${toolingOption} <base>], with whole numbers 1 <= part <= parts. Got ${quoted(argv.join(" "))}. Repair: pass one part, such as --shard 2/4.`,
+      `Usage: bun run fault-replay --shard <part>/<parts> [${toolingOption} <base>] [${updateTimingsOption}], with whole numbers 1 <= part <= parts. Got ${quoted(argv.join(" "))}. Repair: pass one part, such as --shard 2/4.`,
     );
   return { part, parts, toolingBase };
 }

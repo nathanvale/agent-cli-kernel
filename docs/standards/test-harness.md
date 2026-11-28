@@ -91,13 +91,13 @@ runs each test file. What a test must prove is in the
 - Refresh recorded durations in `tests/test-timings.json` from the hosted
   timing artifacts when a suite's runtime changes materially.
 - `bun run fault-replay --shard <part>/<parts>` splits the fault records by
-  the seconds in `tests/planted-faults/fault-timings/<id>.json`, heaviest
-  first, and counts a fault with no timing file as 0.35 s. Pass
+  the hosted seconds in `tests/planted-faults/fault-timings/<id>.json`,
+  heaviest first, and counts a fault with no timing file as 1.7 s. Keep
+  recorded timings in hosted seconds from the `fault-timings-<shard>`
+  artifacts uploaded by the hosted `fault-replay-shard` job (which passes
   `--update-timings` to refresh each `KILLED` fault's timing file during a
-  replay; the hosted `fault-replay-shard` job passes `--update-timings` and
-  uploads `tests/planted-faults/fault-timings/` as `fault-timings-<shard>`.
-  Delete the timing files of records that left. A part that holds no fault
-  record fails.
+  replay). Delete the timing files of records that left. A part that holds no
+  fault record fails.
 
 [kernel#54-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44694912382
 [kernel#55-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44725390642

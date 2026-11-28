@@ -178,7 +178,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: bun run fault-replay --shard ${{ matrix.shard }}/4 --tooling-changed-since "$BASE" --update-timings
       - name: Upload shard timings
-        if: ${{ !cancelled() }}
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fault-timings-${{ matrix.shard }}
