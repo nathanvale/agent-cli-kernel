@@ -1,0 +1,28 @@
+diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
+--- a/scripts/planted-fault-shards.ts
++++ b/scripts/planted-fault-shards.ts
+@@ -85,21 +85,9 @@ export function shardIds(
+   timings: ReadonlyMap<string, number>,
+   { part, parts }: Shard,
+ ): string[] {
+-  const heaviestFirst = faults
+-    .map(({ id }, index) => ({
+-      id,
+-      index,
+-      seconds: faultSeconds(id, timings),
+-    }))
+-    .toSorted((a, b) => b.seconds - a.seconds || a.index - b.index);
+-  const loads = Array.from({ length: parts }, () => 0);
+-  const partOf = new Map<string, number>();
+-  for (const { id, seconds } of heaviestFirst) {
+-    const lightest = loads.indexOf(Math.min(...loads));
+-    loads[lightest] = (loads[lightest] ?? 0) + seconds;
+-    partOf.set(id, lightest + 1);
+-  }
+-  return faults.filter(({ id }) => partOf.get(id) === part).map(({ id }) => id);
++  return faults
++    .filter((_, index) => (index % parts) + 1 === part)
++    .map(({ id }) => id);
+ }
+ 
+ export function faultsInShard(

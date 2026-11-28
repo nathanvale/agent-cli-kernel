@@ -1,0 +1,7 @@
+{
+  "id": "bbfce9a-test-rules",
+  "patch": "tests/planted-faults/patches/bbfce9a-test-rules.patch",
+  "testFile": "tests/template/lint/lint-comments.test.ts",
+  "title": "^no-comments refuses .*nothing here is cast",
+  "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
+}

@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 56fe8119..e2f115f5 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1912,9 +1912,9 @@ export function install(options: StateOptions, seams: Seams) {
+     if (approval !== null && approval.kind !== "preview")
+       return { ok: false, refusal: approval };
+     const commandIdentity = declaration.command;
+-    const revisions = parseRevisions({ ...declaration.revisions });
++    const revisions = { ...declaration.revisions };
+     const parsedApproval = parseApproval(approval);
+-    if (revisions === undefined || parsedApproval === undefined)
++    if (parsedApproval === undefined)
+       return {
+         ok: false,
+         refusal: { kind: "unavailable", reason: "declaration" },

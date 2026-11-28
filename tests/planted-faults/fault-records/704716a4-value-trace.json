@@ -1,0 +1,7 @@
+{
+  "id": "704716a4-value-trace",
+  "patch": "tests/planted-faults/patches/704716a4-value-trace.patch",
+  "testFile": "tests/template/lint/lint-stub-tools-bypasses.test.ts",
+  "title": "bounds self-referencing array element lookup without throwing",
+  "source": "704716a4 fix(lint): thread depth through propertyName in value-trace"
+}

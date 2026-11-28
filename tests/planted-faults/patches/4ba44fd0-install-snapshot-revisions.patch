@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 56fe8119..48c9dca7 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1025,7 +1025,7 @@ function snapshotRevisions(
+       configurable: false,
+     });
+   }
+-  return parseRevisions(out);
++  return Object.freeze(out);
+ }
+ 
+ const approvalBoundary = contractFor({
