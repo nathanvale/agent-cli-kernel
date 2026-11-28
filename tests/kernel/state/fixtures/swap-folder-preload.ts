@@ -8,7 +8,7 @@ const folder = process.env.SX_SWAP_FOLDER ?? "";
 const outside = process.env.SX_SWAP_OUTSIDE ?? "";
 let swapped = false;
 
-function swapBeforeOpen(): void {
+function swapFolder(): void {
   orig.renameSync(folder, outside);
   orig.symlinkSync(outside, folder);
 }
@@ -27,11 +27,12 @@ function openSync(...args: Parameters<typeof fs.openSync>): number {
   if (!shouldSwap(args[0])) return Reflect.apply(orig.openSync, orig, args);
   swapped = true;
   if (mode === "before-open" && folder !== "") {
-    swapBeforeOpen();
+    swapFolder();
     return Reflect.apply(orig.openSync, orig, args);
   }
   const descriptor: number = Reflect.apply(orig.openSync, orig, args);
   if (mode === "after-open") swapAfterOpen();
+  else if (mode === "after-open-folder" && folder !== "") swapFolder();
   return descriptor;
 }
 

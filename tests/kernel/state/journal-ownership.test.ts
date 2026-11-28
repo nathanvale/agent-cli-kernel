@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -15,6 +16,7 @@ import {
   commitClosure,
   layout,
   moveSettledCase,
+  readCase,
   readClosure,
   stageClosure,
   storeProblem,
@@ -631,8 +633,104 @@ supportingTest(
         "SCHEMA_SX_STATE_UNREADABLE",
         "The journal is unreadable.",
       );
+      rmSync(folder);
+      renameSync(join(outsideParent, "store-folder"), folder);
+
+      const paths = layout(world.root);
+      const swappedOperations = join(outsideParent, "rooted-operations");
+      const rootedOperations = readRootedFile(
+        world.root,
+        intentPath,
+        1_048_576,
+        {
+          afterOpen: () => {
+            renameSync(paths.operations, swappedOperations);
+            symlinkSync(swappedOperations, paths.operations);
+          },
+        },
+      );
+      expect(rootedOperations).toMatchObject({
+        kind: "refused",
+        reason: "linked-folder",
+      });
+      rmSync(paths.operations);
+      renameSync(swappedOperations, paths.operations);
+
+      const pendingOperationsBefore = await world.run(["pending", "--json"], {
+        BUN_OPTIONS: `--preload ${swapPreload}`,
+        SX_SWAP_MODE: "before-open",
+        SX_SWAP_TRIGGER: intentPath,
+        SX_SWAP_FOLDER: paths.operations,
+        SX_SWAP_OUTSIDE: join(outsideParent, "store-operations-before"),
+      });
+      expectExactRefusal(
+        pendingOperationsBefore,
+        "SCHEMA_SX_STATE_UNREADABLE",
+        "The journal is unreadable.",
+      );
+      rmSync(paths.operations);
+      renameSync(
+        join(outsideParent, "store-operations-before"),
+        paths.operations,
+      );
+
+      const pendingOperationsAfter = await world.run(["pending", "--json"], {
+        BUN_OPTIONS: `--preload ${swapPreload}`,
+        SX_SWAP_MODE: "after-open-folder",
+        SX_SWAP_TRIGGER: intentPath,
+        SX_SWAP_FOLDER: paths.operations,
+        SX_SWAP_OUTSIDE: join(outsideParent, "store-operations-after"),
+      });
+      expectExactRefusal(
+        pendingOperationsAfter,
+        "SCHEMA_SX_STATE_UNREADABLE",
+        "The journal is unreadable.",
+      );
+      rmSync(paths.operations);
+      renameSync(
+        join(outsideParent, "store-operations-after"),
+        paths.operations,
+      );
+
+      expectCompleted(await world.run(closeArgs(id, await world.revision(id))));
+      writeFileSync(paths.format, formatRecord(journals.two));
+      mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+      renameSync(paths.operation(id), paths.settledCase(id));
+      const settledIntent = join(paths.settledCase(id), "intent");
+
+      const swappedSettled = join(outsideParent, "rooted-settled");
+      const rootedSettled = readRootedFile(
+        world.root,
+        settledIntent,
+        1_048_576,
+        {
+          afterOpen: () => {
+            renameSync(paths.settled, swappedSettled);
+            symlinkSync(swappedSettled, paths.settled);
+          },
+        },
+      );
+      expect(rootedSettled).toMatchObject({
+        kind: "refused",
+        reason: "linked-folder",
+      });
+      rmSync(paths.settled);
+      renameSync(swappedSettled, paths.settled);
+
+      const historySettledBefore = await world.run(["history", id, "--json"], {
+        BUN_OPTIONS: `--preload ${swapPreload}`,
+        SX_SWAP_MODE: "before-open",
+        SX_SWAP_TRIGGER: settledIntent,
+        SX_SWAP_FOLDER: paths.settled,
+        SX_SWAP_OUTSIDE: join(outsideParent, "store-settled-before"),
+      });
+      expectExactRefusal(
+        historySettledBefore,
+        "SCHEMA_SX_STATE_UNREADABLE",
+        "The journal is unreadable.",
+      );
     }),
-  sequentialTimeout(3),
+  sequentialTimeout(8),
 );
 
 supportingTest(
@@ -749,4 +847,116 @@ supportingTest(
       expect(world.count("entry production")).toBe(4);
     }, {}),
   sequentialTimeout(3, 2),
+);
+
+supportingTest(
+  "journal ownership: linked operations/ or settled/ ancestors are refused on case read, closure read, event write, closure commit, and settled move",
+  () =>
+    within(async (world) => {
+      const id = await closedCase(world);
+      const paths = layout(world.root);
+      const gate = unflaggedWriteGate();
+      mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+
+      const outsideOperations = linkFolderOutside(
+        world,
+        paths.operations,
+        "operations-ancestor",
+      );
+      const eventsPath = join(paths.operation(id), "events");
+      const beforeEvents = readFileSync(join(outsideOperations, id, "events"));
+      const staged = stageClosure(gate, paths, sampleClosure(id));
+
+      expect(readCase(paths, id)).toBe("corrupt");
+      expect(readClosure(paths, id)).toBe("unreadable");
+      expectExactError(
+        () =>
+          appendStartedEvent(gate, eventsPath, "effect-started", {
+            effect: "note.write",
+          }),
+        "Case folder is not a private directory.",
+      );
+      expectExactError(
+        () => appendSettlingEvent(eventsPath, "not-applied", {}),
+        "Case folder is not a private directory.",
+      );
+      expect(
+        readFileSync(join(outsideOperations, id, "events")).equals(
+          beforeEvents,
+        ),
+      ).toBe(true);
+      rmSync(join(outsideOperations, id, "closure"));
+      expectExactError(
+        () => commitClosure(gate, paths, id, staged),
+        `Case folder ${id} is not a private directory.`,
+      );
+      expect(existsSync(join(outsideOperations, id, "closure"))).toBe(false);
+      expectExactError(
+        () => moveSettledCase(gate, paths, id),
+        `Case folder ${id} is not a private directory.`,
+      );
+      expect(existsSync(paths.settledCase(id))).toBe(false);
+
+      rmSync(paths.operations);
+      renameSync(outsideOperations, paths.operations);
+      renameSync(paths.operation(id), paths.settledCase(id));
+      linkFolderOutside(world, paths.settled, "settled-ancestor");
+
+      expect(readCase(paths, id)).toBe("corrupt");
+      expect(readClosure(paths, id)).toBe("unreadable");
+    }),
+  sequentialTimeout(3),
+);
+
+supportingTest(
+  "journal ownership: through index.ts a swapped operations/ ancestor is refused with exact cause",
+  () =>
+    within(async (world) => {
+      expectCompleted(await world.run(apply("a"), production));
+      const id = only(world);
+      const paths = layout(world.root);
+      const outsideParent = join(world.base, "outside");
+      mkdirSync(outsideParent, { recursive: true });
+      const pending = await world.run(["pending", "--json"], {
+        ...production,
+        BUN_OPTIONS: `--preload ${swapPreload}`,
+        SX_SWAP_MODE: "before-open",
+        SX_SWAP_TRIGGER: join(paths.operation(id), "intent"),
+        SX_SWAP_FOLDER: paths.operations,
+        SX_SWAP_OUTSIDE: join(outsideParent, "production-operations"),
+      });
+      expectExactRefusal(
+        pending,
+        "SCHEMA_SX_STATE_UNREADABLE",
+        "The journal is unreadable.",
+      );
+      expect(world.count("entry production")).toBe(2);
+    }, {}),
+  sequentialTimeout(2),
+);
+
+supportingTest(
+  "journal ownership: storeProblem checks the journal root before opening format and answers corrupt for a linked or group-writable root",
+  () =>
+    within(async (world) => {
+      expectCompleted(await world.run(apply("a")));
+      const linkRoot = join(world.base, "linked-root");
+      symlinkSync(world.root, linkRoot);
+      expect(storeProblem(layout(linkRoot))).toBe("corrupt");
+
+      const paths = layout(world.root);
+      rmSync(paths.format);
+      await makeFifo(paths.format);
+      expect(storeProblem(layout(linkRoot))).toBe("corrupt");
+
+      rmSync(paths.format);
+      writeFileSync(paths.format, formatRecord(journals.one), { mode: 0o600 });
+      chmodSync(world.root, 0o775);
+      try {
+        expect(storeProblem(paths)).toBe("corrupt");
+      } finally {
+        chmodSync(world.root, 0o700);
+      }
+    }),
+  sequentialTimeout(2, 1),
 );

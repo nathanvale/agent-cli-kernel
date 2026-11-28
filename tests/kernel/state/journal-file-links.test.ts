@@ -116,6 +116,24 @@ for (const leaf of leaves) {
   );
 }
 
+supportingTest(
+  "journal file links: a dangling symbolic link at closure is refused by history, pending and admission",
+  () =>
+    within(async (world) => {
+      await world.killAt(apply("a"), "effect");
+      const id = only(world);
+      const missingOutside = join(world.base, "outside", "missing-closure");
+      symlinkSync(missingOutside, leafPath(world, id, "closure"));
+      const runs = await readingRoutes(world, id);
+      expect(outcomes(runs)).toEqual({
+        history: "refused",
+        pending: "refused",
+        admission: "refused",
+      });
+      expect(world.noteLedger("b")).toBe(0);
+    }),
+);
+
 const stateSource = resolve(
   import.meta.dir,
   "../../../kernel/src/addons/state",
