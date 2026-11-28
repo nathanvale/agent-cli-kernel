@@ -1,0 +1,24 @@
+diff --git a/kernel/src/kernel/command-result.ts b/kernel/src/kernel/command-result.ts
+index 131dcf44..ff19b80a 100644
+--- a/kernel/src/kernel/command-result.ts
++++ b/kernel/src/kernel/command-result.ts
+@@ -72,10 +72,6 @@ export type ResultPlan = {
+   readonly runId: string;
+   readonly invocation: Invocation;
+ };
+-function copyData(facts: Record<string, unknown>): Record<string, unknown> {
+-  if (Object.hasOwn(facts, "data")) facts.data = structuredClone(facts.data);
+-  return facts;
+-}
+ const results = new WeakMap<CommandResult, ResultPlan>();
+ export function resultContext<
+   const Identity extends string,
+@@ -114,7 +110,7 @@ export function resultContext<
+       });
+       results.set(result, {
+         selected: Object.freeze({ ...selected }),
+-        facts: freeze(copyData({ ...facts, runId })),
++        facts: freeze({ ...facts, runId }),
+         runId,
+         invocation,
+       });

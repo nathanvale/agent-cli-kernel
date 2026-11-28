@@ -1,0 +1,7 @@
+{
+  "id": "58fd7505-command-result",
+  "patch": "tests/planted-faults/patches/58fd7505-command-result.patch",
+  "testFile": "tests/kernel/result-copy.test.ts",
+  "title": "RC01\\.a",
+  "source": "58fd7505 fix(kernel): freeze a copy of result data instead of handler object"
+}
