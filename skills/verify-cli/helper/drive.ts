@@ -163,20 +163,21 @@ export async function fileSeen(
   path: string,
   scratch?: string,
 ): Promise<FileSeen> {
+  const target = resolve(path);
   const parent =
     scratch === undefined
-      ? await parentHasLink(path)
-      : await parentWithinScratch(path, scratch);
+      ? await parentHasLink(target)
+      : await parentWithinScratch(target, scratch);
   if (parent !== "ok") return notFile(parent);
   try {
-    if ((await lstat(path)).isSymbolicLink()) return notFile("symbolic-link");
+    if ((await lstat(target)).isSymbolicLink()) return notFile("symbolic-link");
   } catch (error) {
     return notFile(absentCode(at(error, "code")) ? "absent" : "unreadable");
   }
   let handle: Awaited<ReturnType<typeof open>>;
   try {
     handle = await open(
-      path,
+      target,
       constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW,
     );
   } catch (error) {

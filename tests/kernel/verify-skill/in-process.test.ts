@@ -944,6 +944,7 @@ describe("how drive runs and keeps a step", () => {
       expect(launched.kind).toBe("envelope");
       const place = verificationRun(run);
       symlinkSync(join(place.scratch, "nowhere"), join(place.scratch, "lock"));
+      symlinkSync(outsideFile, join(place.scratch, "alias.txt"));
       symlinkSync(outside, join(place.scratch, "out"));
       writeFileSync(join(place.scratch, "plain.txt"), "plain");
 
@@ -959,6 +960,16 @@ describe("how drive runs and keeps a step", () => {
               exitCode: 0,
               stderr: "",
               files: [{ path: "{scratch}/lock", absent: true }],
+            },
+          },
+          {
+            name: "live-link-at-path",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/alias.txt", content: "outside" }],
             },
           },
           {
@@ -1004,6 +1015,7 @@ describe("how drive runs and keeps a step", () => {
         );
       for (const name of [
         "dangling-link-where-absent",
+        "live-link-at-path",
         "file-through-linked-parent",
       ]) {
         const kept = readStep(name);

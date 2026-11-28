@@ -1,7 +1,7 @@
-diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
-index 91eeebc9..a635e911 100644
---- a/skills/verify-cli/helper/drive.ts
-+++ b/skills/verify-cli/helper/drive.ts
+diff --git b/skills/verify-cli/helper/drive.ts a/skills/verify-cli/helper/drive.ts
+index 86f755cb..a635e911 100644
+--- b/skills/verify-cli/helper/drive.ts
++++ a/skills/verify-cli/helper/drive.ts
 @@ -1,14 +1,6 @@
  import { constants, existsSync } from "node:fs";
 -import {
@@ -19,7 +19,7 @@ index 91eeebc9..a635e911 100644
  import { changing, station } from "agent-cli-kernel";
  import type { ParsedPath, ProgramResult } from "agent-cli-kernel";
  import {
-@@ -70,119 +62,15 @@ async function openedFile(
+@@ -70,120 +62,15 @@ async function openedFile(
    };
  }
  
@@ -116,13 +116,14 @@ index 91eeebc9..a635e911 100644
 -  path: string,
 -  scratch?: string,
 -): Promise<FileSeen> {
+-  const target = resolve(path);
 -  const parent =
 -    scratch === undefined
--      ? await parentHasLink(path)
--      : await parentWithinScratch(path, scratch);
+-      ? await parentHasLink(target)
+-      : await parentWithinScratch(target, scratch);
 -  if (parent !== "ok") return notFile(parent);
 -  try {
--    if ((await lstat(path)).isSymbolicLink()) return notFile("symbolic-link");
+-    if ((await lstat(target)).isSymbolicLink()) return notFile("symbolic-link");
 -  } catch (error) {
 -    return notFile(absentCode(at(error, "code")) ? "absent" : "unreadable");
 -  }
@@ -130,7 +131,7 @@ index 91eeebc9..a635e911 100644
    let handle: Awaited<ReturnType<typeof open>>;
    try {
 -    handle = await open(
--      path,
+-      target,
 -      constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW,
 -    );
 +    handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
@@ -144,7 +145,7 @@ index 91eeebc9..a635e911 100644
    }
    try {
      return await openedFile(handle);
-@@ -221,11 +109,10 @@ export async function keptStep(
+@@ -222,11 +109,10 @@ export async function keptStep(
    step: ScenarioStep,
    ran: ProgramResult,
    repository: RepositoryFacts,
@@ -157,7 +158,7 @@ index 91eeebc9..a635e911 100644
    );
    const kept = stepFile(feature, step, observed, files);
    const file = join(feature, `${step.name}.json`);
-@@ -482,7 +369,6 @@ export function driveCommand(
+@@ -483,7 +369,6 @@ export function driveCommand(
                      step,
                      ran,
                      repository,
