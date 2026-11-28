@@ -525,11 +525,42 @@ test("an inspect command may still declare --check and --dry-run, and changing c
 });
 
 test("a raw changing declaration with malformed input still throws Invalid input declaration.", () => {
+  const validDryRunOption = flagSchema([{ name: "--dry-run" }]).options[0];
+  const validCheckOption = flagSchema([{ name: "--check" }]).options[0];
   const malformedInputs: readonly unknown[] = [
     null,
     { ...empty, options: "bad" },
     { ...empty, options: [null] },
     { ...empty, options: [{ name: "--other", aliases: "bad" }] },
+    { options: [{ name: "--dry-run", aliases: [] }] },
+    { ...empty, arguments: "bad", options: [validDryRunOption] },
+    {
+      ...empty,
+      options: [
+        {
+          name: "--dry-run",
+          aliases: [],
+          summary: "",
+          required: "bad",
+          repeatable: 1,
+          value: "bad",
+        },
+      ],
+    },
+    {
+      ...empty,
+      options: [{ ...validCheckOption, aliases: [123] }],
+    },
+    {
+      ...empty,
+      get options() {
+        return [validDryRunOption];
+      },
+    },
+    Object.defineProperty({ ...empty }, "options", {
+      value: [validCheckOption],
+      enumerable: false,
+    }),
   ];
   for (const input of malformedInputs) {
     expect(() => admitRawChanging("repository-local", input)).toThrow(
