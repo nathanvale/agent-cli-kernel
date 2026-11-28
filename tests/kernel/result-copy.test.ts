@@ -205,23 +205,60 @@ function changingHost(root: string, shared: { readonly seen: number[] }) {
   );
 }
 
-function uncloneableData(value: unknown): Readonly<Record<string, never>> {
+function dataWithField(value: unknown): Readonly<Record<string, never>> {
   const target: Record<string, never> = {};
-  Object.defineProperty(target, "bad", { value, enumerable: true });
+  Object.defineProperty(target, "value", { value, enumerable: true });
   return target;
 }
 
-function uncloneableHost(value: unknown) {
+function swappingProxyData(
+  disallowed: unknown,
+): Readonly<Record<string, never>> {
+  const payload: Record<string, never> = {};
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys(target) {
+        Reflect.set(payload, "a", 1);
+        Reflect.set(payload, "b", disallowed);
+        return Reflect.ownKeys(target);
+      },
+    },
+  );
+  Object.defineProperty(payload, "a", {
+    value: proxy,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(payload, "b", {
+    value: 1,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+  return payload;
+}
+
+function deepSharedDag(levels: number): Record<string, unknown> {
+  let node: Record<string, unknown> = { leaf: 1 };
+  for (let index = 0; index < levels; index += 1) {
+    node = { left: node, right: node };
+  }
+  return node;
+}
+
+function invalidDataHost(data: Readonly<Record<string, never>>) {
   const broken = command({
     identity: "rc.broken",
     route: ["broken"],
-    summary: "Return uncloneable data.",
+    summary: "Return invalid result data.",
     input: emptyInput,
     capabilities: {},
     run: (_input, context) =>
       context.result(
         { commandIdentity: "rc.broken", causeCode: "SUCCESS_UNCHANGED" },
-        { message: "ok", data: uncloneableData(value), effects: unchanged },
+        { message: "ok", data, effects: unchanged },
       ),
   });
   return runInProcess(contractFor({ cli: "rc", commands: [broken] }));
@@ -282,22 +319,26 @@ describe("result data copy", () => {
     expect(second.envelope.result.data).toEqual({ seen: [0, 1] });
   });
 
-  test("RC04.a uncloneable data ends in INTERNAL_RESULT_UNCHANGED fallback", async () => {
+  test("RC04.a function and symbol data end in INTERNAL_RESULT_UNCHANGED fallback and stay unfrozen", async () => {
+    const functionInput = dataWithField(() => "no");
     const withFunction = envelopeOf(
-      await uncloneableHost(() => "no")(["broken"]),
+      await invalidDataHost(functionInput)(["broken"]),
     );
     expect(withFunction.exitCode).toBe(1);
     expect(withFunction.envelope.result.causeCode).toBe(
       "INTERNAL_RESULT_UNCHANGED",
     );
+    expect(Object.isFrozen(functionInput)).toBe(false);
 
+    const symbolInput = dataWithField(Symbol("no"));
     const withSymbol = envelopeOf(
-      await uncloneableHost(Symbol("no"))(["broken"]),
+      await invalidDataHost(symbolInput)(["broken"]),
     );
     expect(withSymbol.exitCode).toBe(1);
     expect(withSymbol.envelope.result.causeCode).toBe(
       "INTERNAL_RESULT_UNCHANGED",
     );
+    expect(Object.isFrozen(symbolInput)).toBe(false);
   });
 
   test("RC04.b class instance data ends in INTERNAL_RESULT_UNCHANGED fallback", async () => {
@@ -305,11 +346,61 @@ describe("result data copy", () => {
       readonly value = 1;
     }
     const instance = new Box();
-    const withClass = envelopeOf(await uncloneableHost(instance)(["broken"]));
+    const payload = dataWithField(instance);
+    const withClass = envelopeOf(await invalidDataHost(payload)(["broken"]));
     expect(withClass.exitCode).toBe(1);
     expect(withClass.envelope.result.causeCode).toBe(
       "INTERNAL_RESULT_UNCHANGED",
     );
     expect(Object.isFrozen(instance)).toBe(false);
+    expect(Object.isFrozen(payload)).toBe(false);
+  });
+
+  test("RC05.a proxy that swaps in non-plain-JSON data during traversal is refused in one pass", async () => {
+    class Box {
+      readonly secret = 42;
+    }
+    const withToJson: Record<string, unknown> = { x: 1 };
+    Object.defineProperty(withToJson, "toJSON", {
+      value: () => ({ forged: true }),
+      enumerable: false,
+    });
+    const withSymbol: Record<PropertyKey, unknown> = { ok: true };
+    withSymbol[Symbol("hidden")] = "secret";
+
+    const cases: readonly { readonly name: string; readonly value: unknown }[] =
+      [
+        { name: "class-instance", value: new Box() },
+        {
+          name: "getter",
+          value: {
+            get x() {
+              return "from-getter";
+            },
+          },
+        },
+        { name: "non-enum-toJSON", value: withToJson },
+        { name: "symbol-key", value: withSymbol },
+      ];
+
+    for (const entry of cases) {
+      const payload = swappingProxyData(entry.value);
+      const outcome = envelopeOf(await invalidDataHost(payload)(["broken"]));
+      expect(outcome.exitCode, entry.name).toBe(1);
+      expect(outcome.envelope.result.causeCode, entry.name).toBe(
+        "INTERNAL_RESULT_UNCHANGED",
+      );
+      expect(Object.isFrozen(payload), entry.name).toBe(false);
+    }
+  });
+
+  test("RC05.b proxy that swaps in a deep shared DAG hits the walk budget in one pass", async () => {
+    const dag = deepSharedDag(21);
+    const payload = swappingProxyData(dag);
+    const outcome = envelopeOf(await invalidDataHost(payload)(["broken"]));
+    expect(outcome.exitCode).toBe(1);
+    expect(outcome.envelope.result.causeCode).toBe("INTERNAL_RESULT_UNCHANGED");
+    expect(Object.isFrozen(payload)).toBe(false);
+    expect(Object.isFrozen(dag)).toBe(false);
   });
 });
