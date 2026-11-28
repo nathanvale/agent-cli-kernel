@@ -271,7 +271,7 @@ test("O.refuses negative on a clean tree", () => {
       const run = replayedAll(subject.root, [], { [stepVariable]: "-3" });
 
       expect(await rejection(run)).toBe(
-        `${stepVariable} is '-3'. Repair: set it to a positive number of seconds, or unset it for 300 s.`,
+        `${stepVariable} is '-3'. Repair: set it to a positive number of seconds up to 2147483, or unset it for 300 s.`,
       );
     },
     setupOnlyTimeout,
