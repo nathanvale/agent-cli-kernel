@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -102,8 +102,7 @@ function glossaryFilesFor(
+ ): string[] {
+   const map = optionalTextOf(mapFile);
+   if (map === undefined) return ["GLOSSARY.md"];
+-  const files = mappedGlossaryFiles(map);
+-  return files.length > 0 ? files : ["GLOSSARY.md"];
++  return ["GLOSSARY.md"];
+ }
+ 
+ function readMappedGlossary(

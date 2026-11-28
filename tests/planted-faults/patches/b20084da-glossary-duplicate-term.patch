@@ -1,0 +1,12 @@
+diff --git a/scripts/glossary-map.ts b/scripts/glossary-map.ts
+--- a/scripts/glossary-map.ts
++++ b/scripts/glossary-map.ts
+@@ -175,7 +175,7 @@ export function duplicateTermProblems(
+       if (seen.has(name)) continue;
+       seen.add(name);
+       const previous = owners.get(name);
+-      if (previous !== undefined)
++      if (previous !== undefined && previous === path)
+         problems.push(
+           `"${name}" is defined in both ${previous} and ${path}. Repair: keep its definition in the one glossary that owns it.`,
+         );
