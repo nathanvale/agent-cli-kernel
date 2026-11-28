@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -717,13 +717,6 @@ function strayEntryProblem(
+   name: string,
+ ): ReadResult | undefined {
+   const stats = lstatOptional(entryPath);
+-  if (stats?.isDirectory())
+-    return {
+-      ok: false,
+-      reason: "corrupt",
+-      detail: `unexpected folder in journal: ${name}`,
+-    };
+   return undefined;
+ }
+ 

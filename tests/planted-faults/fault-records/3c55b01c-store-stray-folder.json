@@ -1,0 +1,7 @@
+{
+  "id": "3c55b01c-store-stray-folder",
+  "patch": "tests/planted-faults/patches/3c55b01c-store-stray-folder.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "a misnamed folder in operations/ is refused and the refusal names it",
+  "source": "3c55b01c fix(state): refuse linked case folders and FIFOs, skip non-directory stray entries"
+}

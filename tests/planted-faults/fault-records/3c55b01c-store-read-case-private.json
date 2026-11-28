@@ -1,0 +1,7 @@
+{
+  "id": "3c55b01c-store-read-case-private",
+  "patch": "tests/planted-faults/patches/3c55b01c-store-read-case-private.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "a linked case folder is refused on store read",
+  "source": "3c55b01c fix(state): refuse linked case folders and FIFOs, skip non-directory stray entries"
+}

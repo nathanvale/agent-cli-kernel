@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -78,8 +78,6 @@ function readJournalFile(path: string): Uint8Array {
+     constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+   );
+   try {
+-    if (!fstatSync(descriptor).isFile())
+-      throw new Error("The journal file is not a regular file.");
+     return readFileSync(descriptor);
+   } finally {
+     closeSync(descriptor);

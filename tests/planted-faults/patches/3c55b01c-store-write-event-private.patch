@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -852,8 +852,6 @@ function writeEventRecord(
+   kind: EventKind,
+   payload: Readonly<Record<string, unknown>>,
+ ): void {
+-  if (!privateDirectory(dirname(eventsPath)))
+-    throw new Error("Case folder is not a private directory.");
+   const descriptor = openSync(
+     eventsPath,
+     constants.O_RDWR |
