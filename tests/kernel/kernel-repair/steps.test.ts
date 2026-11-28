@@ -30,7 +30,7 @@ const hold = {
   retryable: false,
   guidance: "handoff",
 } as const;
-const causes = { ...commonCauses, HOLD: hold };
+const causes = { ...commonCauses, DOMAIN_HOLD: hold };
 const words = {
   retryDelayPolicy: { kind: "none" },
   reachability: "required",
@@ -67,7 +67,7 @@ function declarations(args: readonly string[]) {
       }),
       station(causes, {
         commandIdentity: "specimen.read",
-        causeCode: "HOLD",
+        causeCode: "DOMAIN_HOLD",
         trigger: "Held.",
         guidance: {
           handoff: { owner: "operator", reason: "Inspect.", inspect: [step] },
@@ -87,7 +87,7 @@ function fixture(args: readonly string[]) {
   return contractFor({
     cli: "specimen",
     commands: [root, read],
-    causes: { HOLD: hold },
+    causes: { DOMAIN_HOLD: hold },
   });
 }
 function attempt(args: readonly string[]) {
@@ -143,7 +143,7 @@ function envelope(arm: "next" | "handoff", args: readonly string[]) {
         : {
             ...base,
             outcome: "refused",
-            causeCode: "HOLD",
+            causeCode: "DOMAIN_HOLD",
             failureClass: "domain",
             exitCode: 3,
             repairAction: "Inspect the root.",
@@ -178,7 +178,7 @@ runFamily("R05", {
     const contract = admitted.contract;
     for (const [causeCode, facts] of [
       ["SUCCESS_UNCHANGED", { data: null }],
-      ["HOLD", { data: null }],
+      ["DOMAIN_HOLD", { data: null }],
     ] as const)
       expect(
         await buildUnchecked(

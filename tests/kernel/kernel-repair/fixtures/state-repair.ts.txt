@@ -168,8 +168,8 @@ function fixture(name: string) {
     effectClass: "repository-local",
     effects: ["e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "HELD",
-    unresolvedCaseCause: "PRIOR",
+    heldLockCause: "DOMAIN_HELD",
+    unresolvedCaseCause: "DOMAIN_PRIOR",
     stations: changeStations(),
     run: async (_input, context) => {
       const unchanged = {
@@ -221,7 +221,7 @@ function fixture(name: string) {
           world.mode === "refuse-after-effect" ? recordE : nothing,
         );
         return context.result(
-          { commandIdentity: "specimen.change", causeCode: "HELD" },
+          { commandIdentity: "specimen.change", causeCode: "DOMAIN_HELD" },
           { message: "Held.", data: null, effects: empty },
         );
       }
@@ -285,8 +285,8 @@ async function foreignProofs(other: Fixture["contract"]) {
     effectClass: "repository-local",
     effects: ["e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "HELD",
-    unresolvedCaseCause: "PRIOR",
+    heldLockCause: "DOMAIN_HELD",
+    unresolvedCaseCause: "DOMAIN_PRIOR",
     stations: changeStations(),
     run: async (_input, context) => {
       const transaction = await context.state.transaction(recordE);

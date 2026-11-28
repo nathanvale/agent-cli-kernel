@@ -615,15 +615,15 @@ test("causeRow and contractFor accept carriesData: true only on an unchanged dom
     expect(causeRow(row)).toBe(false);
     expect(() => {
       Reflect.apply(contractFor, undefined, [
-        { cli: "notes", commands: [], causes: { BAD_ROW: row } },
+        { cli: "notes", commands: [], causes: { DOMAIN_BAD_ROW: row } },
       ]);
     }).toThrow(invalidCauseRowMessage);
     expect(() => {
       Reflect.apply(station, undefined, [
-        { ...commonCauses, BAD_ROW: row },
+        { ...commonCauses, DOMAIN_BAD_ROW: row },
         {
           commandIdentity: "notes.check",
-          causeCode: "BAD_ROW",
+          causeCode: "DOMAIN_BAD_ROW",
           trigger: "Triggered.",
           guidance: { next: { kind: "instruction", text: "Fix it." } },
           repairAction: "Fix it.",

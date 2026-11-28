@@ -424,11 +424,11 @@ const attachmentHandoff = {
   reason: "Fixture attachment refusal.",
   inspect: [{ kind: "instruction", text: "Inspect the fixture run." }],
 } as const;
-const causes = { FIXTURE_LOCK_HELD: refusal, FIXTURE_UNRESOLVED: refusal };
+const causes = { DOMAIN_FIXTURE_LOCK_HELD: refusal, DOMAIN_FIXTURE_UNRESOLVED: refusal };
 function stationFor<
   const Identity extends "fixture.approve" | "fixture.attach",
 >(
-  causeCode: "FIXTURE_LOCK_HELD" | "FIXTURE_UNRESOLVED",
+  causeCode: "DOMAIN_FIXTURE_LOCK_HELD" | "DOMAIN_FIXTURE_UNRESOLVED",
   commandIdentity: Identity,
 ) {
   return station(causes, {
@@ -525,8 +525,8 @@ function inspectCommands() {
 }
 
 function kernelContract(place: World) {
-  const lockHeld = stationFor("FIXTURE_LOCK_HELD", "fixture.approve");
-  const unresolved = stationFor("FIXTURE_UNRESOLVED", "fixture.approve");
+  const lockHeld = stationFor("DOMAIN_FIXTURE_LOCK_HELD", "fixture.approve");
+  const unresolved = stationFor("DOMAIN_FIXTURE_UNRESOLVED", "fixture.approve");
   const approve = changing({
     identity: "fixture.approve",
     route: ["approve"],
@@ -547,8 +547,8 @@ function kernelContract(place: World) {
     effectClass: "repository-local",
     effects: ["note.write"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "FIXTURE_LOCK_HELD",
-    unresolvedCaseCause: "FIXTURE_UNRESOLVED",
+    heldLockCause: "DOMAIN_FIXTURE_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FIXTURE_UNRESOLVED",
     stations: [lockHeld, unresolved],
     approval: (parsed) => ({
       authority: boundary.authority("owner-a"),
@@ -640,7 +640,7 @@ async function whileAttached(
   work: () => Promise<void>,
 ): Promise<void> {
   let failure: { readonly error: unknown } | undefined;
-  const lockHeld = stationFor("FIXTURE_LOCK_HELD", "fixture.attach");
+  const lockHeld = stationFor("DOMAIN_FIXTURE_LOCK_HELD", "fixture.attach");
   const attach = changing({
     identity: "fixture.attach",
     route: ["attach"],
@@ -650,9 +650,9 @@ async function whileAttached(
     effectClass: "repository-local",
     effects: ["note.write"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "FIXTURE_LOCK_HELD",
-    unresolvedCaseCause: "FIXTURE_UNRESOLVED",
-    stations: [lockHeld, stationFor("FIXTURE_UNRESOLVED", "fixture.attach")],
+    heldLockCause: "DOMAIN_FIXTURE_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FIXTURE_UNRESOLVED",
+    stations: [lockHeld, stationFor("DOMAIN_FIXTURE_UNRESOLVED", "fixture.attach")],
     run: async (_parsed, context) => {
       try {
         await work();

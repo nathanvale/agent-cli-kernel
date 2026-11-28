@@ -42,8 +42,8 @@ function fixture() {
     effectClass: "repository-local",
     effects: ["e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "HELD",
-    unresolvedCaseCause: "PRIOR",
+    heldLockCause: "DOMAIN_HELD",
+    unresolvedCaseCause: "DOMAIN_PRIOR",
     stations: [
       ...coordination("specimen.change"),
       station(commonCauses, {

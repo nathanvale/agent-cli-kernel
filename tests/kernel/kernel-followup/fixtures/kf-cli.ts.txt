@@ -62,9 +62,9 @@ const refusal = {
   guidance: "handoff",
 } as const;
 const causes = {
-  KF_HELD: refusal,
-  KF_PRIOR: refusal,
-  KF_PARTIAL: {
+  DOMAIN_KF_HELD: refusal,
+  DOMAIN_KF_PRIOR: refusal,
+  DOMAIN_KF_PARTIAL: {
     outcome: "failed",
     transactionState: "partially-completed",
     failureClass: "domain",
@@ -90,8 +90,8 @@ function coordination<const Identity extends string>(identity: Identity) {
     independentObservable: `${identity}:lock`,
   } as const;
   return [
-    station(table, { ...words2, commandIdentity: identity, causeCode: "KF_HELD" }),
-    station(table, { ...words2, commandIdentity: identity, causeCode: "KF_PRIOR" }),
+    station(table, { ...words2, commandIdentity: identity, causeCode: "DOMAIN_KF_HELD" }),
+    station(table, { ...words2, commandIdentity: identity, causeCode: "DOMAIN_KF_PRIOR" }),
   ] as const;
 }
 function success<const Identity extends string>(identity: Identity) {
@@ -404,8 +404,8 @@ function apply(state: StateAddonDescriptor) {
     effectClass: "repository-local",
     effects: ["kf.e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [...coordination("kf.apply"), completed("kf.apply")],
     run: async (_input, context) => {
       note("handler-entered");
@@ -428,8 +428,8 @@ function applyApproved(state: StateAddonDescriptor) {
     effectClass: "repository-local",
     effects: ["kf.e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [...coordination("kf.apply"), completed("kf.apply")],
     run: async (_input, context) => {
       note("handler-entered");
@@ -504,15 +504,15 @@ function proofApply(state: StateAddonDescriptor, transact: Transact) {
     effectClass: "repository-local",
     effects,
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [
       ...coordination("kf.apply"),
       completed("kf.apply"),
       station(table, {
         ...words,
         commandIdentity: "kf.apply",
-        causeCode: "KF_PARTIAL",
+        causeCode: "DOMAIN_KF_PARTIAL",
         trigger: "A known subset of the kf effects completed.",
         repairAction: "Inspect the kf effects.",
         guidance: {
@@ -536,7 +536,7 @@ function proofApply(state: StateAddonDescriptor, transact: Transact) {
       if (after === "throw") throw new Error("Handler fault after the proof.");
       if (after === "refusal")
         return context.result(
-          { commandIdentity: "kf.apply", causeCode: "KF_HELD" },
+          { commandIdentity: "kf.apply", causeCode: "DOMAIN_KF_HELD" },
           { ...facts, effects: empty },
         );
       if (after === "invalid")
@@ -553,8 +553,8 @@ function proofApply(state: StateAddonDescriptor, transact: Transact) {
         proof.transactionState === "completed"
           ? "SUCCESS_COMPLETED"
           : proof.transactionState === "partially-completed"
-            ? "KF_PARTIAL"
-            : "KF_HELD";
+            ? "DOMAIN_KF_PARTIAL"
+            : "DOMAIN_KF_HELD";
       return context.result(
         { commandIdentity: "kf.apply", causeCode: selected } as never,
         { ...facts, transaction: proof, effects: empty } as never,
@@ -610,15 +610,15 @@ function programsApply(state: StateAddonDescriptor) {
     effectClass: "repository-local",
     effects,
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [
       ...coordination("kf.apply"),
       completed("kf.apply"),
       station(table, {
         ...words,
         commandIdentity: "kf.apply",
-        causeCode: "KF_PARTIAL",
+        causeCode: "DOMAIN_KF_PARTIAL",
         trigger: "A known subset of the kf effects completed.",
         repairAction: "Inspect the kf effects.",
         guidance: {
@@ -649,8 +649,8 @@ function programsApply(state: StateAddonDescriptor) {
         proof?.transactionState === "completed"
           ? "SUCCESS_COMPLETED"
           : proof?.transactionState === "partially-completed"
-            ? "KF_PARTIAL"
-            : "KF_HELD";
+            ? "DOMAIN_KF_PARTIAL"
+            : "DOMAIN_KF_HELD";
       return context.result(
         { commandIdentity: "kf.apply", causeCode: selected } as never,
         {
@@ -809,7 +809,7 @@ function stepCommands() {
             station(table, {
               ...words,
               commandIdentity: "kf.go",
-              causeCode: "KF_HELD",
+              causeCode: "DOMAIN_KF_HELD",
               trigger: "Held.",
               repairAction: "Inspect the list.",
               guidance: {
@@ -979,8 +979,8 @@ function lateApply(state: StateAddonDescriptor) {
     effectClass: "repository-local",
     effects,
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [...coordination("kf.apply"), completed("kf.apply")],
     run: async (_input, context) => {
       note("handler-entered");
@@ -1022,8 +1022,8 @@ function apply2(state: StateAddonDescriptor) {
     effectClass: "repository-local",
     effects: ["kf.e1", "kf.e2"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [
       ...coordination("kf.apply2"),
       completed("kf.apply2"),
@@ -1035,7 +1035,7 @@ function apply2(state: StateAddonDescriptor) {
       return context.result(
         {
           commandIdentity: "kf.apply2",
-          causeCode: env.KF_SELECT ?? "KF_HELD",
+          causeCode: env.KF_SELECT ?? "DOMAIN_KF_HELD",
         } as never,
         { message: "Selected.", data: null, effects: empty } as never,
       );
@@ -1131,8 +1131,8 @@ function change(state: StateAddonDescriptor) {
     effectClass: "repository-local",
     effects: ["kf.e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "KF_HELD",
-    unresolvedCaseCause: "KF_PRIOR",
+    heldLockCause: "DOMAIN_KF_HELD",
+    unresolvedCaseCause: "DOMAIN_KF_PRIOR",
     stations: [...coordination("kf.change"), completed("kf.change")],
     run: (parsed) => {
       note("handler-entered");

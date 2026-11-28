@@ -198,7 +198,7 @@ export function stepStation(
     command: targetIdentity(row.target),
     args: [...row.args],
   } as const;
-  const causes = { ...kernel.commonCauses, HOLD: hold };
+  const causes = { ...kernel.commonCauses, DOMAIN_HOLD: hold };
   return arm === "next"
     ? kernel.station(causes, {
         commandIdentity: source,
@@ -210,7 +210,7 @@ export function stepStation(
       })
     : kernel.station(causes, {
         commandIdentity: source,
-        causeCode: "HOLD",
+        causeCode: "DOMAIN_HOLD",
         trigger: "Held source.",
         guidance: {
           handoff: { owner: "operator", reason: "Inspect.", inspect: [step] },

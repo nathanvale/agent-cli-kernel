@@ -198,14 +198,14 @@ test("admitted cause rows cannot be changed through discovery or the original in
   const contract = contractFor({
     cli: "specimen",
     commands: [],
-    causes: { READ_COMPLETE: custom },
+    causes: { SUCCESS_READ_COMPLETE: custom },
   });
   Reflect.set(custom, "exitCode", 75);
-  expect(contract.causes.READ_COMPLETE?.exitCode).toBe(0);
-  expect(Reflect.set(contract.causes.READ_COMPLETE ?? {}, "exitCode", 75)).toBe(
-    false,
-  );
-  expect(contract.causes.READ_COMPLETE?.exitCode).toBe(0);
+  expect(contract.causes.SUCCESS_READ_COMPLETE?.exitCode).toBe(0);
+  expect(
+    Reflect.set(contract.causes.SUCCESS_READ_COMPLETE ?? {}, "exitCode", 75),
+  ).toBe(false);
+  expect(contract.causes.SUCCESS_READ_COMPLETE?.exitCode).toBe(0);
 });
 
 test("build ignores prototype-inherited run facts and reads own facts once", async () => {
@@ -338,12 +338,12 @@ test("build ignores prototype-inherited run facts and reads own facts once", asy
   });
   const writeCauses = {
     ...commonCauses,
-    SPECIMEN_LOCK_HELD: refusedHandoff,
-    SPECIMEN_UNRESOLVED: refusedHandoff,
+    DOMAIN_SPECIMEN_LOCK_HELD: refusedHandoff,
+    DOMAIN_SPECIMEN_UNRESOLVED: refusedHandoff,
   } as const;
   const heldLockStation = station(writeCauses, {
     commandIdentity: "specimen.write",
-    causeCode: "SPECIMEN_LOCK_HELD",
+    causeCode: "DOMAIN_SPECIMEN_LOCK_HELD",
     trigger: "Another run holds the write lock.",
     guidance: {
       handoff: {
@@ -358,7 +358,7 @@ test("build ignores prototype-inherited run facts and reads own facts once", asy
   });
   const unresolvedStation = station(writeCauses, {
     commandIdentity: "specimen.write",
-    causeCode: "SPECIMEN_UNRESOLVED",
+    causeCode: "DOMAIN_SPECIMEN_UNRESOLVED",
     trigger: "Prior write outcome is unresolved.",
     guidance: {
       handoff: {
@@ -380,8 +380,8 @@ test("build ignores prototype-inherited run facts and reads own facts once", asy
     input: emptyInput,
     capabilities: {},
     ifNoResult: stateDescriptor.ifNoResult,
-    heldLockCause: "SPECIMEN_LOCK_HELD",
-    unresolvedCaseCause: "SPECIMEN_UNRESOLVED",
+    heldLockCause: "DOMAIN_SPECIMEN_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_SPECIMEN_UNRESOLVED",
     stations: [
       completedStation,
       refusedStation,
@@ -402,8 +402,8 @@ test("build ignores prototype-inherited run facts and reads own facts once", asy
     installedAddons: ["state"],
     state: stateDescriptor,
     causes: {
-      SPECIMEN_LOCK_HELD: refusedHandoff,
-      SPECIMEN_UNRESOLVED: refusedHandoff,
+      DOMAIN_SPECIMEN_LOCK_HELD: refusedHandoff,
+      DOMAIN_SPECIMEN_UNRESOLVED: refusedHandoff,
     },
     commands: [inspectCommand, writeCommand],
   });

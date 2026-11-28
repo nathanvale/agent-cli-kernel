@@ -43,7 +43,7 @@ function unchecked(target: unknown, spec: object): unknown {
 
 export function observeR18Changing(spec: R18Spec): Record<string, unknown> {
   const state = admissionInstallation();
-  const tableCauses = { ...causes, HOLD: spec.hold };
+  const tableCauses = { ...causes, DOMAIN_HOLD: spec.hold };
   const source = (
     identity: string,
     route: readonly string[],
@@ -60,8 +60,8 @@ export function observeR18Changing(spec: R18Spec): Record<string, unknown> {
       effectClass: "repository-local",
       effects: ["e"],
       ifNoResult: state.ifNoResult,
-      heldLockCause: "HELD",
-      unresolvedCaseCause: "PRIOR",
+      heldLockCause: "DOMAIN_HELD",
+      unresolvedCaseCause: "DOMAIN_PRIOR",
       stations: [...coordination(identity), ...extra],
       run: () => Promise.reject(new Error("Never entered.")),
     });
@@ -107,7 +107,7 @@ export function observeR18Changing(spec: R18Spec): Record<string, unknown> {
     stations: [
       kernel.station(tableCauses, {
         commandIdentity: "specimen.inspector",
-        causeCode: "HOLD",
+        causeCode: "DOMAIN_HOLD",
         trigger: "Held.",
         guidance: {
           handoff: {

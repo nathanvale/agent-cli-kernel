@@ -102,7 +102,7 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
             one: true,
           });
           expect(twin.result).toMatchObject({
-            causeCode: "KF_HELD",
+            causeCode: "DOMAIN_KF_HELD",
             outcome: "refused",
             transactionState: "unchanged",
           });
@@ -131,7 +131,7 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
           one: true,
         });
         expect(twin.result).toMatchObject({
-          causeCode: "KF_PARTIAL",
+          causeCode: "DOMAIN_KF_PARTIAL",
           effects: partial,
         });
       },

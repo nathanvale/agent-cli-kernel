@@ -134,8 +134,8 @@ const hold = {
   retryable: false,
   guidance: "handoff",
 } as const;
-const coordinationCauses = { HELD: hold, PRIOR: hold } as const;
-function coordinationStation(causeCode: "HELD" | "PRIOR") {
+const coordinationCauses = { DOMAIN_HELD: hold, DOMAIN_PRIOR: hold } as const;
+function coordinationStation(causeCode: "DOMAIN_HELD" | "DOMAIN_PRIOR") {
   return station(coordinationCauses, {
     commandIdentity: "x.change",
     causeCode,
@@ -160,10 +160,13 @@ const rawChange = {
   summary: "Change.",
   effectClass: "repository-local",
   effects: ["e"],
-  heldLockCause: "HELD",
-  unresolvedCaseCause: "PRIOR",
+  heldLockCause: "DOMAIN_HELD",
+  unresolvedCaseCause: "DOMAIN_PRIOR",
   input: emptyInput,
-  stations: [coordinationStation("HELD"), coordinationStation("PRIOR")],
+  stations: [
+    coordinationStation("DOMAIN_HELD"),
+    coordinationStation("DOMAIN_PRIOR"),
+  ],
   capabilities: {},
   execute: neverRuns,
 };
@@ -187,7 +190,7 @@ test("S2.raw-shape-refusals: each shape rule contractFor re-checks names its own
     ],
     [
       "equal coordination causes",
-      { ...rawChange, unresolvedCaseCause: "HELD" },
+      { ...rawChange, unresolvedCaseCause: "DOMAIN_HELD" },
       "Changing commands need distinct coordination refusal stations.",
     ],
     [

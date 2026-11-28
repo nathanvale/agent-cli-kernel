@@ -60,14 +60,14 @@ function guardedContract() {
     effectClass: "repository-local",
     effects: ["e"],
     ifNoResult: state.ifNoResult,
-    heldLockCause: "HELD",
-    unresolvedCaseCause: "PRIOR",
+    heldLockCause: "DOMAIN_HELD",
+    unresolvedCaseCause: "DOMAIN_PRIOR",
     stations: coordination("specimen.guarded"),
     run: (_input, context) => {
       note("handler-entered");
       return Promise.resolve(
         context.result(
-          { commandIdentity: "specimen.guarded", causeCode: "HELD" },
+          { commandIdentity: "specimen.guarded", causeCode: "DOMAIN_HELD" },
           { message: "Held.", data: null, effects: empty },
         ),
       );
