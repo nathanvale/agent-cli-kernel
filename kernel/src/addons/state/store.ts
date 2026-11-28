@@ -758,8 +758,6 @@ export function moveSettledCase(
   const source = paths.operation(id);
   if (!privateDirectory(source))
     throw new Error(`Case folder ${id} is not a private directory.`);
-  if (!privateDirectory(paths.settled))
-    throw new Error("The settled folder is not a private directory.");
   try {
     lstatSync(paths.settledCase(id));
     return "occupied";

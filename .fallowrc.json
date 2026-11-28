@@ -106,6 +106,7 @@
     "tests/kernel/state/fixtures/specimen.ts",
     "tests/kernel/state/fixtures/in-process-specimen.ts",
     "tests/kernel/state/fixtures/completion-append-preload.ts",
+    "tests/kernel/state/fixtures/race-move-preload.ts",
     "tests/kernel/verify-skill/fixtures/stdout-wait-preload.ts",
     "tests/kernel/fixtures/core-limit.ts",
     "tests/kernel/state/fixtures/probe-folder-ledger.ts",

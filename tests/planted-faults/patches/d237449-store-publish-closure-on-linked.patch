@@ -1,7 +1,7 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -884,16 +884,13 @@ export function commitClosure(
+@@ -946,15 +946,12 @@ export function commitClosure(
      return linked;
    };
    try {
@@ -14,8 +14,7 @@ diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
    } finally {
      rmSync(staged, { force: true });
    }
-   if (state.outcome === "published")
-     flushDirectory(paths.operation(operationId));
+   if (state.outcome === "published") flushDirectory(directory);
 +  if (state.outcome === "published") commitLink?.(() => true);
    return state.outcome;
  }

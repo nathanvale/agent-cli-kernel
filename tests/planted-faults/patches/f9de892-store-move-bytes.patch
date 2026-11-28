@@ -1,10 +1,10 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -714,6 +714,13 @@ export function moveSettledCase(
+@@ -765,6 +765,13 @@ export function moveSettledCase(
    }
    return gate((done) => {
-     renameSync(paths.operation(id), paths.settledCase(id));
+     renameSync(source, paths.settledCase(id));
 +    writeSync(
 +      openSync(
 +        join(paths.settledCase(id), "events"),

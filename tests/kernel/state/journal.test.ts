@@ -2,11 +2,8 @@ import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
-  closeSync,
-  constants,
   existsSync,
   mkdirSync,
-  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -15,7 +12,6 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { open } from "node:fs/promises";
 import { join } from "node:path";
 import {
   at,
@@ -36,7 +32,7 @@ import {
   versionTwoStore,
   writeSyntheticOperation,
 } from "./harness.ts";
-import type { Json, Started, World } from "./harness.ts";
+import type { Json, World } from "./harness.ts";
 import { holdLock } from "./holder.ts";
 import { layout } from "../../../kernel/src/addons/state/store.ts";
 
@@ -1205,55 +1201,23 @@ caseTest(
   }),
 );
 
-function pipeEvents(world: World, id: string): Uint8Array {
-  const events = join(world.root, "operations", id, "events");
-  const bytes = readFileSync(events);
-  rmSync(events);
-  const made = Bun.spawnSync(["mkfifo", events], {
-    stdin: "ignore",
-    stdout: "ignore",
-    stderr: "pipe",
-    timeout: 4_000,
-  });
-  if (made.exitCode !== 0)
-    throw new Error(`mkfifo failed: ${made.stderr.toString()}`);
-  return bytes;
-}
-
+const raceMovePreload = join(
+  import.meta.dir,
+  "fixtures",
+  "race-move-preload.ts",
+);
 const readerBound = 30_000;
 
-async function feed(
-  pipe: string,
-  bytes: Uint8Array,
-  reader: Started,
-  whileBlocked: () => void = () => undefined,
-): Promise<void> {
-  const opened = open(pipe, "w");
-  const ended = reader.done.then(
-    () => new Error(`The reader exited before it read ${pipe}.`),
-    (error: unknown) =>
-      error instanceof Error ? error : new Error(`The reader failed: ${pipe}.`),
-  );
-  const first = await Promise.race([
-    opened.then(() => "opened" as const),
-    ended,
-  ]);
-  if (first !== "opened") {
-    const unblock = openSync(pipe, constants.O_RDONLY | constants.O_NONBLOCK);
-    try {
-      await (await opened).close();
-    } finally {
-      closeSync(unblock);
-    }
-    throw first;
-  }
-  const handle = await opened;
-  try {
-    whileBlocked();
-    await handle.write(bytes);
-  } finally {
-    await handle.close();
-  }
+function raceMoveEnvironment(
+  from: string,
+  to: string,
+): Readonly<Record<string, string>> {
+  return {
+    BUN_OPTIONS: `--preload ${raceMovePreload}`,
+    SX_RACE_MOVE_TRIGGER: join(from, "closure"),
+    SX_RACE_MOVE_FROM: from,
+    SX_RACE_MOVE_TO: to,
+  };
 }
 
 caseTest(
@@ -1273,22 +1237,19 @@ caseTest(
         renameSync(join(settled, id), join(live, id));
     expect(await world.pendingIds()).toEqual([]);
     const revision = await world.revision(read);
-    const reportedBytes = pipeEvents(world, reported);
-    const report = world.start(["pending", "--json"], {}, readerBound);
-    await feed(join(live, reported, "events"), reportedBytes, report, () => {
-      renameSync(join(live, reported), join(settled, reported));
-    });
+    const report = world.start(
+      ["pending", "--json"],
+      raceMoveEnvironment(join(live, reported), join(settled, reported)),
+      readerBound,
+    );
     const listing = await report.done;
     expect(listing.exit).toBe(0);
     expect(at(listing.result.raw, "data", "unfinished")).toEqual([]);
-    const readBytes = pipeEvents(world, read);
-    const history = world.start(["history", read, "--json"], {}, readerBound);
-    await feed(join(live, read, "events"), readBytes, history, () => {
-      renameSync(join(live, read), join(settled, read));
-      const moved = join(settled, read, "events");
-      writeFileSync(`${moved}.plain`, readBytes);
-      renameSync(`${moved}.plain`, moved);
-    });
+    const history = world.start(
+      ["history", read, "--json"],
+      raceMoveEnvironment(join(live, read), join(settled, read)),
+      readerBound,
+    );
     const found = await history.done;
     expect(found.exit).toBe(0);
     expect(at(found.result.raw, "data", "status")).toBe("closed");
