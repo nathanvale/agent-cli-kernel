@@ -162,7 +162,7 @@ jobs:
   fault-replay-shard:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -176,7 +176,13 @@ jobs:
           bun-version: 1.4.4
       - env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: bun run fault-replay --shard ${{ matrix.shard }}/4 --tooling-changed-since "$BASE"
+        run: bun run fault-replay --shard ${{ matrix.shard }}/4 --tooling-changed-since "$BASE" --update-timings
+      - name: Upload shard timings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fault-timings-${{ matrix.shard }}
+          path: tests/planted-faults/fault-timings/
   fault-replay:
     if: always() && github.event_name == 'pull_request'
     needs: [test, fault-replay-shard]

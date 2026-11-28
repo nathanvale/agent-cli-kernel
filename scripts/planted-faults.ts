@@ -16,7 +16,7 @@ import {
   type Source,
 } from "./planted-fault-patch.ts";
 import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
-import { faultsInShard } from "./planted-fault-shards.ts";
+import { faultsInShard, writeTiming } from "./planted-fault-shards.ts";
 import { type Verdict } from "./planted-fault-verdict.ts";
 import {
   runWithOwnTools,
@@ -360,10 +360,33 @@ async function replayOne(
   }
 }
 
+export type ReplayOptions = { readonly updateTimings?: boolean };
+
+const updateTimingsOption = "--update-timings";
+
+async function replayFault(
+  root: string,
+  copy: Copy,
+  fault: Fault,
+  limitMilliseconds: number,
+  options: ReplayOptions,
+): Promise<boolean> {
+  haltIfStopped(fault.id);
+  const begun = performance.now();
+  const verdict = await replayOne(root, copy, fault, limitMilliseconds);
+  haltIfStopped(fault.id);
+  const seconds = (performance.now() - begun) / 1000;
+  report(fault, verdict, seconds, limitMilliseconds);
+  if (verdict.kind !== "KILLED") return false;
+  if (options.updateTimings === true) writeTiming(root, fault.id, seconds);
+  return true;
+}
+
 export async function replayAll(
   root: string,
   ids: readonly string[],
   env: Readonly<Record<string, string | undefined>>,
+  options: ReplayOptions = {},
 ): Promise<number> {
   const faults = readRecords(root);
   const unknown = ids.filter((id) => !faults.some((fault) => fault.id === id));
@@ -405,17 +428,8 @@ export async function replayAll(
       throw error;
     }
     for (const fault of chosen) {
-      haltIfStopped(fault.id);
-      const begun = performance.now();
-      const verdict = await replayOne(root, copy, fault, limitMilliseconds);
-      haltIfStopped(fault.id);
-      report(
-        fault,
-        verdict,
-        (performance.now() - begun) / 1000,
-        limitMilliseconds,
-      );
-      if (verdict.kind === "KILLED") killed += 1;
+      if (await replayFault(root, copy, fault, limitMilliseconds, options))
+        killed += 1;
     }
   } finally {
     if (copy !== undefined)
@@ -516,6 +530,7 @@ export function add(root: string, argv: readonly string[]): number {
 function replayChangedSince(
   root: string,
   [, base, ...extra]: readonly string[],
+  options: ReplayOptions = {},
 ): Promise<number> | number {
   if (base === undefined || extra.length > 0) {
     process.stderr.write(
@@ -523,9 +538,10 @@ function replayChangedSince(
     );
     return 2;
   }
-  if (readRecords(root).length === 0) return replayAll(root, [], process.env);
+  if (readRecords(root).length === 0)
+    return replayAll(root, [], process.env, options);
   const ids = faultsTouchedSince(root, base);
-  if (ids.length > 0) return replayAll(root, ids, process.env);
+  if (ids.length > 0) return replayAll(root, ids, process.env, options);
   const short = gitOrThrow(root, ["rev-parse", "--short", base]).trim();
   print(
     `No planted fault patches a file changed since ${short}, so there is nothing to replay.`,
@@ -537,15 +553,23 @@ async function main(
   root: string,
   [command, ...rest]: readonly string[],
 ): Promise<number> {
-  if (command === "replay" && rest[0] === "--changed-since")
-    return replayChangedSince(root, rest);
-  if (command === "replay" && rest[0] === "--shard")
-    return replayAll(
-      root,
-      faultsInShard(root, rest, readRecords, faultsTouchedSince),
-      process.env,
-    );
-  if (command === "replay") return replayAll(root, rest, process.env);
+  if (command === "replay") {
+    const updateTimings = rest.includes(updateTimingsOption);
+    const args = updateTimings
+      ? rest.filter((arg) => arg !== updateTimingsOption)
+      : rest;
+    const options: ReplayOptions = { updateTimings };
+    if (args[0] === "--changed-since")
+      return replayChangedSince(root, args, options);
+    if (args[0] === "--shard")
+      return replayAll(
+        root,
+        faultsInShard(root, args, readRecords, faultsTouchedSince),
+        process.env,
+        options,
+      );
+    return replayAll(root, args, process.env, options);
+  }
   if (command === "add") return add(root, rest);
   process.stderr.write(
     "Usage: bun run fault-replay [id ...] | bun run fault-replay --changed-since <base> | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",

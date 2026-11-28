@@ -19,6 +19,27 @@ describe("the fault-replay gate in Hosted check", () => {
     expect(job("fault-replay").if).toMatch(/^always\(\) && /);
   });
 
+  test("fault-replay-shard sets timeout-minutes to at least 15", () => {
+    expect(job("fault-replay-shard")["timeout-minutes"]).toBeGreaterThanOrEqual(
+      15,
+    );
+  });
+
+  test("fault-replay-shard refreshes fault timings and uploads them as an artifact", () => {
+    const shard = job("fault-replay-shard");
+    const replayStep = shard.steps.find((step) =>
+      step.run?.includes("fault-replay"),
+    );
+    expect(replayStep?.run).toContain("--update-timings");
+    const uploadStep = shard.steps.find((step) =>
+      step.uses?.startsWith("actions/upload-artifact@"),
+    );
+    expect(uploadStep?.with).toEqual({
+      name: "fault-timings-${{ matrix.shard }}",
+      path: "tests/planted-faults/fault-timings/",
+    });
+  });
+
   test(
     "the fault-replay gate passes only when test and the shards both succeeded, and ends with a Repair line when either did not",
     async () => {

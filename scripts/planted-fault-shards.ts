@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { folderFiles } from "./planted-fault-folders.ts";
 import { quoted } from "./planted-fault-patch.ts";
 
@@ -7,13 +9,34 @@ export type Recorded = { readonly id: string; readonly testFile: string };
 
 export const timingsPath = "tests/planted-faults/fault-timings";
 const timingExtension = ".json";
-const unlistedSeconds = 0.35;
+export const unlistedSeconds = 0.35;
+const minimumRecordedSeconds = 0.1;
 const toolingTests = "tests/template/";
 const toolingOption = "--tooling-changed-since";
 const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
 
 export function timingFile(id: string): string {
   return `${timingsPath}/${id}${timingExtension}`;
+}
+
+export function faultSeconds(
+  id: string,
+  timings: ReadonlyMap<string, number>,
+): number {
+  return timings.get(id) ?? unlistedSeconds;
+}
+
+export function writeTiming(root: string, id: string, seconds: number): void {
+  if (!Number.isFinite(seconds) || seconds < 0)
+    throw new Error(
+      `Timing for ${id} is ${quoted(String(seconds))}. Repair: pass a non-negative number of seconds.`,
+    );
+  const rounded = Math.max(
+    minimumRecordedSeconds,
+    Math.round(seconds * 10) / 10,
+  );
+  mkdirSync(join(root, timingsPath), { recursive: true });
+  writeFileSync(join(root, timingFile(id)), `${JSON.stringify(rounded)}\n`);
 }
 
 export function shardOf(argv: readonly string[]): Selection {
@@ -66,7 +89,7 @@ export function shardIds(
     .map(({ id }, index) => ({
       id,
       index,
-      seconds: timings.get(id) ?? unlistedSeconds,
+      seconds: faultSeconds(id, timings),
     }))
     .toSorted((a, b) => b.seconds - a.seconds || a.index - b.index);
   const loads = Array.from({ length: parts }, () => 0);

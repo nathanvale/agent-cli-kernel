@@ -7,6 +7,7 @@ import {
   recordsPath,
   replayAll,
 } from "../../../scripts/planted-faults.ts";
+import { readTimings } from "../../../scripts/planted-fault-shards.ts";
 import {
   createPlantedFaultFixture,
   guarded,
@@ -533,6 +534,23 @@ test("O.refuses negative while limit still refuses NaN", () => {
       expect(run.stdout).toContain(`KILLED ${second.id} in `);
       expect(run.stdout).toContain("2 of 2 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
+    },
+    twoFaultTimeout,
+  );
+
+  test(
+    "refreshes recorded timings for KILLED faults only when updateTimings is enabled",
+    async () => {
+      const { root, id, survivor } = killedAndSurvivor();
+
+      const run = await isolated(() =>
+        replayAll(root, [], environment, { updateTimings: true }),
+      );
+
+      expect(run.result).toBe(1);
+      const timings = readTimings(root);
+      expect(timings.get(id)).toBeGreaterThan(0);
+      expect(timings.has(survivor.id)).toBe(false);
     },
     twoFaultTimeout,
   );

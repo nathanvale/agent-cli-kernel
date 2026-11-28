@@ -6,6 +6,7 @@ import {
   recordFile,
   recordsPath,
 } from "../../../scripts/planted-faults.ts";
+import { readTimings } from "../../../scripts/planted-fault-shards.ts";
 import { processWatchdog } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
@@ -463,6 +464,23 @@ describe("bun run fault-replay", () => {
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.r --update-timings refreshes the timing file for each KILLED fault",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      const run = await faultReplay(root, [
+        "--shard",
+        "1/1",
+        "--update-timings",
+      ]);
+      expect(run.exit).toBe(0);
+      expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
+      expect(readTimings(root).get(id)).toBeGreaterThan(0);
       expectNoLeftovers(root, run.temporary);
     },
     timeout,

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
+  faultSeconds,
   faultsInShard,
   readTimings,
   shardIds,
@@ -8,6 +9,8 @@ import {
   type Shard,
   timingFile,
   timingsPath,
+  unlistedSeconds,
+  writeTiming,
 } from "../../../scripts/planted-fault-shards.ts";
 import { readRecords } from "../../../scripts/planted-faults.ts";
 import { ownedFolders, write } from "../../support/fixture-files.ts";
@@ -73,6 +76,65 @@ describe("shardIds", () => {
       ["measured", "u4"],
       ["u1", "u2", "u3"],
     ]);
+  });
+
+  test("uses the stated default for a fault with no recorded time", () => {
+    expect(unlistedSeconds).toBe(0.35);
+    expect(faultSeconds("missing", new Map())).toBe(0.35);
+    expect(faultSeconds("timed", new Map([["timed", 4.2]]))).toBe(4.2);
+  });
+
+  test("balances skewed timings within 25 percent instead of assigning in record order", () => {
+    for (const entries of [
+      [
+        ["a", 40],
+        ["b", 2],
+        ["c", 40],
+        ["d", 2],
+      ],
+      [
+        ["a", 40],
+        ["b", 40],
+        ["c", 2],
+        ["d", 2],
+      ],
+    ] as const) {
+      const faults = faultsNamed(...entries.map(([id]) => id));
+      const timings = new Map<string, number>(entries);
+      const loads = split(faults, timings, 2).map((ids) =>
+        ids.reduce((sum, id) => sum + faultSeconds(id, timings), 0),
+      );
+      expect(Math.max(...loads) / Math.min(...loads)).toBeLessThanOrEqual(1.25);
+    }
+  });
+
+  test("keeps the four parts within 25 percent of each other on the repository's current records", () => {
+    const records = readRecords(repository);
+    const timings = readTimings(repository);
+    const loads = split(records, timings, 4).map((ids) =>
+      ids.reduce((sum, id) => sum + faultSeconds(id, timings), 0),
+    );
+    expect(Math.max(...loads) / Math.min(...loads)).toBeLessThanOrEqual(1.25);
+  });
+});
+
+describe("writeTiming", () => {
+  test("writes a fault's rounded positive seconds to its timing file for readTimings", () => {
+    const root = folder("fault-shards-");
+    writeTiming(root, "abc1234-example", 3.46);
+    writeTiming(root, "fast-fault", 0.01);
+    expect(Object.fromEntries(readTimings(root))).toEqual({
+      "abc1234-example": 3.5,
+      "fast-fault": 0.1,
+    });
+  });
+
+  test("refuses a timing that is negative or not finite", () => {
+    const root = folder("fault-shards-");
+    for (const seconds of [-1, Number.NaN, Number.POSITIVE_INFINITY])
+      expect(() => writeTiming(root, "bad-fault", seconds)).toThrow(
+        `Timing for bad-fault is '${String(seconds)}'. Repair: pass a non-negative number of seconds.`,
+      );
   });
 });
 

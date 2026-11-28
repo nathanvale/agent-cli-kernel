@@ -92,10 +92,12 @@ runs each test file. What a test must prove is in the
   timing artifacts when a suite's runtime changes materially.
 - `bun run fault-replay --shard <part>/<parts>` splits the fault records by
   the seconds in `tests/planted-faults/fault-timings/<id>.json`, heaviest
-  first, and counts a fault with no timing file as 0.35 s. When a hosted
-  fault replay log shows a fault at 1 s or more (`KILLED <id> in <seconds>
-  s`), write those seconds to its timing file, and delete the timing files
-  of records that left. A part that holds no fault record fails.
+  first, and counts a fault with no timing file as 0.35 s. Pass
+  `--update-timings` to refresh each `KILLED` fault's timing file during a
+  replay; the hosted `fault-replay-shard` job passes `--update-timings` and
+  uploads `tests/planted-faults/fault-timings/` as `fault-timings-<shard>`.
+  Delete the timing files of records that left. A part that holds no fault
+  record fails.
 
 [kernel#54-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44694912382
 [kernel#55-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44725390642
