@@ -140,7 +140,7 @@ function checkStringBasics(
     return reject({ rule: "string choices", choices: schema.choices });
   return { ok: true, value: token };
 }
-function patternOutcome(
+function patternResult(
   token: string,
   pattern: string,
   result: PatternResult,
@@ -158,7 +158,7 @@ async function checkString(
 ): Promise<Checked<string>> {
   const basic = checkStringBasics(token, schema);
   if (!basic.ok || schema.pattern === null) return basic;
-  return patternOutcome(
+  return patternResult(
     token,
     schema.pattern,
     await matchPattern(schema.pattern, token),
@@ -167,7 +167,7 @@ async function checkString(
 function checkStringSync(token: string, schema: StringValue): Checked<string> {
   const basic = checkStringBasics(token, schema);
   if (!basic.ok || schema.pattern === null) return basic;
-  return patternOutcome(
+  return patternResult(
     token,
     schema.pattern,
     matchPatternSync(schema.pattern, token),

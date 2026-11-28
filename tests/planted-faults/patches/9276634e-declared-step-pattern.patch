@@ -6,7 +6,7 @@ diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
  function checkStringSync(token: string, schema: StringValue): Checked<string> {
    const basic = checkStringBasics(token, schema);
 -  if (!basic.ok || schema.pattern === null) return basic;
--  return patternOutcome(
+-  return patternResult(
 -    token,
 -    schema.pattern,
 -    matchPatternSync(schema.pattern, token),
