@@ -8,6 +8,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
+import { constants } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { stepLimitMilliseconds } from "../../../scripts/process-runner.ts";
 import {
@@ -16,7 +17,11 @@ import {
   repository,
 } from "../../support/check-commits-fixture.ts";
 import { gitEnv, inherited, worktreeLines } from "../../support/git-fixture.ts";
-import { processWatchdog, spawnBounded } from "../../support/process.ts";
+import {
+  processGroupOf,
+  processWatchdog,
+  spawnBounded,
+} from "../../support/process.ts";
 import { signalGroupIfPresent, signalIfPresent } from "../../support/signal.ts";
 import { jobOf } from "../../support/workflows.ts";
 
@@ -29,6 +34,11 @@ const stepBound =
   stepSeconds * 1000 + graceMilliseconds + toleranceMilliseconds;
 const childRunBound = stepBound + 2_000;
 const reapBound = 5_000;
+const psBound = 10_000;
+const fixtureGitBound = 4_000;
+const timeoutMargin = 5_000;
+const hangTestTimeout =
+  4 * fixtureGitBound + childRunBound + psBound + 2 * reapBound + timeoutMargin;
 const maxStepLimitSeconds = 2_147_483;
 
 const doctorSources = [
@@ -61,20 +71,31 @@ function exited(pid: number): Promise<boolean> {
   });
 }
 
-function recordedPids(path: string): number[] {
-  if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
+const ownProcessGroup = processGroupOf(process.pid);
+
+function recordedProcesses(path: string): {
+  readonly group: number | undefined;
+  readonly pids: readonly number[];
+} {
+  if (!existsSync(path)) return { group: undefined, pids: [] };
+  const numbers = readFileSync(path, "utf8")
     .split("\n")
     .map((line) => Number(line.trim()))
     .filter((pid) => Number.isInteger(pid) && pid > 0);
+  const [group, ...pids] = numbers;
+  return { group, pids };
 }
 
 function reapRecorded(path: string): void {
-  const [leader, ...rest] = recordedPids(path);
-  if (leader !== undefined && leader !== process.pid)
-    signalGroupIfPresent(leader, "SIGKILL");
-  for (const pid of rest)
-    if (pid !== process.pid) signalIfPresent(pid, "SIGKILL");
+  const { group, pids } = recordedProcesses(path);
+  if (group === undefined || group === ownProcessGroup) return;
+  const stillInGroup = pids.filter(
+    (pid) => pid !== process.pid && processGroupOf(pid) === group,
+  );
+  if (stillInGroup.length === 0) return;
+  signalGroupIfPresent(group, "SIGKILL");
+  for (const pid of stillInGroup)
+    if (processGroupOf(pid) === group) signalIfPresent(pid, "SIGKILL");
 }
 
 function hangIgnoringTerm(ledger: string, pids: string): string {
@@ -82,7 +103,19 @@ function hangIgnoringTerm(ledger: string, pids: string): string {
     "trap '' TERM",
     "(trap '' TERM; exec sleep 300) &",
     "child=$!",
-    `printf '%s\\n%s\\n' "$$" "$child" > '${pids}'`,
+    "pgid=$(perl -e 'print getpgrp(0)')",
+    `printf '%s\\n%s\\n%s\\n' "$pgid" "$$" "$child" > '${pids}'`,
+    `echo started >> '${ledger}'`,
+    "wait",
+  ].join("\n");
+}
+
+function sleepWithChild(ledger: string, pids: string): string {
+  return [
+    "(exec sleep 300) &",
+    "child=$!",
+    "pgid=$(perl -e 'print getpgrp(0)')",
+    `printf '%s\\n%s\\n%s\\n' "$pgid" "$$" "$child" > '${pids}'`,
     `echo started >> '${ledger}'`,
     "wait",
   ].join("\n");
@@ -157,7 +190,7 @@ describe("step time limits", () => {
         expect(run.stderr).toContain(
           `FAIL check:commits: bun run typecheck did not finish within ${stepSeconds} s while checking ${hung.short}, so it has no verdict. Repair: run bun run typecheck by hand to see where it hangs, or raise CHECK_COMMITS_STEP_SECONDS.`,
         );
-        const both = recordedPids(pids);
+        const { pids: both } = recordedProcesses(pids);
         expect(both).toHaveLength(2);
         for (const pid of both) expect(await exited(pid)).toBe(true);
         expect(worktreeLines(root)).toHaveLength(1);
@@ -166,7 +199,7 @@ describe("step time limits", () => {
         reapRecorded(pids);
       }
     },
-    childRunBound + 10_000,
+    hangTestTimeout,
   );
 
   test(
@@ -214,7 +247,7 @@ exec '${realGit}' "$@"
             `FAIL check:commits: git worktree add --detach --quiet .* did not finish within ${stepSeconds} s\\. Repair: run git worktree add --detach --quiet .* by hand in .* to see where it hangs, or raise CHECK_COMMITS_STEP_SECONDS\\.`,
           ),
         );
-        const both = recordedPids(pids);
+        const { pids: both } = recordedProcesses(pids);
         expect(both).toHaveLength(2);
         for (const pid of both) expect(await exited(pid)).toBe(true);
         expect(readdirSync(run.temporary)).toEqual([]);
@@ -222,7 +255,7 @@ exec '${realGit}' "$@"
         reapRecorded(pids);
       }
     },
-    childRunBound + 10_000,
+    hangTestTimeout,
   );
 
   test(
@@ -260,14 +293,14 @@ exec '${realGit}' "$@"
         expect(run.stdout.split("\n")).toContain(
           "Done when bun run doctor passes.",
         );
-        const both = recordedPids(pids);
+        const { pids: both } = recordedProcesses(pids);
         expect(both).toHaveLength(2);
         for (const pid of both) expect(await exited(pid)).toBe(true);
       } finally {
         reapRecorded(pids);
       }
     },
-    childRunBound + 10_000,
+    hangTestTimeout,
   );
 
   test(
@@ -339,11 +372,18 @@ exec '${realGit}' "$@"
     expect(shard["timeout-minutes"]).toBe(15);
   });
 
-  test("TL.g stepLimitMilliseconds validates bounds, defaults, and rejects values above 2,147,483 s", () => {
+  test("TL.g stepLimitMilliseconds validates bounds, defaults, ignores inherited properties, and rejects values above 2,147,483 s", () => {
     expect(stepLimitMilliseconds({}, "STEP_SECONDS", 300)).toBe(300_000);
     expect(
       stepLimitMilliseconds({ STEP_SECONDS: "" }, "STEP_SECONDS", 30),
     ).toBe(30_000);
+    const inheritedEnv = Object.create({ STEP_SECONDS: "1" }) as Record<
+      string,
+      string | undefined
+    >;
+    expect(stepLimitMilliseconds(inheritedEnv, "STEP_SECONDS", 300)).toBe(
+      300_000,
+    );
     expect(
       stepLimitMilliseconds(
         { STEP_SECONDS: String(maxStepLimitSeconds) },
@@ -367,4 +407,139 @@ exec '${realGit}' "$@"
         `STEP_SECONDS is '${bad}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 300 s.`,
       );
   });
+
+  test(
+    "TL.h check:commits ignores a hook-exported GIT_DIR when running git",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      commit("green commit under hook GIT_DIR", { "a.txt": "a" });
+
+      const run = await checkCommits(
+        root,
+        [base.sha],
+        {
+          CHECK_COMMITS_SINCE: base.sha,
+          GIT_DIR: "/nonexistent",
+        },
+        { boundMilliseconds: childRunBound },
+      );
+
+      expect(run.exit).toBe(0);
+      expect(worktreeLines(root)).toHaveLength(1);
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    hangTestTimeout,
+  );
+
+  test(
+    "TL.i doctor ignores a hook-exported GIT_DIR when running fallow doctor",
+    async () => {
+      const root = doctorProject(
+        '#!/bin/sh\nif [ -n "$GIT_DIR" ]; then\n  echo \'{"status":"fail","checks":[{"id":"env","status":"fail","message":"GIT_DIR leaked"}]}\'\n  exit 2\nfi\necho \'{"status":"pass","checks":[]}\'\n',
+      );
+
+      const run = await spawnBounded(
+        [process.execPath, join(root, "scripts/doctor.ts")],
+        {
+          cwd: root,
+          env: {
+            ...inherited(),
+            ...gitEnv,
+            GIT_DIR: "/nonexistent",
+          },
+          boundMilliseconds: childRunBound,
+        },
+      );
+
+      expect(run.exit).toBe(0);
+      expect(run.stdout.split("\n")).toContain(
+        "ok fallow: fallow doctor passes.",
+      );
+    },
+    hangTestTimeout,
+  );
+
+  test(
+    "TL.j interrupting doctor stops fallow doctor and its child",
+    async () => {
+      const scratch = folder("doctor-interrupt-");
+      const ledger = join(scratch, "ledger");
+      const pids = join(scratch, "pids");
+      const root = doctorProject(
+        `#!/bin/sh\n${sleepWithChild(ledger, pids)}\n`,
+      );
+
+      try {
+        const run = await spawnBounded(
+          [process.execPath, join(root, "scripts/doctor.ts")],
+          {
+            cwd: root,
+            env: {
+              ...inherited(),
+              ...gitEnv,
+              DOCTOR_STEP_SECONDS: "30",
+            },
+            boundMilliseconds: childRunBound,
+            signalAt: { ledger, line: "started", signal: "SIGTERM" },
+          },
+        );
+
+        expect(run.exit).toBe(128 + constants.signals.SIGTERM);
+        const { pids: both } = recordedProcesses(pids);
+        expect(both).toHaveLength(2);
+        for (const pid of both) expect(await exited(pid)).toBe(true);
+      } finally {
+        reapRecorded(pids);
+      }
+    },
+    hangTestTimeout,
+  );
+
+  test(
+    "TL.k a check:commits git call that obeys SIGTERM on timeout reports a FAIL timeout, not Stopped by SIGTERM",
+    async () => {
+      const scratch = folder("step-limit-git-term-");
+      const ledger = join(scratch, "ledger");
+      const pids = join(scratch, "pids");
+      const bin = join(scratch, "bin");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      const { root, base, commit } = repositoryAt();
+      commit("green commit behind term-obeying git", { "a.txt": "a" });
+      mkdirSync(bin, { recursive: true });
+      writeFileSync(
+        join(bin, "git"),
+        `#!/bin/sh
+if [ "$1 $2" = "worktree add" ]; then
+  ${sleepWithChild(ledger, pids)}
+fi
+exec '${realGit}' "$@"
+`,
+        { mode: 0o755 },
+      );
+
+      try {
+        const run = await checkCommits(
+          root,
+          [base.sha],
+          {
+            CHECK_COMMITS_SINCE: base.sha,
+            CHECK_COMMITS_STEP_SECONDS: String(stepSeconds),
+            PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+          },
+          { boundMilliseconds: childRunBound },
+        );
+
+        expect(run.exit).toBe(2);
+        expect(run.stderr).toContain("FAIL check:commits: git worktree add");
+        expect(run.stderr).not.toContain("Stopped by SIGTERM");
+        const { pids: both } = recordedProcesses(pids);
+        expect(both).toHaveLength(2);
+        for (const pid of both) expect(await exited(pid)).toBe(true);
+      } finally {
+        reapRecorded(pids);
+      }
+    },
+    hangTestTimeout,
+  );
 });

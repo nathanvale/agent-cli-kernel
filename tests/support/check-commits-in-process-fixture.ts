@@ -12,6 +12,8 @@ const markers = {
   lint: "test ! -e lint-error",
 };
 
+const stepLimitMilliseconds = 4_000;
+
 export const absentFixedPoint = "f".repeat(40);
 
 export async function captured<T>(run: () => T | Promise<T>) {
@@ -84,7 +86,12 @@ export function createCommitCheckFixture() {
       "package.json": JSON.stringify({ packageManager: `bun@${pin}`, scripts }),
     });
     const active: Active = {};
-    const run: Run = { root, fixedPoint: absentFixedPoint, active };
+    const run: Run = {
+      root,
+      fixedPoint: absentFixedPoint,
+      active,
+      limitMilliseconds: stepLimitMilliseconds,
+    };
     return { root, run, active, base, commit };
   }
 

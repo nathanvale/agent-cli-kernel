@@ -11,6 +11,7 @@ import {
   runWithOwnTools,
   startChild,
   stepLimitMilliseconds,
+  withoutRepositoryLocation,
 } from "./process-runner.ts";
 import { doctor } from "./doctor.ts";
 import { readRepository } from "./repository.ts";
@@ -63,7 +64,7 @@ async function git(run: Run, args: readonly string[]) {
   const limit = limitOf(run);
   const child = startChild(["git", ...args], {
     cwd: root,
-    env: process.env,
+    env: withoutRepositoryLocation(process.env),
     limitMilliseconds: limit,
   });
   active.stop = child.stop;
@@ -284,7 +285,7 @@ export async function main(argv: readonly string[], run: Run): Promise<number> {
     process.stderr.write(shard);
     return 2;
   }
-  if (!(await doctor(run.root))) {
+  if (!(await doctor(run.root, run.active))) {
     print("Refused: repair the doctor's FAIL lines, then rerun.");
     return 1;
   }
