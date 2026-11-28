@@ -104,6 +104,7 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: commits-carry
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
