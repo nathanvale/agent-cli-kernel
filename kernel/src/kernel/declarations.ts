@@ -21,6 +21,7 @@ import type {
 import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { validateHostInput } from "./host-input.ts";
+import { inputSchema } from "./validation/input.ts";
 import {
   abortSignalOf,
   approvalContext,
@@ -154,6 +155,7 @@ export function validateChangingShape(declaration: {
   readonly heldLockCause?: unknown;
   readonly unresolvedCaseCause?: unknown;
   readonly stations: readonly { readonly causeCode: string }[];
+  readonly input?: unknown;
 }): void {
   if (
     declaration.effectClass !== "repository-local" &&
@@ -173,6 +175,19 @@ export function validateChangingShape(declaration: {
   const effects = declaration.effects ?? [];
   if (effects.length === 0 || new Set(effects).size !== effects.length)
     throw new Error("Invalid changing declaration.");
+  if (hasLookOnlyOption(declaration.input))
+    throw new Error(
+      "Changing commands take no --check or --dry-run option. Repair: declare a separate inspect route for the look-only work, such as `<thing> plan` beside `<thing> apply` (ADR 0002).",
+    );
+}
+const lookOnlyChangingOptions = new Set(["--check", "--dry-run"]);
+function hasLookOnlyOption(input: unknown): boolean {
+  if (!inputSchema(input)) return false;
+  return input.options.some(
+    (option) =>
+      lookOnlyChangingOptions.has(option.name) ||
+      option.aliases.some((alias) => lookOnlyChangingOptions.has(alias)),
+  );
 }
 export function validateCommandIdentity(identity: string): void {
   if (!text(identity) || new TextEncoder().encode(identity).byteLength > 128)

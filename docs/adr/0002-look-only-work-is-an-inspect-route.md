@@ -90,6 +90,10 @@ and dont have a mix").
 
 ## Confirmation
 
-Planned evidence (not built yet): a declaration check that refuses a
-`--check` or `--dry-run` option on a changing command, with a `Repair:` line
-naming the inspect-route pattern, and a test and planted fault for it.
+Built evidence: `validateChangingShape` (`kernel/src/kernel/declarations.ts`)
+refuses a `--check` or `--dry-run` option by name or alias on a changing
+command, throwing a `Repair:` line that points to a separate inspect route.
+It is pinned by `tests/kernel/declaration-admission.test.ts`
+(`changing() and raw contractFor refuse --dry-run and --check by name or alias`)
+and planted fault record `c9997d49-declarations`
+(`tests/planted-faults/fault-records/c9997d49-declarations.json`).
