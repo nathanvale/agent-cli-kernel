@@ -29,7 +29,7 @@ const lockfileListingADroppedDependency = JSON.stringify({
   packages: { dep: ["dep@file:dep", {}] },
 });
 
-const releaseTestTimeout = 4 * 4_000 + 5_000;
+const releaseTestTimeout = 10 * 4_000 + 5_000;
 
 describe("release", () => {
   test(

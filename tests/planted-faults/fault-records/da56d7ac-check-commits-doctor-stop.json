@@ -1,0 +1,7 @@
+{
+  "id": "da56d7ac-check-commits-doctor-stop",
+  "patch": "tests/planted-faults/patches/da56d7ac-check-commits-doctor-stop.patch",
+  "testFile": "tests/template/check-commits/step-time-limits.test.ts",
+  "title": "TL\\.l ",
+  "source": "da56d7ac fix(check-commits): isolate hook env, forward doctor stops, unify step limit, and tighten test bounds"
+}

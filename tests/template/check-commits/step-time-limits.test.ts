@@ -13,10 +13,17 @@ import { delimiter, dirname, join } from "node:path";
 import { stepLimitMilliseconds } from "../../../scripts/process-runner.ts";
 import {
   checkCommitsFixture,
+  manifest,
   markers,
   repository,
 } from "../../support/check-commits-fixture.ts";
-import { gitEnv, inherited, worktreeLines } from "../../support/git-fixture.ts";
+import {
+  commitIn,
+  gitEnv,
+  inherited,
+  initRepository,
+  worktreeLines,
+} from "../../support/git-fixture.ts";
 import {
   processGroupOf,
   processWatchdog,
@@ -98,10 +105,15 @@ function reapRecorded(path: string): void {
     if (processGroupOf(pid) === group) signalIfPresent(pid, "SIGKILL");
 }
 
-function hangIgnoringTerm(ledger: string, pids: string): string {
+function sleepScript(
+  ledger: string,
+  pids: string,
+  ignoreTerm: boolean,
+): string {
+  const trap = ignoreTerm ? "trap '' TERM; " : "";
   return [
-    "trap '' TERM",
-    "(trap '' TERM; exec sleep 300) &",
+    ...(ignoreTerm ? ["trap '' TERM"] : []),
+    `(${trap}exec sleep 300) &`,
     "child=$!",
     "pgid=$(perl -e 'print getpgrp(0)')",
     `printf '%s\\n%s\\n%s\\n' "$pgid" "$$" "$child" > '${pids}'`,
@@ -110,15 +122,12 @@ function hangIgnoringTerm(ledger: string, pids: string): string {
   ].join("\n");
 }
 
+function hangIgnoringTerm(ledger: string, pids: string): string {
+  return sleepScript(ledger, pids, true);
+}
+
 function sleepWithChild(ledger: string, pids: string): string {
-  return [
-    "(exec sleep 300) &",
-    "child=$!",
-    "pgid=$(perl -e 'print getpgrp(0)')",
-    `printf '%s\\n%s\\n%s\\n' "$pgid" "$$" "$child" > '${pids}'`,
-    `echo started >> '${ledger}'`,
-    "wait",
-  ].join("\n");
+  return sleepScript(ledger, pids, false);
 }
 
 function writeFile(root: string, path: string, content: string): void {
@@ -533,6 +542,53 @@ exec '${realGit}' "$@"
         expect(run.exit).toBe(2);
         expect(run.stderr).toContain("FAIL check:commits: git worktree add");
         expect(run.stderr).not.toContain("Stopped by SIGTERM");
+        const { pids: both } = recordedProcesses(pids);
+        expect(both).toHaveLength(2);
+        for (const pid of both) expect(await exited(pid)).toBe(true);
+      } finally {
+        reapRecorded(pids);
+      }
+    },
+    hangTestTimeout,
+  );
+
+  test(
+    "TL.l interrupting check:commits during doctor stops fallow doctor and its child",
+    async () => {
+      const scratch = folder("check-commits-doctor-interrupt-");
+      const ledger = join(scratch, "ledger");
+      const pids = join(scratch, "pids");
+      const root = doctorProject(
+        `#!/bin/sh\n${sleepWithChild(ledger, pids)}\n`,
+      );
+      for (const path of [
+        "scripts/check-commits.ts",
+        "scripts/repository.ts",
+        "repository.json",
+      ])
+        copyFileSync(join(repository, path), join(root, path));
+      initRepository(root);
+      const base = commitIn(root, "base", {
+        ".gitignore": "node_modules\n",
+        "package.json": manifest(Bun.version, markers),
+      });
+      commitIn(root, "green commit", { "a.txt": "a" });
+
+      try {
+        const run = await checkCommits(
+          root,
+          [base.sha],
+          {
+            CHECK_COMMITS_SINCE: base.sha,
+            DOCTOR_STEP_SECONDS: "30",
+          },
+          {
+            boundMilliseconds: childRunBound,
+            signalAt: { ledger, line: "started", signal: "SIGTERM" },
+          },
+        );
+
+        expect(run.exit).toBe(128 + constants.signals.SIGTERM);
         const { pids: both } = recordedProcesses(pids);
         expect(both).toHaveLength(2);
         for (const pid of both) expect(await exited(pid)).toBe(true);

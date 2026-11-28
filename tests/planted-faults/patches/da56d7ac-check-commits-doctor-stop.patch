@@ -1,0 +1,13 @@
+diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
+index 6e7acb77..8a8202be 100644
+--- a/scripts/check-commits.ts
++++ b/scripts/check-commits.ts
+@@ -285,7 +285,7 @@ export async function main(argv: readonly string[], run: Run): Promise<number> {
+     process.stderr.write(shard);
+     return 2;
+   }
+-  if (!(await doctor(run.root, run.active))) {
++  if (!(await doctor(run.root))) {
+     print("Refused: repair the doctor's FAIL lines, then rerun.");
+     return 1;
+   }
