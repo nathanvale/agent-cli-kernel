@@ -1,0 +1,13 @@
+diff --git a/scripts/process-runner.ts b/scripts/process-runner.ts
+index ff045e77..e7bc14a5 100644
+--- a/scripts/process-runner.ts
++++ b/scripts/process-runner.ts
+@@ -160,7 +160,7 @@ export function stepLimitMilliseconds(
+   variable: string,
+   defaultSeconds: number,
+ ): number {
+-  const given = Object.hasOwn(env, variable) ? env[variable] : undefined;
++  const given = env[variable];
+   if (given === undefined || given === "") return defaultSeconds * 1000;
+   const seconds = Number(given);
+   if (

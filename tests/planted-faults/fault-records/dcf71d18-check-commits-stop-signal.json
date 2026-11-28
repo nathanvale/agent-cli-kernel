@@ -1,0 +1,7 @@
+{
+  "id": "dcf71d18-check-commits-stop-signal",
+  "patch": "tests/planted-faults/patches/dcf71d18-check-commits-stop-signal.patch",
+  "testFile": "tests/template/check-commits/step-time-limits.test.ts",
+  "title": "TL\\.k ",
+  "source": "dcf71d18 fix(check-commits): guard git timeout stop signal and tighten test harness"
+}

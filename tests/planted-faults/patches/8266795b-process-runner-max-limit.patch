@@ -1,13 +1,17 @@
 diff --git a/scripts/process-runner.ts b/scripts/process-runner.ts
+index ff045e77..90fa1497 100644
 --- a/scripts/process-runner.ts
 +++ b/scripts/process-runner.ts
-@@ -165,9 +165,7 @@ export function stepLimitMilliseconds(
+@@ -163,11 +163,7 @@ export function stepLimitMilliseconds(
+   const given = Object.hasOwn(env, variable) ? env[variable] : undefined;
+   if (given === undefined || given === "") return defaultSeconds * 1000;
    const seconds = Number(given);
-   if (
-     !Number.isFinite(seconds) ||
+-  if (
+-    !Number.isFinite(seconds) ||
 -    seconds <= 0 ||
 -    seconds > maxStepLimitSeconds
-+    seconds <= 0
-   )
+-  )
++  if (!Number.isFinite(seconds) || seconds <= 0)
      throw new Error(
        `${variable} is '${given.replaceAll("'", "'\\''")}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for ${defaultSeconds} s.`,
+     );
