@@ -1,6 +1,14 @@
 import { constants, existsSync } from "node:fs";
-import { appendFile, mkdir, open, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import {
+  appendFile,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { changing, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramResult } from "agent-cli-kernel";
 import {
@@ -62,15 +70,109 @@ async function openedFile(
   };
 }
 
-export async function fileSeen(path: string): Promise<FileSeen> {
+function absentCode(code: unknown): boolean {
+  return code === "ENOENT" || code === "ENOTDIR";
+}
+
+function linkCode(code: unknown): boolean {
+  return code === "ELOOP" || code === "EMLINK";
+}
+
+function withinRoot(root: string, target: string): string | undefined {
+  const rel = relative(root, target);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))
+    return undefined;
+  return rel;
+}
+
+async function ancestorLinkUnder(
+  realScratch: string,
+  segments: readonly string[],
+): Promise<"ok" | "symbolic-link" | "absent" | "unreadable"> {
+  let current = realScratch;
+  for (const segment of segments) {
+    current = join(current, segment);
+    try {
+      const entry = await lstat(current);
+      if (entry.isSymbolicLink()) return "symbolic-link";
+      if (!entry.isDirectory()) return "absent";
+    } catch (error) {
+      return absentCode(at(error, "code")) ? "absent" : "unreadable";
+    }
+  }
+  return "ok";
+}
+
+async function parentWithinScratch(
+  path: string,
+  scratch: string,
+): Promise<"ok" | "symbolic-link" | "absent" | "unreadable"> {
+  let realScratch: string;
+  try {
+    realScratch = await realpath(scratch);
+  } catch (error) {
+    return absentCode(at(error, "code")) ? "absent" : "unreadable";
+  }
+  const resolvedPath = resolve(path);
+  const rel =
+    withinRoot(resolve(scratch), resolvedPath) ??
+    withinRoot(realScratch, resolvedPath);
+  if (rel === undefined) return "symbolic-link";
+  const walked = await ancestorLinkUnder(
+    realScratch,
+    rel === "" ? [] : rel.split(sep).slice(0, -1),
+  );
+  if (walked !== "ok") return walked;
+  let realParent: string;
+  try {
+    realParent = await realpath(dirname(resolvedPath));
+  } catch (error) {
+    return absentCode(at(error, "code")) ? "absent" : "unreadable";
+  }
+  return withinRoot(realScratch, realParent) === undefined
+    ? "symbolic-link"
+    : "ok";
+}
+
+async function parentHasLink(
+  path: string,
+): Promise<"ok" | "symbolic-link" | "unreadable"> {
+  let current = dirname(resolve(path));
+  while (dirname(current) !== current && dirname(current) !== sep) {
+    try {
+      if ((await lstat(current)).isSymbolicLink()) return "symbolic-link";
+    } catch (error) {
+      if (!absentCode(at(error, "code"))) return "unreadable";
+    }
+    current = dirname(current);
+  }
+  return "ok";
+}
+
+export async function fileSeen(
+  path: string,
+  scratch?: string,
+): Promise<FileSeen> {
+  const parent =
+    scratch === undefined
+      ? await parentHasLink(path)
+      : await parentWithinScratch(path, scratch);
+  if (parent !== "ok") return notFile(parent);
+  try {
+    if ((await lstat(path)).isSymbolicLink()) return notFile("symbolic-link");
+  } catch (error) {
+    return notFile(absentCode(at(error, "code")) ? "absent" : "unreadable");
+  }
   let handle: Awaited<ReturnType<typeof open>>;
   try {
-    handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
+    handle = await open(
+      path,
+      constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW,
+    );
   } catch (error) {
     const code = at(error, "code");
-    return notFile(
-      code === "ENOENT" || code === "ENOTDIR" ? "absent" : "unreadable",
-    );
+    if (linkCode(code)) return notFile("symbolic-link");
+    return notFile(absentCode(code) ? "absent" : "unreadable");
   }
   try {
     return await openedFile(handle);
@@ -109,10 +211,11 @@ export async function keptStep(
   step: ScenarioStep,
   ran: ProgramResult,
   repository: RepositoryFacts,
+  scratch?: string,
 ): Promise<Written> {
   const observed = stepRunOf(ran);
   const files = await Promise.all(
-    (step.expect.files ?? []).map((file) => fileSeen(file.path)),
+    (step.expect.files ?? []).map((file) => fileSeen(file.path, scratch)),
   );
   const kept = stepFile(feature, step, observed, files);
   const file = join(feature, `${step.name}.json`);
@@ -369,6 +472,7 @@ export function driveCommand(
                     step,
                     ran,
                     repository,
+                    place.scratch,
                   );
                   await writeFile(
                     join(place.evidence, kept.row.file),
