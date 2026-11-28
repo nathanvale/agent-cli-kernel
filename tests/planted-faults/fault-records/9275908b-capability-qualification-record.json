@@ -1,0 +1,7 @@
+{
+  "id": "9275908b-capability-qualification-record",
+  "patch": "tests/planted-faults/patches/9275908b-capability-qualification-record.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^sourceHash covers shared/error-code\\.ts",
+  "source": "9275908b fix(state): include shared/error-code.ts in qualified source hash"
+}
