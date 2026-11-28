@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import {
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -9,6 +10,7 @@ import {
 import { join } from "node:path";
 import type { ProgramRequest } from "agent-cli-kernel";
 import type { Refusal } from "agent-cli-kernel/addons/state";
+import { readRootedFile } from "../../../kernel/src/shared/rooted-file.ts";
 import {
   helperContract,
   stateRoot,
@@ -1273,6 +1275,138 @@ describe("how drive runs and keeps a step", () => {
           fileKinds: ["symbolic-link"],
         });
       }
+    },
+    watchdog(4),
+  );
+
+  test(
+    "fileSeen refuses a parent or scratch folder swapped for a link between check and open",
+    async () => {
+      const at = world();
+      const outside = join(at.folder, "outside");
+      mkdirSync(outside);
+      writeFileSync(join(outside, "secret.txt"), "outside");
+
+      const scratch = join(at.folder, "scratch-parent-swap");
+      const sub = join(scratch, "sub");
+      mkdirSync(sub, { recursive: true });
+      writeFileSync(join(sub, "secret.txt"), "inside");
+
+      let parentSwapped = false;
+      const parentSwapResult = await fileSeen(
+        join(sub, "secret.txt"),
+        scratch,
+        {
+          beforeOpen: () => {
+            parentSwapped = true;
+            rmSync(sub, { recursive: true, force: true });
+            symlinkSync(outside, sub);
+          },
+        },
+      );
+      expect(parentSwapped).toBe(true);
+      expect(parentSwapResult).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+
+      const scratchSwap = join(at.folder, "scratch-self-swap");
+      mkdirSync(scratchSwap, { recursive: true });
+      writeFileSync(join(scratchSwap, "secret.txt"), "inside");
+
+      let scratchSwapped = false;
+      const scratchSwapResult = await fileSeen(
+        join(scratchSwap, "secret.txt"),
+        scratchSwap,
+        {
+          beforeOpen: () => {
+            scratchSwapped = true;
+            rmSync(scratchSwap, { recursive: true, force: true });
+            symlinkSync(outside, scratchSwap);
+          },
+        },
+      );
+      expect(scratchSwapped).toBe(true);
+      expect(scratchSwapResult).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+    },
+    watchdog(4),
+  );
+
+  test(
+    "fileSeen post-open recheck agrees with readRootedFile on replaced files and linked parents",
+    async () => {
+      const at = world();
+
+      const setup = (label: string) => {
+        const root = join(at.folder, label);
+        const sub = join(root, "sub");
+        mkdirSync(sub, { recursive: true });
+        const target = join(sub, "target.txt");
+        writeFileSync(target, "original");
+        return { root, sub, target };
+      };
+
+      const honestA = setup("agree-honest-a");
+      const honestB = setup("agree-honest-b");
+      const seenHonest = await fileSeen(honestA.target, honestA.root);
+      const rootedHonest = readRootedFile(
+        honestB.root,
+        "sub/target.txt",
+        fileReadLimit,
+      );
+      expect(seenHonest).toEqual({ kind: "file", content: "original" });
+      expect(rootedHonest.kind).toBe("read");
+
+      const inodeA = setup("agree-inode-a");
+      const replA = join(inodeA.sub, "replacement.txt");
+      writeFileSync(replA, "swapped");
+      const seenInode = await fileSeen(inodeA.target, inodeA.root, {
+        afterOpen: () => {
+          renameSync(replA, inodeA.target);
+        },
+      });
+      const inodeB = setup("agree-inode-b");
+      const replB = join(inodeB.sub, "replacement.txt");
+      writeFileSync(replB, "swapped");
+      const rootedInode = readRootedFile(
+        inodeB.root,
+        "sub/target.txt",
+        fileReadLimit,
+        {
+          afterOpen: () => {
+            renameSync(replB, inodeB.target);
+          },
+        },
+      );
+      expect(seenInode).toEqual({ kind: "symbolic-link", content: null });
+      expect(rootedInode.kind).toBe("refused");
+
+      const parentA = setup("agree-parent-a");
+      const movedA = join(at.folder, "agree-moved-a");
+      const seenParent = await fileSeen(parentA.target, parentA.root, {
+        afterOpen: () => {
+          renameSync(parentA.sub, movedA);
+          symlinkSync(movedA, parentA.sub);
+        },
+      });
+      const parentB = setup("agree-parent-b");
+      const movedB = join(at.folder, "agree-moved-b");
+      const rootedParent = readRootedFile(
+        parentB.root,
+        "sub/target.txt",
+        fileReadLimit,
+        {
+          afterOpen: () => {
+            renameSync(parentB.sub, movedB);
+            symlinkSync(movedB, parentB.sub);
+          },
+        },
+      );
+      expect(seenParent).toEqual({ kind: "symbolic-link", content: null });
+      expect(rootedParent.kind).toBe("refused");
     },
     watchdog(4),
   );
