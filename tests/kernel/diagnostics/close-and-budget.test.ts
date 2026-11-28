@@ -13,6 +13,7 @@ import { cleanTrees, get, lines, observe, tree } from "./harness.ts";
 
 afterAll(cleanTrees);
 const timeout = 60_000;
+const waitBoundMilliseconds = 5_000;
 const traversalBudget = 16_000;
 
 function deferred<Value = void>() {
@@ -21,6 +22,29 @@ function deferred<Value = void>() {
     resolve = done;
   });
   return { promise, resolve };
+}
+
+async function waitWithin<Value>(
+  work: Promise<Value>,
+  label: string,
+): Promise<Value> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `${label} did not happen within ${waitBoundMilliseconds} ms.`,
+          ),
+        ),
+      waitBoundMilliseconds,
+    );
+  });
+  try {
+    return await Promise.race([work, expiry]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function logRecord(facts: unknown): LogRecord {
@@ -49,15 +73,11 @@ function onlyLog(dir: string) {
   return log;
 }
 
-async function flushMicrotasks() {
-  for (let turn = 0; turn < 5; turn += 1)
-    await new Promise((resolve) => setImmediate(resolve));
-}
-
-function heldWriteIo() {
+function trackedIo(holdFirstWrite: boolean) {
   const writeEntered = deferred<void>();
   const releaseWrite = deferred<void>();
   const writeSettled = deferred<void>();
+  const closeCalled = deferred<void>();
   let writes = 0;
   let closes = 0;
   let sizeCalls = 0;
@@ -71,7 +91,7 @@ function heldWriteIo() {
       writes += 1;
       if (writes === 1) {
         writeEntered.resolve();
-        await releaseWrite.promise;
+        if (holdFirstWrite) await releaseWrite.promise;
       }
       const accepted = await nodeIo.write(descriptor, bytes);
       if (writes === 1) writeSettled.resolve();
@@ -80,6 +100,7 @@ function heldWriteIo() {
     close: (descriptor) => {
       closes += 1;
       nodeIo.close(descriptor);
+      closeCalled.resolve();
     },
   };
   return {
@@ -87,6 +108,7 @@ function heldWriteIo() {
     writeEntered: writeEntered.promise,
     releaseWrite: releaseWrite.resolve,
     writeSettled: writeSettled.promise,
+    closeCalled: closeCalled.promise,
     counts: () => ({ writes, closes, sizeCalls }),
   };
 }
@@ -104,12 +126,25 @@ function countingRow(length: number, onRead: () => void): unknown[] {
   return row;
 }
 
-describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
+function countingObject(keys: number, onRead: () => void): object {
+  const target: Record<string, unknown> = {};
+  for (let index = 0; index < keys; index += 1)
+    Object.defineProperty(target, `k${index}`, {
+      enumerable: true,
+      get() {
+        onRead();
+        return 0;
+      },
+    });
+  return target;
+}
+
+describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", () => {
   test(
-    "D18.flush-timeout-closes-descriptor: a flush timeout closes the descriptor once after the held write settles, with no closed marker and unchanged status",
+    "S10.flush-timeout-closes-descriptor: a flush timeout closes the descriptor once after the held write settles, with no closed marker and unchanged status",
     async () => {
       const where = tree();
-      const held = heldWriteIo();
+      const held = trackedIo(true);
       const attached = createDiagnostics(
         { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
         held.io,
@@ -121,15 +156,18 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
       });
       attached.capability.record("first", { index: 0 });
       attached.capability.record("second", { index: 1 });
-      await held.writeEntered;
+      await waitWithin(held.writeEntered, "first write entry");
       const frozen = await attached.freeze(50);
       const snapshot = JSON.stringify(frozen);
       expect(get(frozen, "sinkFailure")).toBe("flush-timeout");
       expect(get(frozen, "closed")).toBe(false);
       expect(held.counts().closes).toBe(0);
       held.releaseWrite();
-      await held.writeSettled;
-      await flushMicrotasks();
+      await waitWithin(held.writeSettled, "first write settle");
+      await waitWithin(
+        held.closeCalled,
+        "descriptor close after flush timeout",
+      );
       expect(held.counts()).toEqual({ writes: 1, closes: 1, sizeCalls: 0 });
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
@@ -140,10 +178,10 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
   );
 
   test(
-    "D18.kill-closes-after-held-write: killNow closes the descriptor once after a held write settles, with no closed marker and unchanged status",
+    "S10.kill-closes-after-held-write: killNow closes the descriptor once after a held write settles, with no closed marker and unchanged status",
     async () => {
       const where = tree();
-      const held = heldWriteIo();
+      const held = trackedIo(true);
       const attached = createDiagnostics(
         { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
         held.io,
@@ -154,12 +192,12 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
         signal: new AbortController().signal,
       });
       attached.capability.record("first", { index: 0 });
-      await held.writeEntered;
+      await waitWithin(held.writeEntered, "first write entry");
       attached.killNow();
       expect(held.counts().closes).toBe(0);
       held.releaseWrite();
-      await held.writeSettled;
-      await flushMicrotasks();
+      await waitWithin(held.writeSettled, "first write settle");
+      await waitWithin(held.closeCalled, "descriptor close after kill");
       expect(held.counts()).toEqual({ writes: 1, closes: 1, sizeCalls: 0 });
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
@@ -172,31 +210,13 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
   );
 
   test(
-    "D18.kill-closes-without-finish: killNow closes an open descriptor even when no finish is in progress",
+    "S10.kill-closes-without-finish: killNow closes an open descriptor even when no finish is in progress",
     async () => {
       const where = tree();
-      const firstWriteDone = deferred<void>();
-      let closes = 0;
-      let sizeCalls = 0;
-      const io: DiagnosticsIo = {
-        open: nodeIo.open,
-        size: (descriptor) => {
-          sizeCalls += 1;
-          return nodeIo.size(descriptor);
-        },
-        write: async (descriptor, bytes) => {
-          const accepted = await nodeIo.write(descriptor, bytes);
-          firstWriteDone.resolve();
-          return accepted;
-        },
-        close: (descriptor) => {
-          closes += 1;
-          nodeIo.close(descriptor);
-        },
-      };
+      const tracked = trackedIo(false);
       const attached = createDiagnostics(
         { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
-        io,
+        tracked.io,
       ).attach({
         runId: crypto.randomUUID(),
         commandIdentity: "dxs.read",
@@ -204,24 +224,23 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
         signal: new AbortController().signal,
       });
       attached.capability.record("only", { index: 0 });
-      await firstWriteDone.promise;
-      await flushMicrotasks();
-      expect(closes).toBe(0);
+      await waitWithin(tracked.writeSettled, "first write settle");
+      expect(tracked.counts().closes).toBe(0);
       attached.killNow();
-      await flushMicrotasks();
-      expect({ closes, sizeCalls }).toEqual({ closes: 1, sizeCalls: 0 });
+      await waitWithin(tracked.closeCalled, "descriptor close on killNow");
+      expect(tracked.counts()).toEqual({ writes: 1, closes: 1, sizeCalls: 0 });
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
       ]);
       const frozen = await attached.freeze(50);
       expect(get(frozen, "closed")).toBe(false);
-      expect(closes).toBe(1);
+      expect(tracked.counts().closes).toBe(1);
     },
     timeout,
   );
 
   test(
-    "D18.shared-structure-budget: shared references are read at most the budget at last admitted, first refused, and deep DAG sizes",
+    "S11.shared-structure-budget: shared references are read at most the budget at last admitted, first refused, shared object, and deep DAG sizes",
     () => {
       const make = lineMaker([]);
       let admittedReads = 0;
@@ -257,6 +276,16 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
       expect(tailReads).toBe(0);
       expect(refusedLine.truncated).toBe(true);
 
+      let objectReads = 0;
+      const sharedObject = countingObject(100, () => {
+        objectReads += 1;
+      });
+      const objectLine = make(
+        logRecord(Array<unknown>(200).fill(sharedObject)),
+      );
+      expect(objectReads).toBeLessThanOrEqual(traversalBudget);
+      expect(objectLine.truncated).toBe(true);
+
       let dagReads = 0;
       const leaf = {};
       Object.defineProperty(leaf, "leaf", {
@@ -277,7 +306,7 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
   );
 
   test(
-    "D18.own-proto-key-logged: an own __proto__ key survives bounding and appears in the logged record",
+    "N4.own-proto-key-logged: an own __proto__ key survives bounding with a null prototype and appears in the logged record",
     async () => {
       const where = tree();
       const attached = createDiagnostics(

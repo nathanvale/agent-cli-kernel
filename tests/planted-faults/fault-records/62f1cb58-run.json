@@ -2,6 +2,6 @@
   "id": "62f1cb58-run",
   "patch": "tests/planted-faults/patches/62f1cb58-run.patch",
   "testFile": "tests/kernel/diagnostics/close-and-budget.test.ts",
-  "title": "D18\\.flush-timeout-closes-descriptor|D18\\.kill-closes-",
+  "title": "S10\\.flush-timeout-closes-descriptor|S10\\.kill-closes-",
   "source": "62f1cb58 fix(diagnostics): close descriptor on freeze/kill, bound walk, and preserve own __proto__"
 }

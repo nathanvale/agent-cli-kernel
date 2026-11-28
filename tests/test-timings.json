@@ -17,6 +17,7 @@
     "tests/kernel/default-command.test.ts": 206,
     "tests/kernel/diagnostics/absence.test.ts": 1886,
     "tests/kernel/diagnostics/cases.test.ts": 40292,
+    "tests/kernel/diagnostics/close-and-budget.test.ts": 113,
     "tests/kernel/diagnostics/custody.test.ts": 1998,
     "tests/kernel/diagnostics/faults.test.ts": 3923,
     "tests/kernel/diagnostics/finalisation.test.ts": 946,
