@@ -184,13 +184,26 @@ describe("extractUpdateTimings", () => {
       timingsFolder: "shard-timings",
       args: ["--shard", "1/4"],
     });
-    expect(
-      extractUpdateTimings(["--shard", "1/4", "--update-timings="]),
-    ).toEqual({
+  });
+
+  test("refuses an empty --update-timings= folder so nothing is written at the repository root", () => {
+    const root = folder("fault-shards-");
+    const parsed = extractUpdateTimings([
+      "--shard",
+      "1/4",
+      "--update-timings=",
+    ]);
+    if (parsed.updateTimings)
+      writeTiming(root, "leaked", 1, parsed.timingsFolder);
+    expect(readdirSync(root)).toEqual([]);
+    expect(parsed).toEqual({
       updateTimings: false,
       timingsFolder: undefined,
       args: ["--shard", "1/4", "--update-timings="],
     });
+    expect(() => shardOf(parsed.args)).toThrow(
+      `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>] [--update-timings], with whole numbers 1 <= part <= parts. Got '--shard 1/4 --update-timings='. Repair: pass one part, such as --shard 2/4.`,
+    );
   });
 });
 
