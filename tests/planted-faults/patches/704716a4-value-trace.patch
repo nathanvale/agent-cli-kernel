@@ -1,0 +1,26 @@
+diff --git a/config/value-trace.mjs b/config/value-trace.mjs
+index dc4f9a07..69292998 100644
+--- a/config/value-trace.mjs
++++ b/config/value-trace.mjs
+@@ -13,10 +13,10 @@ const literalKey = (node) =>
+     : node?.type === "TemplateLiteral" && node.expressions.length === 0
+       ? node.quasis[0]?.value.cooked
+       : undefined;
+-export const propertyName = (node, context, depth = 0) =>
++export const propertyName = (node, context) =>
+   node.computed
+     ? context
+-      ? staticString(context, node.property, depth)
++      ? staticString(context, node.property)
+       : literalKey(node.property)
+     : node.property.name;
+ const lookup = (context, node) => {
+@@ -148,7 +148,7 @@ const staticFolders = {
+     if (
+       callee.type !== "MemberExpression" ||
+       callee.object.type !== "ArrayExpression" ||
+-      propertyName(callee, context, depth + 1) !== "join"
++      propertyName(callee, context) !== "join"
+     )
+       return undefined;
+     const parts = foldAll(
