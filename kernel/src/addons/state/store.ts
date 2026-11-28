@@ -397,21 +397,26 @@ function parseScope(value: unknown): CanonicalScope | undefined {
   return { resources, invariants, unknown: scope.unknown, keys };
 }
 
-function parseRevisions(
+export function parseRevisions(
   value: unknown,
 ): Readonly<Record<string, string>> | undefined {
-  const revisions = plainObject(value);
-  if (!revisions) return undefined;
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return undefined;
   const out: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(revisions)) {
+  for (const [key, entry] of Object.entries(value)) {
     const revision = text(entry);
     if (revision === undefined) return undefined;
-    out[key] = revision;
+    Object.defineProperty(out, key, {
+      value: revision,
+      enumerable: true,
+      writable: false,
+      configurable: false,
+    });
   }
-  return out;
+  return Object.freeze(out);
 }
 
-function parseApproval(value: unknown): Intent["approval"] | undefined {
+export function parseApproval(value: unknown): Intent["approval"] | undefined {
   if (value === null) return null;
   const approval = plainObject(value);
   const reference = text(approval?.reference);

@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 56fe8119..c91209ca 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1069,8 +1069,7 @@ function snapshotApprovalRequest(
+   } catch {
+     return undefined;
+   }
+-  const preview = snapshotPreview(rawPreview);
+-  if (preview === null) return undefined;
++  const preview = typeof rawPreview === "string" ? rawPreview : undefined;
+   const request: ApprovalRequest = Object.freeze({
+     authority,
+     resource,
