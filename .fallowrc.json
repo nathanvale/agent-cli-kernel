@@ -1,7 +1,52 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
   "ignoreBinaries": ["getconf"],
-  "ignoreExportsUsedInFile": true,
+  "ignoreExports": [
+    {
+      "file": "kernel/src/addons/diagnostics/records.ts",
+      "exports": ["markers"]
+    },
+    {
+      "file": "kernel/src/addons/state/framing.ts",
+      "exports": ["maxPayloadBytes", "checksum"]
+    },
+    {
+      "file": "kernel/src/addons/state/scope.ts",
+      "exports": ["pathKeys"]
+    },
+    {
+      "file": "kernel/src/addons/state/store.ts",
+      "exports": ["recordKinds", "dispositions", "revisionOf"]
+    },
+    {
+      "file": "kernel/src/kernel/fallback.ts",
+      "exports": ["fallbackLimits"]
+    },
+    {
+      "file": "kernel/src/kernel/guidance.ts",
+      "exports": ["guidanceTemplateSlots", "substitute"]
+    },
+    {
+      "file": "kernel/src/kernel/input.ts",
+      "exports": ["splitLongOption"]
+    },
+    {
+      "file": "kernel/src/kernel/routing.ts",
+      "exports": ["closestRoute"]
+    },
+    {
+      "file": "kernel/src/kernel/validation/context.ts",
+      "exports": ["capabilityAddonName"]
+    },
+    {
+      "file": "kernel/src/kernel/validation/input.ts",
+      "exports": ["valueSchema"]
+    },
+    {
+      "file": "kernel/src/kernel/validation/result.ts",
+      "exports": ["resultCorrelations"]
+    }
+  ],
   "typeAware": {
     "enabled": true,
     "require": "best-effort"
@@ -109,7 +154,6 @@
         "tests/kernel/verify-skill/fixtures/stdout-wait-preload.ts",
         "tests/kernel/fixtures/core-limit.ts",
         "tests/kernel/state/fixtures/probe-folder-ledger.ts",
-        "tests/kernel/state/capability-qualification-run.ts",
         "tests/kernel/kernel-repair/swarm-cli.ts",
         "tests/kernel/locks/fixtures.ts",
         "tests/kernel/author-guide/example-document.ts"
@@ -129,6 +173,7 @@
     "kernel/src/addons/state/index.ts",
     "kernel/src/shared/rooted-file-entry.ts",
     "kernel/src/shared/xdg-base.ts",
+    "tests/kernel/state/capability-qualification-run.ts",
     "skills/verify-cli/helper/cli.ts",
     "skills/verify-cli/verify.ts"
   ]
