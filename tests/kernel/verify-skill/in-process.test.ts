@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import {
+  linkSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -10,6 +11,7 @@ import {
 import { join } from "node:path";
 import type { ProgramRequest } from "agent-cli-kernel";
 import type { Refusal } from "agent-cli-kernel/addons/state";
+import { readRootedFile as readRootedFilePublic } from "agent-cli-kernel/rooted-file";
 import { readRootedFile } from "../../../kernel/src/shared/rooted-file.ts";
 import {
   helperContract,
@@ -1352,13 +1354,71 @@ describe("how drive runs and keeps a step", () => {
       const honestA = setup("agree-honest-a");
       const honestB = setup("agree-honest-b");
       const seenHonest = await fileSeen(honestA.target, honestA.root);
-      const rootedHonest = readRootedFile(
+      const rootedHonest = readRootedFilePublic(
         honestB.root,
         "sub/target.txt",
         fileReadLimit,
       );
       expect(seenHonest).toEqual({ kind: "file", content: "original" });
       expect(rootedHonest.kind).toBe("read");
+
+      const outsideFile = join(at.folder, "agree-outside.txt");
+      writeFileSync(outsideFile, "outside");
+
+      const staticLink = setup("agree-static-link");
+      const linkAtPath = join(staticLink.sub, "alias.txt");
+      symlinkSync(outsideFile, linkAtPath);
+      expect(await fileSeen(linkAtPath, staticLink.root)).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect(
+        readRootedFilePublic(staticLink.root, "sub/alias.txt", fileReadLimit),
+      ).toMatchObject({ kind: "refused", reason: "symbolic-link" });
+
+      const staticParent = setup("agree-static-parent");
+      const outsideDir = join(at.folder, "agree-outside-dir");
+      mkdirSync(outsideDir);
+      writeFileSync(join(outsideDir, "target.txt"), "outside");
+      symlinkSync(outsideDir, join(staticParent.root, "linked-dir"));
+      expect(
+        await fileSeen(
+          join(staticParent.root, "linked-dir", "target.txt"),
+          staticParent.root,
+        ),
+      ).toEqual({ kind: "symbolic-link", content: null });
+      expect(
+        readRootedFilePublic(
+          staticParent.root,
+          "linked-dir/target.txt",
+          fileReadLimit,
+        ),
+      ).toMatchObject({ kind: "refused", reason: "linked-folder" });
+
+      const linkSwapA = setup("agree-link-swap-a");
+      const seenLinkSwap = await fileSeen(linkSwapA.target, linkSwapA.root, {
+        afterOpen: () => {
+          rmSync(linkSwapA.target);
+          symlinkSync(outsideFile, linkSwapA.target);
+        },
+      });
+      const linkSwapB = setup("agree-link-swap-b");
+      const rootedLinkSwap = readRootedFile(
+        linkSwapB.root,
+        "sub/target.txt",
+        fileReadLimit,
+        {
+          afterOpen: () => {
+            rmSync(linkSwapB.target);
+            symlinkSync(outsideFile, linkSwapB.target);
+          },
+        },
+      );
+      expect(seenLinkSwap).toEqual({ kind: "symbolic-link", content: null });
+      expect(rootedLinkSwap).toMatchObject({
+        kind: "refused",
+        reason: "symbolic-link",
+      });
 
       const inodeA = setup("agree-inode-a");
       const replA = join(inodeA.sub, "replacement.txt");
@@ -1412,6 +1472,17 @@ describe("how drive runs and keeps a step", () => {
       expect(rootedParent).toMatchObject({
         kind: "refused",
         reason: "linked-folder",
+      });
+
+      const hard = setup("agree-hard-link");
+      const hardAlias = join(hard.sub, "hard.txt");
+      linkSync(hard.target, hardAlias);
+      expect(
+        readRootedFilePublic(hard.root, "sub/hard.txt", fileReadLimit),
+      ).toMatchObject({ kind: "refused", reason: "hard-link" });
+      expect(await fileSeen(hardAlias, hard.root)).toEqual({
+        kind: "file",
+        content: "original",
       });
     },
     watchdog(4),
