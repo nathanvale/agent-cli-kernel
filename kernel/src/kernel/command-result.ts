@@ -8,7 +8,7 @@ import { commonCauses } from "./causes.ts";
 import type { CapabilitySelection } from "./capabilities.ts";
 import { programStopOf } from "./program-stop.ts";
 import { deadlineCause } from "./state-causes.ts";
-import { json } from "./validation/primitives.ts";
+import { copyJson } from "./validation/primitives.ts";
 const resultIdentity = Symbol("kernel.commandResult");
 export type CommandResult<Identity extends string = string> = {
   readonly commandIdentity: Identity;
@@ -75,9 +75,9 @@ export type ResultPlan = {
 };
 function copyData(facts: Record<string, unknown>): Record<string, unknown> {
   if (Object.hasOwn(facts, "data")) {
-    if (!json(facts.data))
-      throw new Error("Result data must be plain bounded JSON.");
-    facts.data = structuredClone(facts.data);
+    const copied = copyJson(facts.data);
+    if (!copied.ok) throw new Error("Result data must be plain bounded JSON.");
+    facts.data = copied.value;
   }
   return facts;
 }
