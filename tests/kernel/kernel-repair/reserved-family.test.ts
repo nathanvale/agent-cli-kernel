@@ -60,6 +60,8 @@ function admission(causeCode: string): string {
 test("an unnamed INTERNAL_RESULT_* host station is refused as reserved", () => {
   expect(reservedFallbackCause("INTERNAL_RESULT_CUSTOM")).toBe(true);
   expect(admission("INTERNAL_RESULT_CUSTOM")).toMatch(/reserved/i);
-  expect(reservedFallbackCause("INTERNAL_HOST_INTERNAL_RESULT")).toBe(false);
-  expect(admission("INTERNAL_HOST_INTERNAL_RESULT")).toBe("admitted");
+  expect(reservedFallbackCause("INTERNAL_HOST_INTERNAL_RESULT_CUSTOM")).toBe(
+    false,
+  );
+  expect(admission("INTERNAL_HOST_INTERNAL_RESULT_CUSTOM")).toBe("admitted");
 });
