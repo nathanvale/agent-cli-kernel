@@ -1382,7 +1382,10 @@ describe("how drive runs and keeps a step", () => {
         },
       );
       expect(seenInode).toEqual({ kind: "symbolic-link", content: null });
-      expect(rootedInode.kind).toBe("refused");
+      expect(rootedInode).toMatchObject({
+        kind: "refused",
+        reason: "outside-root",
+      });
 
       const parentA = setup("agree-parent-a");
       const movedA = join(at.folder, "agree-moved-a");
@@ -1406,7 +1409,10 @@ describe("how drive runs and keeps a step", () => {
         },
       );
       expect(seenParent).toEqual({ kind: "symbolic-link", content: null });
-      expect(rootedParent.kind).toBe("refused");
+      expect(rootedParent).toMatchObject({
+        kind: "refused",
+        reason: "linked-folder",
+      });
     },
     watchdog(4),
   );
