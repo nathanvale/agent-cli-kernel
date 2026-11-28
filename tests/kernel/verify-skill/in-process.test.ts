@@ -1,5 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import type { ProgramRequest } from "agent-cli-kernel";
 import type { Refusal } from "agent-cli-kernel/addons/state";
@@ -890,6 +896,144 @@ describe("how drive runs and keeps a step", () => {
       content: null,
     });
   });
+
+  test(
+    "drive refuses a symbolic link at the path or in a parent folder, while regular files still hold",
+    async () => {
+      const at = world();
+      const outside = join(at.folder, "outside");
+      mkdirSync(outside);
+      const outsideFile = join(outside, "secret.txt");
+      writeFileSync(outsideFile, "outside");
+
+      const scratch = join(at.folder, "scratch");
+      mkdirSync(scratch);
+      const dangling = join(scratch, "lock");
+      symlinkSync(join(scratch, "nowhere"), dangling);
+      const liveLink = join(scratch, "alias.txt");
+      symlinkSync(outsideFile, liveLink);
+      symlinkSync(outside, join(scratch, "out"));
+      const regular = join(scratch, "plain.txt");
+      writeFileSync(regular, "plain");
+
+      expect<unknown>(await fileSeen(dangling)).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect<unknown>(await fileSeen(liveLink)).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect<unknown>(
+        await fileSeen(join(scratch, "out", "secret.txt")),
+      ).toEqual({
+        kind: "symbolic-link",
+        content: null,
+      });
+      expect(await fileSeen(regular)).toEqual({
+        kind: "file",
+        content: "plain",
+      });
+
+      const run = runFolder(at, "r-links");
+      const launched = await helperContract(at.env, [
+        "launch",
+        run,
+        at.example,
+      ]).inProcess();
+      expect(launched.kind).toBe("envelope");
+      const place = verificationRun(run);
+      symlinkSync(join(place.scratch, "nowhere"), join(place.scratch, "lock"));
+      symlinkSync(outside, join(place.scratch, "out"));
+      writeFileSync(join(place.scratch, "plain.txt"), "plain");
+
+      const scenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "drive-links",
+        steps: [
+          {
+            name: "dangling-link-where-absent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/lock", absent: true }],
+            },
+          },
+          {
+            name: "file-through-linked-parent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/out/secret.txt", content: "outside" }],
+            },
+          },
+          {
+            name: "regular-file-holds",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/plain.txt", content: "plain" }],
+            },
+          },
+        ],
+      });
+
+      const driven = await helperContract(at.env, [
+        "drive",
+        run,
+        scenario,
+      ]).inProcess();
+      if (driven.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${driven.kind}.`);
+      expect(driven.envelope.result.causeCode).toBe(
+        "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      );
+
+      const readStep = (name: string): unknown =>
+        JSON.parse(
+          readFileSync(
+            join(place.evidence, "drive-links", `${name}.json`),
+            "utf8",
+          ),
+        );
+      for (const name of [
+        "dangling-link-where-absent",
+        "file-through-linked-parent",
+      ]) {
+        const kept = readStep(name);
+        expect({
+          verdict: field(kept, "verdict"),
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          fileKinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({
+          verdict: "unmet",
+          unmet: ["files.0"],
+          files: [null],
+          fileKinds: ["symbolic-link"],
+        });
+      }
+      const regularStep = readStep("regular-file-holds");
+      expect({
+        verdict: field(regularStep, "verdict"),
+        unmet: field(regularStep, "unmet"),
+        files: field(regularStep, "observed", "files"),
+        fileKinds: field(regularStep, "observed", "fileKinds"),
+      }).toEqual({
+        verdict: "met",
+        unmet: [],
+        files: ["plain"],
+        fileKinds: ["file"],
+      });
+    },
+    watchdog(4),
+  );
 
   test("an expected file holds only as a file, and an absent one only when nothing stands there", () => {
     const step: ScenarioStep = {
