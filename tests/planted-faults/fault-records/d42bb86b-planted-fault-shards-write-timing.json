@@ -1,0 +1,7 @@
+{
+  "id": "d42bb86b-planted-fault-shards-write-timing",
+  "patch": "tests/planted-faults/patches/d42bb86b-planted-fault-shards-write-timing.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-shards-in-process.test.ts",
+  "title": "refuses a timing that is negative or not finite",
+  "source": "d42bb86b fix(fault-replay): raise shard timeout to 15m and refresh fault timings"
+}

@@ -6,7 +6,8 @@ import {
   recordFile,
   recordsPath,
 } from "../../../scripts/planted-faults.ts";
-import { processWatchdog } from "../../support/process.ts";
+import { readTimings } from "../../../scripts/planted-fault-shards.ts";
+import { processWatchdog, spawnBounded } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
   addFault,
@@ -335,7 +336,7 @@ describe("bun run fault-replay", () => {
       const { root } = await repositoryWithFault({});
       const run = await faultReplay(root, ["--shard", "3/2"]);
       expect(run.stderr).toBe(
-        "Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got '--shard 3/2'. Repair: pass one part, such as --shard 2/4.\n",
+        "Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>] [--update-timings], with whole numbers 1 <= part <= parts. Got '--shard 3/2'. Repair: pass one part, such as --shard 2/4.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
@@ -466,5 +467,38 @@ describe("bun run fault-replay", () => {
       expectNoLeftovers(root, run.temporary);
     },
     timeout,
+  );
+
+  test(
+    "FR.aa --update-timings refreshes the timing file for each KILLED fault",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      const run = await faultReplay(root, [
+        "--shard",
+        "1/1",
+        "--update-timings",
+      ]);
+      expect(run.exit).toBe(0);
+      expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
+      expect(readTimings(root).get(id)).toBeGreaterThan(0);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.ab unknown command prints usage naming --update-timings and exits 2",
+    async () => {
+      const script = join(
+        import.meta.dir,
+        "../../../scripts/planted-faults.ts",
+      );
+      const run = await spawnBounded([process.execPath, script, "unknown"]);
+      expect(run.exit).toBe(2);
+      expect(run.stderr).toBe(
+        "Usage: bun run fault-replay [--update-timings] [id ...] | bun run fault-replay --changed-since <base> [--update-timings] | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
+      );
+    },
+    processWatchdog(5),
   );
 });

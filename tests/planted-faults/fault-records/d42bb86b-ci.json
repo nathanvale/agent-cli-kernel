@@ -1,0 +1,7 @@
+{
+  "id": "d42bb86b-ci",
+  "patch": "tests/planted-faults/patches/d42bb86b-ci.patch",
+  "testFile": "tests/template/fault-replay/fault-replay-workflow.test.ts",
+  "title": "fault-replay-shard sets timeout-minutes to at least 15",
+  "source": "d42bb86b fix(fault-replay): raise shard timeout to 15m and refresh fault timings"
+}

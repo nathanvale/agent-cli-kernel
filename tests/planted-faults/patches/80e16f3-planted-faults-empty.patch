@@ -1,12 +1,12 @@
 diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index 50b074d..a7f0d68 100644
 --- a/scripts/planted-faults.ts
 +++ b/scripts/planted-faults.ts
-@@ -483,7 +483,6 @@ function replayChangedSince(
+@@ -538,8 +538,6 @@ function replayChangedSince(
      );
      return 2;
    }
--  if (readRecords(root).length === 0) return replayAll(root, [], process.env);
+-  if (readRecords(root).length === 0)
+-    return replayAll(root, [], process.env, options);
    const ids = faultsTouchedSince(root, base);
-   if (ids.length > 0) return replayAll(root, ids, process.env);
+   if (ids.length > 0) return replayAll(root, ids, process.env, options);
    const short = gitOrThrow(root, ["rev-parse", "--short", base]).trim();
