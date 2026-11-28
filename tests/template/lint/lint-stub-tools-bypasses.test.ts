@@ -71,6 +71,14 @@ const stubToolBypasses = [
     'fs.symlinkSync() links or copies system binary "//usr/./bin/env"',
   ],
   [
+    'import { symlinkSync } from "node:fs";\nsymlinkSync(["", "usr", "bin", "git"].join("/"), "x");',
+    'fs.symlinkSync() links or copies system binary "/usr/bin/git"',
+  ],
+  [
+    'import fs = require("node:fs");\nfs.symlinkSync("/usr/bin/git", "x");',
+    'fs.symlinkSync() links or copies system binary "/usr/bin/git"',
+  ],
+  [
     'import { symlinkSync } from "node:fs";\nsymlinkSync("./fixture.sh", "node_modules/.bin/tool");',
     undefined,
   ],
