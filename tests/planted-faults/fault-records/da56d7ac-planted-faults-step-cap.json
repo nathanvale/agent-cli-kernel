@@ -1,0 +1,7 @@
+{
+  "id": "da56d7ac-planted-faults-step-cap",
+  "patch": "tests/planted-faults/patches/da56d7ac-planted-faults-step-cap.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-report-in-process.test.ts",
+  "title": "refuses \"2147484\" and names the repair",
+  "source": "da56d7ac fix(check-commits): isolate hook env, forward doctor stops, unify step limit, and tighten test bounds"
+}

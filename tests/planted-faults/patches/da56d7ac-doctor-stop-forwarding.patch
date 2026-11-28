@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index d2a0167a..95b95c8e 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -154,7 +154,7 @@ export async function fallowReadiness(
+     env: withoutRepositoryLocation(process.env),
+     limitMilliseconds,
+   });
+-  if (active !== undefined) active.stop = child.stop;
++
+   let result;
+   try {
+     result = await child.finished;

@@ -1,8 +1,8 @@
 diff --git a/scripts/doctor.ts b/scripts/doctor.ts
-index ae1dafc..1682203 100644
+index d2a0167a..e5d3c85f 100644
 --- a/scripts/doctor.ts
 +++ b/scripts/doctor.ts
-@@ -179,9 +179,13 @@ export async function doctor(root: string): Promise<boolean> {
+@@ -323,10 +323,14 @@ export async function doctor(root: string, active?: Active): Promise<boolean> {
    for (const { status, check, detail } of findings)
      process.stdout.write(`${status} ${check}: ${detail}\n`);
    const passed = findings.every((finding) => finding.status !== "FAIL");
@@ -15,5 +15,6 @@ index ae1dafc..1682203 100644
 +  return passed ? "" : "Done when bun run doctor passes.\n";
 +}
 +
- if (import.meta.main)
-   process.exitCode = (await doctor(join(import.meta.dir, ".."))) ? 0 : 1;
+ if (import.meta.main) {
+   const active: Active = {};
+   for (const signal of signals)

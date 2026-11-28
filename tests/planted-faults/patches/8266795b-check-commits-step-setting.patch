@@ -1,0 +1,17 @@
+diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
+index 6e7acb77..ffe3ab58 100644
+--- a/scripts/check-commits.ts
++++ b/scripts/check-commits.ts
+@@ -340,11 +340,7 @@ if (import.meta.main) {
+         process.env.CHECK_COMMITS_SINCE ||
+         readRepository(root).checkCommitsSince,
+       active,
+-      limitMilliseconds: stepLimitMilliseconds(
+-        process.env,
+-        stepLimitVariable,
+-        defaultStepLimitSeconds,
+-      ),
++      limitMilliseconds: defaultStepLimitSeconds * 1000,
+     };
+     process.exitCode = await main(process.argv.slice(2), run);
+   } catch (error) {

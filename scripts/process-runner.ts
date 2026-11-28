@@ -153,6 +153,27 @@ export function startChild(
   };
 }
 
+const maxStepLimitSeconds = 2_147_483;
+
+export function stepLimitMilliseconds(
+  env: Readonly<Record<string, string | undefined>>,
+  variable: string,
+  defaultSeconds: number,
+): number {
+  const given = Object.hasOwn(env, variable) ? env[variable] : undefined;
+  if (given === undefined || given === "") return defaultSeconds * 1000;
+  const seconds = Number(given);
+  if (
+    !Number.isFinite(seconds) ||
+    seconds <= 0 ||
+    seconds > maxStepLimitSeconds
+  )
+    throw new Error(
+      `${variable} is '${given.replaceAll("'", "'\\''")}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for ${defaultSeconds} s.`,
+    );
+  return seconds * 1000;
+}
+
 export async function runWithOwnTools(
   argv: readonly string[],
   cwd: string,

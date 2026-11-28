@@ -1,0 +1,12 @@
+diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
+index 6e7acb77..64e6cfbf 100644
+--- a/scripts/check-commits.ts
++++ b/scripts/check-commits.ts
+@@ -65,7 +65,6 @@ async function git(run: Run, args: readonly string[]) {
+   const child = startChild(["git", ...args], {
+     cwd: root,
+     env: withoutRepositoryLocation(process.env),
+-    limitMilliseconds: limit,
+   });
+   active.stop = child.stop;
+   let result;

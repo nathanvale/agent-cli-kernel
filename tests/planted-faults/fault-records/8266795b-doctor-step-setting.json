@@ -1,0 +1,7 @@
+{
+  "id": "8266795b-doctor-step-setting",
+  "patch": "tests/planted-faults/patches/8266795b-doctor-step-setting.patch",
+  "testFile": "tests/template/check-commits/step-time-limits.test.ts",
+  "title": "TL\\.e ",
+  "source": "8266795b fix(check-commits): bound child steps, git calls, and fallow doctor"
+}

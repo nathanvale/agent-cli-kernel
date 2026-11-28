@@ -237,3 +237,20 @@ export async function spawnBounded(
 export function processWatchdog(runs: number): number {
   return runs * exitBound + 10_000;
 }
+
+const processGroupMilliseconds = 2_000;
+
+export function processGroupOf(pid: number): number | undefined {
+  const result = Bun.spawnSync(
+    ["perl", "-e", "print getpgrp(shift)", String(pid)],
+    {
+      stdout: "pipe",
+      stderr: "ignore",
+      timeout: processGroupMilliseconds,
+      killSignal: "SIGKILL",
+    },
+  );
+  if (result.exitCode !== 0) return undefined;
+  const group = Number(result.stdout.toString().trim());
+  return Number.isInteger(group) && group > 0 ? group : undefined;
+}

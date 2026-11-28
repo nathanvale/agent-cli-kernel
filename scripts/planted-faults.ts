@@ -20,6 +20,7 @@ import { faultsInShard } from "./planted-fault-shards.ts";
 import { type Verdict } from "./planted-fault-verdict.ts";
 import {
   runWithOwnTools,
+  stepLimitMilliseconds as parseStepLimitMilliseconds,
   withoutRepositoryLocation,
 } from "./process-runner.ts";
 
@@ -136,15 +137,11 @@ export function readRecords(root: string): Fault[] {
 export function stepLimitMilliseconds(
   env: Readonly<Record<string, string | undefined>>,
 ): number {
-  const given = env[stepLimitVariable];
-  if (given === undefined || given === "")
-    return defaultStepLimitSeconds * 1000;
-  const seconds = Number(given);
-  if (!Number.isFinite(seconds) || seconds <= 0)
-    throw new Error(
-      `${stepLimitVariable} is ${quoted(given)}. Repair: set it to a positive number of seconds, or unset it for ${defaultStepLimitSeconds} s.`,
-    );
-  return seconds * 1000;
+  return parseStepLimitMilliseconds(
+    env,
+    stepLimitVariable,
+    defaultStepLimitSeconds,
+  );
 }
 
 class StepTimedOut extends Error {

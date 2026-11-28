@@ -459,7 +459,7 @@ describe("bun run fault-replay", () => {
         env: { FAULT_REPLAY_STEP_SECONDS: "0" },
       });
       expect(run.stderr).toBe(
-        "FAULT_REPLAY_STEP_SECONDS is '0'. Repair: set it to a positive number of seconds, or unset it for 300 s.\n",
+        "FAULT_REPLAY_STEP_SECONDS is '0'. Repair: set it to a positive number of seconds up to 2147483, or unset it for 300 s.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
