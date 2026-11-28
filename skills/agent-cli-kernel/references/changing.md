@@ -83,19 +83,20 @@ Give each run the add-ons' run setup, and pass it to `runProcess` and
 
 `changing` and `contractFor` throw these when the CLI starts.
 
-| Message                                                                | Cause                                                                                                                                   |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `Invalid changing declaration.`                                        | `effects` is empty or repeats an identifier.                                                                                            |
-| `Changing commands require the state add-on.`                          | `installedAddons` does not list `"state"`.                                                                                              |
-| `ifNoResult must come from the state add-on descriptor.`               | `ifNoResult` is a copy, not the value `state.descriptor` holds.                                                                         |
-| `ifNoResult must name a declared inspect command.`                     | `report` names a command that `commands` does not hold, or one that is not `inspect`.                                                   |
-| `ifNoResult step <identity> <args> carries a global switch before --.` | The `ifNoResult` step passes `--json`, `--help`, `-h`, `--version`, `--discover`, `--discover-all` or `--discover-command` before `--`. |
-| `ifNoResult step <identity> [] can never parse: ...`                   | The `report` command requires an argument or option. It is run with none.                                                               |
-| `ifNoResult step <identity> <args> routes to <other>.`                 | The `report` command's route plus its `ifNoResult` arguments match another command instead of the `report` command.                     |
-| `ifNoResult needs explicit further inspection guidance.`               | The `report` command's success guidance is `{ kind: "done" }`.                                                                          |
-| `Changing commands need distinct coordination refusal stations.`       | `heldLockCause` and `unresolvedCaseCause` are one cause, or either is not one of the command's declared stations.                       |
-| `Coordination refusal causes are host-owned.`                          | Either names a kernel cause, such as `DOMAIN_AUTHORITY_REQUIRED`. Add your own rows.                                                    |
-| `Coordination refusal requires an unchanged handoff.`                  | Either station is not refused and unchanged with a `handoff`.                                                                           |
+| Message                                                                                                                                                                               | Cause                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `Invalid changing declaration.`                                                                                                                                                       | `effects` is empty or repeats an identifier.                                                                                            |
+| `Changing commands require the state add-on.`                                                                                                                                         | `installedAddons` does not list `"state"`.                                                                                              |
+| `ifNoResult must come from the state add-on descriptor.`                                                                                                                              | `ifNoResult` is a copy, not the value `state.descriptor` holds.                                                                         |
+| `ifNoResult must name a declared inspect command.`                                                                                                                                    | `report` names a command that `commands` does not hold, or one that is not `inspect`.                                                   |
+| `ifNoResult step <identity> <args> carries a global switch before --.`                                                                                                                | The `ifNoResult` step passes `--json`, `--help`, `-h`, `--version`, `--discover`, `--discover-all` or `--discover-command` before `--`. |
+| `ifNoResult step <identity> [] can never parse: ...`                                                                                                                                  | The `report` command requires an argument or option. It is run with none.                                                               |
+| `ifNoResult step <identity> <args> routes to <other>.`                                                                                                                                | The `report` command's route plus its `ifNoResult` arguments match another command instead of the `report` command.                     |
+| `ifNoResult needs explicit further inspection guidance.`                                                                                                                              | The `report` command's success guidance is `{ kind: "done" }`.                                                                          |
+| `Changing commands need distinct coordination refusal stations.`                                                                                                                      | `heldLockCause` and `unresolvedCaseCause` are one cause, or either is not one of the command's declared stations.                       |
+| `Coordination refusal causes are host-owned.`                                                                                                                                         | Either names a kernel cause, such as `DOMAIN_AUTHORITY_REQUIRED`. Add your own rows.                                                    |
+| `Coordination refusal requires an unchanged handoff.`                                                                                                                                 | Either station is not refused and unchanged with a `handoff`.                                                                           |
+| ``Changing commands take no --check or --dry-run option. Repair: declare a separate inspect route for the look-only work, such as `<thing> plan` beside `<thing> apply` (ADR 0002).`` | An option's name or alias is `--check` or `--dry-run`. Declare a separate inspect route instead.                                        |
 
 The `report` command's success guidance tells the caller what to do with
 the list:
@@ -348,43 +349,36 @@ const declaration: Declaration = {
 };
 ```
 
-Setting `supersedeUnresolved: true` is a strong promise by the command's
-author: the command is safe to run again even alongside a leftover copy of the
-program the earlier run started, because the effect is idempotent or a
-duplicate is visible and acceptable to the person (for example, opening a
-second editor window). The kernel never tries to stop that leftover program.
-An effect that creates something new is safe to repeat only when its name or
-key comes from the inputs, not from the fresh `operationId`; a request the
-earlier run already sent can still arrive after the new run's, so only the
-remote side can deduplicate it using an input-derived key.
+Setting `supersedeUnresolved: true` promises that running again alongside a
+leftover earlier program is safe because the effect is idempotent or a
+duplicate is acceptable (such as a second editor window). The kernel never
+stops that leftover program. An effect that creates something new is safe to
+repeat only when its key comes from inputs, not the fresh `operationId`; an
+earlier request can still arrive later, so the remote side must deduplicate by
+that input-derived key.
 
 When set, the declaration is read once into plain data and the command identity
-comes from the kernel (the attached command, not `declaration.command`). The
-store is scanned once for conflicting unresolved cases. When any conflict, the
-next run checks that the state root sits on a local filesystem whose lock is
-honoured, takes and holds each prior case's `owner.lease` directly with no
-probe (a live run refuses with the held-lock station and an unreadable lease
-refuses `lease-unreadable`), confirms on re-read under that lease that the case
-is still unresolved, intact, unchanged, recorded under the same kernel command
-identity, and covered by the new declaration's declared resources (the dead
-case's recorded declared resources and invariants are a subset of the new
-declaration's; unknown scope on either side refuses), consumes approval,
-publishes the new run's own intent first, and only then links an
+comes from the kernel (not `declaration.command`). The store is scanned once
+for conflicting unresolved cases. When any conflict, the next run checks that
+the state root sits on a local filesystem that honours locks, takes each prior
+case's `owner.lease` directly with no probe (a live run refuses with the
+held-lock station; an unreadable lease refuses `lease-unreadable`), confirms on
+re-read under that lease that the case is still unresolved, intact, unchanged,
+recorded under the same kernel command identity, and covered by the new
+declaration's declared resources (prior declared resources and invariants are a
+subset of the new declaration's; unknown scope on either side refuses),
+consumes approval, publishes the new run's intent first, links an
 `outcome-unknown` closure with no authority, empty evidence, and working
-qualification label `superseded-owner-lease-free` (never claiming completion),
-recording each closed id at the link commit point, moves settled cases to
-`settled`, and carries on. The cleared run stays in history as
-`outcome-unknown`, and every result path of the new run lists every cleared
-operation id in `result.superseded` (omitted on runs that cleared nothing). A
-same-boot `delegate-admitted` record is allowed to clear on this flagged path;
-unflagged commands and `state.close` keep their existing paths and refusals
-unchanged.
+qualification label `superseded-owner-lease-free`, records each closed id at
+link commit, moves settled cases to `settled`, and continues. Cleared runs stay
+in history as `outcome-unknown`, and every result path of the new run lists
+cleared operation ids in `result.superseded` (omitted when empty). Same-boot
+`delegate-admitted` records may clear on this path; unflagged commands and
+`state.close` keep their existing paths and refusals.
 
-Never set `supersedeUnresolved: true` on a command that is not safe to run
-again alongside a leftover earlier program. After a kill, the next run repeats
-the effect without anyone checking (a second payment, a second push, or a
-second deletion), and the journal can only record that the earlier run's
-outcome was unknown.
+Never set `supersedeUnresolved: true` unless repeating alongside a leftover
+program is safe (never for payments, pushes, or deletions): the journal records
+only that the earlier run's outcome was unknown.
 
 ## Choosing the scope
 
