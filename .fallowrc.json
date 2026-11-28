@@ -123,8 +123,7 @@
         "tests/kernel/fixtures/core-limit.ts",
         "tests/kernel/state/fixtures/probe-folder-ledger.ts",
         "tests/kernel/kernel-repair/swarm-cli.ts",
-        "tests/kernel/locks/fixtures.ts",
-        "tests/kernel/author-guide/example-document.ts"
+        "tests/kernel/locks/fixtures.ts"
       ]
     }
   ],
@@ -142,6 +141,7 @@
     "kernel/src/shared/rooted-file-entry.ts",
     "kernel/src/shared/xdg-base.ts",
     "tests/kernel/state/capability-qualification-run.ts",
+    "tests/kernel/author-guide/example-document.ts",
     "skills/verify-cli/helper/cli.ts",
     "skills/verify-cli/verify.ts"
   ]

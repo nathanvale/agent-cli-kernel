@@ -17,14 +17,6 @@
         "count": 1
       }
     },
-    "config/kernel-repository-rules.mjs": {
-      "crap_high": {
-        "count": 3
-      },
-      "crap_moderate": {
-        "count": 4
-      }
-    },
     "kernel/src/addons/diagnostics/custody.ts": {
       "crap_moderate": {
         "count": 1
@@ -148,41 +140,6 @@
     },
     "config/anti-slop-type-rules.mjs\u0000widenedBinding": {
       "crap_high": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000CallExpression > MemberExpression.callee": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000castPlacements": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000commentBlocks": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000isAdmitted": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000namesNothing": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000onlyCall": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "config/kernel-repository-rules.mjs\u0000resolves": {
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -317,7 +274,6 @@
     "kernel/src/kernel/validation/result.ts:high impact",
     "tests/support/template-lint.ts:high impact",
     "kernel/src/kernel/validation/primitives.ts:high impact",
-    "config/kernel-repository-rules.mjs:untested risk",
     "kernel/src/kernel/validation/input.ts:untested risk",
     "kernel/src/kernel/guidance.ts:high impact",
     "kernel/src/kernel/validation/json-equality.ts:high impact",
