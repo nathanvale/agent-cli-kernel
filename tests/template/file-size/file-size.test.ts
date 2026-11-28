@@ -546,5 +546,5 @@ test(
       stderr: "",
     });
   },
-  processWatchdog(8),
+  processWatchdog(9),
 );

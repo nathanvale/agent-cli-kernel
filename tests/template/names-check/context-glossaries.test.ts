@@ -10,6 +10,7 @@ import {
   readOwnership,
 } from "../../../scripts/glossary-ownership.ts";
 import {
+  glossaryGitMilliseconds,
   readRepositoryGlossary,
   recordedHitsFile,
   recordedUnusedTermsFile,
@@ -17,7 +18,7 @@ import {
   trackedTexts,
 } from "../../../scripts/glossary.ts";
 import { publicSurfaceFile } from "../../../scripts/public-surface.ts";
-import { git } from "../../support/git-fixture.ts";
+import { fixtureGitMilliseconds, git } from "../../support/git-fixture.ts";
 import {
   check,
   glossary,
@@ -27,14 +28,12 @@ import {
 } from "./names-check-fixture.ts";
 
 const { emptyRepository } = namesCheckFixture();
-const fixtureGitBound = 4_000;
-const namesGitBound = 10_000;
 const timeoutHeadroom = 5_000;
 
 function sequentialTimeout(fixtureCalls: number, namesCalls: number): number {
   return (
-    fixtureCalls * fixtureGitBound +
-    namesCalls * namesGitBound +
+    fixtureCalls * fixtureGitMilliseconds +
+    namesCalls * glossaryGitMilliseconds +
     timeoutHeadroom
   );
 }
