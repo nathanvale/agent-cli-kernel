@@ -94,10 +94,12 @@ runs each test file. What a test must prove is in the
   the hosted seconds in `tests/planted-faults/fault-timings/<id>.json`,
   heaviest first, and counts a fault with no timing file as 1.7 s. Keep
   recorded timings in hosted seconds from the `fault-timings-<shard>`
-  artifacts uploaded by the hosted `fault-replay-shard` job (which passes
-  `--update-timings` to refresh each `KILLED` fault's timing file during a
-  replay). Delete the timing files of records that left. A part that holds no
-  fault record fails.
+  artifacts uploaded by the hosted `fault-replay-shard` job. Each shard passes
+  `--update-timings="$RUNNER_TEMP/fault-timings"` so its artifact holds only
+  the `KILLED` faults that shard replayed; unpacking all four artifacts into
+  `tests/planted-faults/fault-timings/` merges every shard's refreshed timings
+  without overwriting another shard's files. Delete the timing files of records
+  that left. A part that holds no fault record fails.
 
 [kernel#54-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44694912382
 [kernel#55-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44725390642

@@ -25,19 +25,21 @@ describe("the fault-replay gate in Hosted check", () => {
     );
   });
 
-  test("fault-replay-shard refreshes fault timings and uploads them as an artifact", () => {
+  test("fault-replay-shard refreshes fault timings into a separate folder and uploads only that folder", () => {
     const shard = job("fault-replay-shard");
     const replayStep = shard.steps.find((step) =>
       step.run?.includes("fault-replay"),
     );
-    expect(replayStep?.run).toContain("--update-timings");
+    expect(replayStep?.run).toContain(
+      '--update-timings="$RUNNER_TEMP/fault-timings"',
+    );
     const uploadStep = shard.steps.find((step) =>
       step.uses?.startsWith("actions/upload-artifact@"),
     );
     expect(uploadStep?.if).toBe("always()");
     expect(uploadStep?.with).toEqual({
       name: "fault-timings-${{ matrix.shard }}",
-      path: "tests/planted-faults/fault-timings/",
+      path: "${{ runner.temp }}/fault-timings/",
     });
   });
 

@@ -7,7 +7,10 @@ import {
   recordsPath,
   replayAll,
 } from "../../../scripts/planted-faults.ts";
-import { readTimings } from "../../../scripts/planted-fault-shards.ts";
+import {
+  readTimings,
+  writeTiming,
+} from "../../../scripts/planted-fault-shards.ts";
 import {
   createPlantedFaultFixture,
   guarded,
@@ -55,7 +58,11 @@ describe("replayAll", () => {
   const environment = { [stepVariable]: "20" };
   const setupOnlyTimeout = processWatchdog(4);
   const oneFaultTimeout = processWatchdog(14);
-  const twoFaultTimeout = processWatchdog(19);
+  const twoFaultBounds = 19;
+  const twoFaultTimeout = processWatchdog(twoFaultBounds);
+  const sequentialTwoFaultTimeout = processWatchdog(
+    twoFaultBounds + twoFaultBounds,
+  );
 
   async function replayedAll(
     root: string,
@@ -555,6 +562,30 @@ test("O.refuses negative while limit still refuses NaN", () => {
       const timings = readTimings(root);
       expect(timings.get(id)).toBeGreaterThan(0);
       expect(timings.has(survivor.id)).toBe(false);
+    },
+    sequentialTwoFaultTimeout,
+  );
+
+  test(
+    "writes only the killed faults from this run when timingsFolder is set",
+    async () => {
+      const { root, id } = killedAndSurvivor();
+      writeTiming(root, "other-shard", 4.5);
+      const output = join(root, "shard-timings");
+
+      const run = await isolated(() =>
+        replayAll(root, [], environment, {
+          updateTimings: true,
+          timingsFolder: output,
+        }),
+      );
+
+      expect(run.result).toBe(1);
+      expect(readdirSync(output)).toEqual([`${id}.json`]);
+      expect(
+        JSON.parse(readFileSync(join(output, `${id}.json`), "utf8")),
+      ).toBeGreaterThan(0);
+      expect([...readTimings(root)]).toEqual([["other-shard", 4.5]]);
     },
     twoFaultTimeout,
   );

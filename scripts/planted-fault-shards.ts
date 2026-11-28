@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { folderFiles } from "./planted-fault-folders.ts";
 import { quoted } from "./planted-fault-patch.ts";
 
@@ -14,7 +14,30 @@ const minimumRecordedSeconds = 0.1;
 const toolingTests = "tests/template/";
 const toolingOption = "--tooling-changed-since";
 export const updateTimingsOption = "--update-timings";
+const updateTimingsPrefix = `${updateTimingsOption}=`;
 const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
+
+export function extractUpdateTimings(argv: readonly string[]): {
+  readonly updateTimings: boolean;
+  readonly timingsFolder: string | undefined;
+  readonly args: string[];
+} {
+  const matches = (arg: string): boolean =>
+    arg === updateTimingsOption ||
+    (arg.startsWith(updateTimingsPrefix) &&
+      arg.length > updateTimingsPrefix.length);
+  const found = argv.find(matches);
+  const updateTimings = found !== undefined;
+  const timingsFolder =
+    found?.startsWith(updateTimingsPrefix) === true
+      ? found.slice(updateTimingsPrefix.length)
+      : undefined;
+  return {
+    updateTimings,
+    timingsFolder,
+    args: updateTimings ? argv.filter((arg) => !matches(arg)) : [...argv],
+  };
+}
 
 export function timingFile(id: string): string {
   return `${timingsPath}/${id}${timingExtension}`;
@@ -27,7 +50,12 @@ export function faultSeconds(
   return timings.get(id) ?? unlistedSeconds;
 }
 
-export function writeTiming(root: string, id: string, seconds: number): void {
+export function writeTiming(
+  root: string,
+  id: string,
+  seconds: number,
+  folder: string = timingsPath,
+): void {
   if (!Number.isFinite(seconds) || seconds < 0)
     throw new Error(
       `Timing for ${id} is ${quoted(String(seconds))}. Repair: pass a non-negative number of seconds.`,
@@ -36,8 +64,12 @@ export function writeTiming(root: string, id: string, seconds: number): void {
     minimumRecordedSeconds,
     Math.round(seconds * 10) / 10,
   );
-  mkdirSync(join(root, timingsPath), { recursive: true });
-  writeFileSync(join(root, timingFile(id)), `${JSON.stringify(rounded)}\n`);
+  const directory = resolve(root, folder);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    join(directory, `${id}${timingExtension}`),
+    `${JSON.stringify(rounded)}\n`,
+  );
 }
 
 export function shardOf(argv: readonly string[]): Selection {

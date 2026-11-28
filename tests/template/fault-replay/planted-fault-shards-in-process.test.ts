@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  extractUpdateTimings,
   faultSeconds,
   faultsInShard,
   readTimings,
@@ -122,13 +124,30 @@ describe("writeTiming", () => {
   test("writes a fault's rounded positive seconds to its timing file for readTimings", () => {
     const root = folder("fault-shards-");
     writeTiming(root, "abc1234-example", 3.46);
+    expect(Object.fromEntries(readTimings(root))).toEqual({
+      "abc1234-example": 3.5,
+    });
+  });
+
+  test("floors a replay faster than 0.1 s to 0.1 s so readTimings never meets 0", () => {
+    const root = folder("fault-shards-");
     writeTiming(root, "fast-fault", 0.01);
     writeTiming(root, "zero-fault", 0);
     expect(Object.fromEntries(readTimings(root))).toEqual({
-      "abc1234-example": 3.5,
       "fast-fault": 0.1,
       "zero-fault": 0.1,
     });
+  });
+
+  test("writes to a separate output folder when given one, leaving the timings folder untouched", () => {
+    const root = folder("fault-shards-");
+    const output = join(root, "shard-timings");
+    writeTiming(root, "abc1234-example", 2.34, output);
+    expect([...readTimings(root)]).toEqual([]);
+    expect(readdirSync(output)).toEqual(["abc1234-example.json"]);
+    expect(readFileSync(join(output, "abc1234-example.json"), "utf8")).toBe(
+      "2.3\n",
+    );
   });
 
   test("refuses a timing that is negative or not finite", () => {
@@ -137,6 +156,41 @@ describe("writeTiming", () => {
       expect(() => writeTiming(root, "bad-fault", seconds)).toThrow(
         `Timing for bad-fault is '${String(seconds)}'. Repair: pass a non-negative number of seconds.`,
       );
+  });
+});
+
+describe("extractUpdateTimings", () => {
+  test("extracts --update-timings and an optional output folder from replay arguments", () => {
+    expect(extractUpdateTimings(["--shard", "1/4"])).toEqual({
+      updateTimings: false,
+      timingsFolder: undefined,
+      args: ["--shard", "1/4"],
+    });
+    expect(
+      extractUpdateTimings(["--shard", "1/4", "--update-timings"]),
+    ).toEqual({
+      updateTimings: true,
+      timingsFolder: undefined,
+      args: ["--shard", "1/4"],
+    });
+    expect(
+      extractUpdateTimings([
+        "--shard",
+        "1/4",
+        "--update-timings=shard-timings",
+      ]),
+    ).toEqual({
+      updateTimings: true,
+      timingsFolder: "shard-timings",
+      args: ["--shard", "1/4"],
+    });
+    expect(
+      extractUpdateTimings(["--shard", "1/4", "--update-timings="]),
+    ).toEqual({
+      updateTimings: false,
+      timingsFolder: undefined,
+      args: ["--shard", "1/4", "--update-timings="],
+    });
   });
 });
 

@@ -17,6 +17,7 @@ import {
 } from "./planted-fault-patch.ts";
 import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
 import {
+  extractUpdateTimings,
   faultsInShard,
   updateTimingsOption,
   writeTiming,
@@ -364,7 +365,10 @@ async function replayOne(
   }
 }
 
-export type ReplayOptions = { readonly updateTimings?: boolean };
+export type ReplayOptions = {
+  readonly updateTimings?: boolean;
+  readonly timingsFolder?: string | undefined;
+};
 
 async function replayFault(
   root: string,
@@ -380,7 +384,8 @@ async function replayFault(
   const seconds = (performance.now() - begun) / 1000;
   report(fault, verdict, seconds, limitMilliseconds);
   if (verdict.kind !== "KILLED") return false;
-  if (options.updateTimings === true) writeTiming(root, fault.id, seconds);
+  if (options.updateTimings === true)
+    writeTiming(root, fault.id, seconds, options.timingsFolder);
   return true;
 }
 
@@ -556,11 +561,8 @@ async function main(
   [command, ...rest]: readonly string[],
 ): Promise<number> {
   if (command === "replay") {
-    const updateTimings = rest.includes(updateTimingsOption);
-    const args = updateTimings
-      ? rest.filter((arg) => arg !== updateTimingsOption)
-      : rest;
-    const options: ReplayOptions = { updateTimings };
+    const { updateTimings, timingsFolder, args } = extractUpdateTimings(rest);
+    const options: ReplayOptions = { updateTimings, timingsFolder };
     if (args[0] === "--changed-since")
       return replayChangedSince(root, args, options);
     if (args[0] === "--shard")
