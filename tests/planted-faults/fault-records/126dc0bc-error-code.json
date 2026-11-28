@@ -1,0 +1,7 @@
+{
+  "id": "126dc0bc-error-code",
+  "patch": "tests/planted-faults/patches/126dc0bc-error-code.patch",
+  "testFile": "tests/kernel/error-code.test.ts",
+  "title": "^errorCode EC01\\.b ignores a code inherited from the prototype$",
+  "source": "126dc0bc feat(shared): add shared errorCode helper and unit tests"
+}

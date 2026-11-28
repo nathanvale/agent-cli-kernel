@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { closeSync, constants, fsyncSync, openSync, writeSync } from "node:fs";
 import { lstat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { errorCode } from "./read.ts";
+import { errorCode } from "../../shared/error-code.ts";
 import { ApprovalRejection } from "./rejection.ts";
 
 export function itemKey(parts: readonly string[]): string {

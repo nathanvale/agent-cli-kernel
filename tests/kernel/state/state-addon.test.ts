@@ -38,10 +38,8 @@ import type {
   PublishedOperation,
 } from "../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../kernel/src/addons/state/fixture.ts";
-import {
-  errorCode,
-  resolveCoordination,
-} from "../../../kernel/src/addons/state/coordination.ts";
+import { errorCode } from "../../../kernel/src/shared/error-code.ts";
+import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 import {
   capabilityQualificationTable,
   movedStateRoot,
@@ -1323,7 +1321,7 @@ function appendOpenCode(path: string): string {
     closeSync(openSync(path, constants.O_WRONLY | constants.O_APPEND));
     return "opened";
   } catch (error) {
-    return errorCode(error);
+    return errorCode(error) ?? "UNKNOWN";
   }
 }
 

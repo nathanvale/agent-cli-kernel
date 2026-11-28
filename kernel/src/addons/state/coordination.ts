@@ -1,5 +1,6 @@
 import { arch, release } from "node:os";
 import { closeSync, constants, openSync } from "node:fs";
+import { errorCode } from "../../shared/error-code.ts";
 import { glibc, loadLinuxFlock } from "./linux-flock.ts";
 import type { FlockResult } from "./linux-flock.ts";
 
@@ -43,14 +44,6 @@ function facts(): string {
   return `platform ${process.platform} ${arch()}, kernel release ${release()}`;
 }
 
-export function errorCode(error: unknown): string {
-  const code: unknown =
-    typeof error === "object" && error !== null
-      ? Reflect.get(error, "code")
-      : undefined;
-  return typeof code === "string" ? code : "UNKNOWN";
-}
-
 function opened(descriptor: number): LockAttempt {
   let open = true;
   return {
@@ -78,7 +71,7 @@ function darwinTryLock(path: string, create = true): LockAttempt {
   try {
     return opened(openSync(path, flags, 0o600));
   } catch (error) {
-    const code = errorCode(error);
+    const code = errorCode(error) ?? "UNKNOWN";
     return code === "EAGAIN" || code === "EWOULDBLOCK"
       ? { kind: "busy" }
       : { kind: "failed", code };
@@ -96,7 +89,7 @@ function flockTryLock(lock: (fd: number) => FlockResult) {
     try {
       descriptor = openSync(path, flags, 0o600);
     } catch (error) {
-      return { kind: "failed", code: errorCode(error) };
+      return { kind: "failed", code: errorCode(error) ?? "UNKNOWN" };
     }
     let result: FlockResult;
     try {

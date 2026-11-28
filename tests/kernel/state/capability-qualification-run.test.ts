@@ -159,6 +159,7 @@ function checkout() {
     "kernel/src/addons/state/install.ts": "install\n",
     "kernel/src/addons/programs/index.ts": "programs\n",
     "kernel/src/kernel/state-seam.ts": "seam\n",
+    "kernel/src/shared/error-code.ts": "error-code\n",
   });
   symlinkSync("state", join(root, "kernel/src/addons/linked-state"));
   git(root, "add", "--", "kernel/src/addons/linked-state");
@@ -1957,8 +1958,11 @@ function linkedSharedFolder(): Checkout {
     ".gitignore": "*.local.ts\n",
     "docs/shared/keep.ts": "kept\n",
   });
-  symlinkSync("../../docs/shared", join(world.root, "kernel/src/shared"));
-  git(world.root, "add", "--", "kernel/src/shared");
+  symlinkSync(
+    "../../docs/shared",
+    join(world.root, "kernel/src/linked-shared"),
+  );
+  git(world.root, "add", "--", "kernel/src/linked-shared");
   git(world.root, "commit", "--quiet", "-m", "link the shared folder");
   return world;
 }
@@ -1982,7 +1986,7 @@ test(
     writeFileSync(join(world.root, "docs/shared/probe.local.ts"), "local\n");
     expect(
       readFileSync(
-        join(world.root, "kernel/src/shared/probe.local.ts"),
+        join(world.root, "kernel/src/linked-shared/probe.local.ts"),
         "utf8",
       ),
     ).toBe("local\n");

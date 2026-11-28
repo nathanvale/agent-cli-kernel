@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import type { Stats } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { errorCode } from "./error-code.ts";
 
 export type RootedRefusal = {
   readonly kind: "refused";
@@ -53,13 +54,6 @@ type OpenedStats = {
   readonly mtimeMs: number;
   readonly nlink: number;
 };
-
-function errorCode(error: unknown): string | undefined {
-  if (!(error instanceof Error) || !Object.hasOwn(error, "code"))
-    return undefined;
-  const code: unknown = Reflect.get(error, "code");
-  return typeof code === "string" ? code : undefined;
-}
 
 function refusal(
   path: string,
