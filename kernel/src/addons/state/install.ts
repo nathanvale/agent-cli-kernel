@@ -1880,6 +1880,53 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
+  async function openUnflagged(
+    gate: WriteGate,
+    issuer: StateIssuer,
+    runId: string,
+    declared: readonly string[],
+    declaration: Declaration,
+    scope: CanonicalScope,
+    admitted: Extract<Awaited<ReturnType<typeof coordinate>>, { ok: true }>,
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: true;
+        readonly opened: NonNullable<Awaited<ReturnType<typeof open>>>;
+      }
+  > {
+    const approval = await consumeApprovalUnflagged(
+      issuer,
+      runId,
+      declaration,
+      scope,
+      admitted.isActive,
+    );
+    if (approval !== null && approval.kind !== "preview")
+      return { ok: false, refusal: approval };
+    const opened = await open(
+      gate,
+      runId,
+      {
+        commandIdentity: declaration.command,
+        effects: [...new Set<string>(declared)].sort(),
+        scope,
+        revisions: { ...declaration.revisions },
+        facts: declaration.facts ?? null,
+        approval,
+        closes: null,
+        coordination: admitted.order,
+      },
+      admitted,
+    );
+    if (!opened)
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: "store-publication" },
+      };
+    return { ok: true, opened };
+  }
+
   async function transactUnflagged<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
@@ -1898,51 +1945,42 @@ export function install(options: StateOptions, seams: Seams) {
       liveOnly: false,
     });
     if (!admitted.ok) return refuse(admitted.refusal);
-    const approval = await consumeApprovalUnflagged(
-      issuer,
-      runId,
-      declaration,
-      scope,
-      admitted.isActive,
-    );
-    if (approval !== null && approval.kind !== "preview") {
-      admitted.release();
-      return refuse(approval);
-    }
-    const opened = await open(
-      gate,
-      runId,
-      {
-        commandIdentity: declaration.command,
-        effects: [...new Set<string>(declared)].sort(),
+    let handedOff = false;
+    try {
+      const prepared = await openUnflagged(
+        gate,
+        issuer,
+        runId,
+        declared,
+        declaration,
         scope,
-        revisions: { ...declaration.revisions },
-        facts: declaration.facts ?? null,
-        approval,
-        closes: null,
-        coordination: admitted.order,
-      },
-      admitted,
-    );
-    if (!opened) {
-      admitted.release();
-      return refuse({ kind: "unavailable", reason: "store-publication" });
+        admitted,
+      );
+      if (!prepared.ok) return refuse(prepared.refusal);
+      const { opened } = prepared;
+      slot.operationId = opened.operationId;
+      handedOff = true;
+      const { observation, workFailed } = await runRecorded(
+        gate,
+        issuer,
+        runId,
+        declared,
+        {
+          events: opened.events,
+          releaseKeyLocks: admitted.release,
+          releaseLease: opened.releaseLease,
+        },
+        work,
+      );
+      slot.outcome = {
+        kind: "ran",
+        operationId: opened.operationId,
+        workFailed,
+      };
+      return issuer.transactionProof(runId, observation);
+    } finally {
+      if (!handedOff) admitted.release();
     }
-    slot.operationId = opened.operationId;
-    const { observation, workFailed } = await runRecorded(
-      gate,
-      issuer,
-      runId,
-      declared,
-      {
-        events: opened.events,
-        releaseKeyLocks: admitted.release,
-        releaseLease: opened.releaseLease,
-      },
-      work,
-    );
-    slot.outcome = { kind: "ran", operationId: opened.operationId, workFailed };
-    return issuer.transactionProof(runId, observation);
   }
 
   async function admitAndOpenFlagged<Effect extends string>(
