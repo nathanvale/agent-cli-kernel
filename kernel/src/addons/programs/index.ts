@@ -7,6 +7,7 @@ import type {
   RunAddon,
   RunControl,
 } from "../../kernel/index.ts";
+import { errorCode } from "../../shared/error-code.ts";
 import { afterDelay } from "./timer.ts";
 
 // Interface: CMD-14: a command that runs a caller-supplied program says so in its
@@ -167,8 +168,7 @@ class OwnedGroup {
       process.kill(-this.pid, 0);
       return false;
     } catch (error) {
-      this.empty =
-        error instanceof Error && "code" in error && error.code === "ESRCH";
+      this.empty = errorCode(error) === "ESRCH";
       return this.empty;
     }
   }

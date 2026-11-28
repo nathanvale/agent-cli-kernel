@@ -1,7 +1,7 @@
 import { release } from "node:os";
 import { capabilityQualificationTable } from "./capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
-import { errorCode } from "./coordination.ts";
+import { errorCode } from "../../shared/error-code.ts";
 import {
   layout,
   readFilesystemStats as statfsSync,
@@ -84,7 +84,7 @@ function attempt<T>(read: () => T): Fact<T> {
   try {
     return { read: true, value: read() };
   } catch (error) {
-    return { read: false, why: errorCode(error) };
+    return { read: false, why: errorCode(error) ?? "UNKNOWN" };
   }
 }
 

@@ -13,14 +13,6 @@ export type RecordFacts = {
 const limitBytes = 16 * 1024;
 const depthLimit = 8;
 
-export function errorCode(error: unknown): string | undefined {
-  return error instanceof Error &&
-    "code" in error &&
-    typeof error.code === "string"
-    ? error.code
-    : undefined;
-}
-
 export function readUntrusted(
   root: string,
   path: string,

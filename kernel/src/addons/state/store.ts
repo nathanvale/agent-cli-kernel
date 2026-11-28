@@ -21,7 +21,7 @@ import {
 import { createHash } from "node:crypto";
 import { isAbsolute, join } from "node:path";
 import type { StateIssuer } from "../../kernel/index.ts";
-import { errorCode } from "./coordination.ts";
+import { errorCode } from "../../shared/error-code.ts";
 import {
   encodeRecord,
   parseRecords,
@@ -131,7 +131,7 @@ export function ensureStore(paths: Layout): boolean {
       try {
         linkSync(staged, paths.format);
       } catch (error) {
-        if (Reflect.get(Object(error), "code") !== "EEXIST") throw error;
+        if (errorCode(error) !== "EEXIST") throw error;
       }
       rmSync(staged, { force: true });
       flushDirectory(paths.root);
@@ -550,7 +550,7 @@ function readOptional(path: string): Uint8Array | undefined {
   try {
     return readJournalFile(path);
   } catch (error) {
-    if (Reflect.get(Object(error), "code") === "ENOENT") return undefined;
+    if (errorCode(error) === "ENOENT") return undefined;
     throw error;
   }
 }
@@ -858,7 +858,7 @@ function linkStagedClosure(staged: string, target: string): boolean {
     linkSync(staged, target);
     return true;
   } catch (error) {
-    if (Reflect.get(Object(error), "code") === "EEXIST") return false;
+    if (errorCode(error) === "EEXIST") return false;
     throw error;
   }
 }

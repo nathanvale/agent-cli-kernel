@@ -1,19 +1,4 @@
 {
-  "kernel/src/addons/approval/read.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
-  "kernel/src/addons/diagnostics/io.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
-  "kernel/src/addons/programs/index.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
   "kernel/src/kernel/command-result.ts": {
     "repository/cause-literal-owner": {
       "count": 3

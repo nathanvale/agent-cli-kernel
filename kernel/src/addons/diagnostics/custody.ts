@@ -17,8 +17,8 @@ import {
 import type { Stats } from "node:fs";
 import { hostname } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { errorCode } from "../../shared/error-code.ts";
 import { xdgBaseFolder } from "../../shared/xdg-base.ts";
-import { errorCode } from "./io.ts";
 import { limits } from "./limits.ts";
 import type { DiagnosticsIo } from "./io.ts";
 

@@ -1,4 +1,5 @@
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { errorCode } from "../../shared/error-code.ts";
 import {
   readLinkStats as lstatSync,
   readLinkTarget as readlinkSync,
@@ -45,10 +46,7 @@ function identity(path: string): { dev: bigint; ino: bigint } {
 }
 
 function missing(error: unknown): boolean {
-  const code: unknown =
-    typeof error === "object" && error !== null
-      ? Reflect.get(error, "code")
-      : undefined;
+  const code = errorCode(error);
   return code === "ENOENT" || code === "ENOTDIR";
 }
 
