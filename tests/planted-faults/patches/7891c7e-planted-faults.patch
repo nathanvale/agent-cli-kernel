@@ -1,17 +1,16 @@
 diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 7b5fa2f4..5505ee13 100644
 --- a/scripts/planted-faults.ts
 +++ b/scripts/planted-faults.ts
-@@ -21,9 +21,5 @@ import { faultsInShard } from "./planted-fault-shards.ts";
- import { snapshotWorkingTree } from "./planted-fault-snapshot.ts";
--import {
--  runWithOwnTools,
+@@ -21,7 +21,6 @@ import { type Verdict } from "./planted-fault-verdict.ts";
+ import {
+   runWithOwnTools,
+   stepLimitMilliseconds as parseStepLimitMilliseconds,
 -  withoutRepositoryLocation,
--} from "./process-runner.ts";
-+import { runWithOwnTools } from "./process-runner.ts";
+ } from "./process-runner.ts";
  
- export const recordsPath = "tests/planted-faults/fault-records";
- const patchFolder = "tests/planted-faults/patches";
-@@ -55,11 +51,11 @@ function quoted(value: string): string {
+ export type { Verdict };
+@@ -55,11 +54,11 @@ function print(line: string): void {
  function git(
    root: string,
    args: readonly string[],
@@ -25,7 +24,7 @@ diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
      stdout: "pipe",
      stderr: "pipe",
      detached: true,
-@@ -81,9 +77,9 @@ function git(
+@@ -81,9 +80,9 @@ function git(
  function gitOrThrow(
    root: string,
    args: readonly string[],
