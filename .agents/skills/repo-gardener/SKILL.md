@@ -43,14 +43,16 @@ owner.
 
 A lint rule's owner determines where to define, enable, and test it.
 
-| Owner              | Rule files                                                      | Turned on in                        | Cases                                         |
-| ------------------ | --------------------------------------------------------------- | ----------------------------------- | --------------------------------------------- |
-| Template           | `config/template-rules.mjs`, `config/platform-rules.mjs`        | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts`      |
-| Template anti-slop | `config/anti-slop-rules.mjs`, `config/anti-slop-type-rules.mjs` | `eslint.config.mjs`                 | `tests/template/lint/anti-slop-rules.test.ts` |
-| Kernel             | `config/kernel-repository-rules.mjs`                            | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`             |
+| Owner              | Rule files                                                      | Turned on in                                             | Cases                                                                       |
+| ------------------ | --------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Shared test rules  | `config/test-rules.mjs`                                         | `eslint.config.mjs`, `config/kernel-repository-lint.mjs` | `tests/template/lint/lint-rules.test.ts`, `tests/kernel/lint-rules.test.ts` |
+| Template           | `config/template-rules.mjs`, `config/platform-rules.mjs`        | `eslint.config.mjs`                                      | `tests/template/lint/lint-rules.test.ts`                                    |
+| Template anti-slop | `config/anti-slop-rules.mjs`, `config/anti-slop-type-rules.mjs` | `eslint.config.mjs`                                      | `tests/template/lint/anti-slop-rules.test.ts`                               |
+| Kernel             | `config/kernel-repository-rules.mjs`                            | `config/kernel-repository-lint.mjs`                      | `tests/kernel/lint-rules.test.ts`                                           |
 
-- A rule both owners need has one copy per owner. Change both copies to
-  the same text, with a case in each owner's cases file.
+- A rule both owners need lives once in `config/test-rules.mjs`, imported and
+  spread by `config/template-rules.mjs` and `config/kernel-repository-rules.mjs`,
+  with a case in each owner's cases file.
 - `eslint-rules.mjs` re-exports the kernel's rule file, and
   `config/kernel-lint.mjs` passes this repository's folders to
   `kernelLint`, the lint that generated repositories run from the installed

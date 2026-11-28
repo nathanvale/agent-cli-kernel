@@ -51,9 +51,8 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   `tests/kernel/kernel-repair/swarm-process.ts` and
   `tests/kernel/lifecycle/harness.ts`). See
   [the gate's coverage](gate-coverage.md#process-lint).
-- Fault `d7109e2-template-bounded-runner` drops `spawn` from the template
-  rule's `bunSpawns` set, and fault `d7109e2-kernel-bounded-runner` drops it
-  from the kernel rule's copy; each owner's lint case kills its fault.
+- Fault `d7109e2-bounded-runner` drops `spawn` from `bunSpawns` in
+  `config/test-rules.mjs`; the `tests-use-bounded-runner` witness test kills it.
 - Review only: test timeouts covering the sum of sequential child bounds,
   teardown order, and process-group `SIGKILL`.
 - Witnessed: [9086c3b], [0ab74b8].
@@ -67,10 +66,8 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   system binary path (`/bin/*`, `/usr/bin/*`, `/usr/local/bin/*`, `/sbin/*`,
   `/usr/sbin/*`, `/usr/local/sbin/*`) in template and kernel tests. See
   [the gate's coverage](gate-coverage.md#fake-tool-lint).
-- Faults `f7adacc-template-stub-tools` and `f7adacc-kernel-stub-tools` invert
-  the system-binary path guard in `config/template-rules.mjs` and
-  `config/kernel-repository-rules.mjs`; the `tests-stub-tools` witness tests
-  kill each.
+- Fault `f7adacc-stub-tools` inverts the system-binary path guard in
+  `config/test-rules.mjs`; the `tests-stub-tools` witness test kills it.
 - Review only: dynamic target paths computed at runtime or passed through
   helper parameters, shell commands that link system binaries, and stub
   scripts that still delegate to an unrelated host binary.
