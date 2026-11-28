@@ -72,14 +72,37 @@ function flushDirectory(path: string): void {
   }
 }
 
+function recheckOpenedJournalFile(
+  opened: ReturnType<typeof fstatSync>,
+  path: string,
+  changedMessage: string,
+  folderMessage: string,
+): void {
+  const current = lstatSync(path);
+  if (
+    current.isSymbolicLink() ||
+    current.dev !== opened.dev ||
+    current.ino !== opened.ino
+  )
+    throw new Error(changedMessage);
+  if (!privateDirectory(dirname(path))) throw new Error(folderMessage);
+}
+
 function readJournalFile(path: string): Uint8Array {
   const descriptor = openSync(
     path,
     constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
   );
   try {
-    if (!fstatSync(descriptor).isFile())
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile())
       throw new Error("The journal file is not a regular file.");
+    recheckOpenedJournalFile(
+      opened,
+      path,
+      "The journal file changed during read.",
+      "The journal folder is not a private directory.",
+    );
     return readFileSync(descriptor);
   } finally {
     closeSync(descriptor);
@@ -702,11 +725,16 @@ export function storeProblem(
   }
   try {
     const journal = journalOf(paths);
-    return privateDirectory(paths.root) &&
-      journal !== undefined &&
-      (journal === journals.one || privateDirectory(paths.settled))
-      ? undefined
-      : "corrupt";
+    if (!privateDirectory(paths.root) || journal === undefined)
+      return "corrupt";
+    if (!privateDirectory(paths.operations)) return "corrupt";
+    if (
+      journal === journals.two
+        ? !privateDirectory(paths.settled)
+        : lstatOptional(paths.settled)?.isSymbolicLink() === true
+    )
+      return "corrupt";
+    return undefined;
   } catch {
     return "unreadable";
   }
@@ -758,6 +786,8 @@ export function moveSettledCase(
   const source = paths.operation(id);
   if (!privateDirectory(source))
     throw new Error(`Case folder ${id} is not a private directory.`);
+  if (!privateDirectory(paths.settled))
+    throw new Error("Settled folder is not a private directory.");
   try {
     lstatSync(paths.settledCase(id));
     return "occupied";
@@ -862,8 +892,15 @@ function writeEventRecord(
       constants.O_NONBLOCK,
   );
   try {
-    if (!fstatSync(descriptor).isFile())
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile())
       throw new Error("The journal events file is not a regular file.");
+    recheckOpenedJournalFile(
+      opened,
+      eventsPath,
+      "The journal events file changed during write.",
+      "Case folder is not a private directory.",
+    );
     if (!endsOnWholeRecord(descriptor))
       throw new Error(
         "The events file does not end on a whole record, so nothing more is appended to this case.",
