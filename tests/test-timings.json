@@ -142,6 +142,7 @@
     "tests/template/check-commits/check-commits-main-in-process.test.ts": 1831,
     "tests/template/check-commits/check-commits-range.test.ts": 13748,
     "tests/template/check-commits/check-commits-worktrees.test.ts": 9499,
+    "tests/template/check-commits/step-time-limits.test.ts": 11300,
     "tests/template/doctor/doctor-fallow.test.ts": 55,
     "tests/template/doctor/doctor-hooks.test.ts": 4183,
     "tests/template/doctor/doctor.test.ts": 699,

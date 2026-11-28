@@ -1,0 +1,7 @@
+{
+  "id": "28f33739-ci",
+  "patch": "tests/planted-faults/patches/28f33739-ci.patch",
+  "testFile": "tests/template/check-commits/step-time-limits.test.ts",
+  "title": "TL\\.f ",
+  "source": "28f33739 ci(commits-shard): set timeout-minutes to 15"
+}
