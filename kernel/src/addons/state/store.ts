@@ -899,7 +899,7 @@ function writeEventRecord(
       opened,
       eventsPath,
       "The journal events file changed during write.",
-      "Case folder is not a private directory.",
+      "Case folder changed to a non-private directory during write.",
     );
     if (!endsOnWholeRecord(descriptor))
       throw new Error(

@@ -276,7 +276,7 @@ supportingTest(
       mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
       const settledFolder = paths.settledCase(id);
       renameSync(paths.operation(id), settledFolder);
-      linkFolderOutside(world, settledFolder, id);
+      const outside = linkFolderOutside(world, settledFolder, id);
 
       const history = await world.history(id);
       expectExactRefusal(
@@ -284,6 +284,8 @@ supportingTest(
         "SCHEMA_SX_STATE_UNREADABLE",
         "The journal is corrupt.",
       );
+      expect(readClosure(paths, id)).toBe("unreadable");
+      rmSync(join(outside, "closure"));
       expect(readClosure(paths, id)).toBe("unreadable");
     }),
   sequentialTimeout(4),
@@ -523,7 +525,9 @@ supportingTest(
         SX_SWAP_FOLDER: folder,
         SX_SWAP_OUTSIDE: outsideWrite,
       });
-      expect(output).toBe("Case folder is not a private directory.");
+      expect(output).toBe(
+        "Case folder changed to a non-private directory during write.",
+      );
       expect(readFileSync(join(outsideWrite, "events")).equals(before)).toBe(
         true,
       );
