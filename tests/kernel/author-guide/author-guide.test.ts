@@ -1,12 +1,24 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
-import { chmod, mkdir, readdir, symlink, writeFile } from "node:fs/promises";
+import { existsSync, linkSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  chmod,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import * as kernel from "../../../kernel/src/kernel/index.ts";
+import { renderHuman } from "../../../kernel/src/kernel/human.ts";
+import { locate as locateDiagnostics } from "../../../kernel/src/addons/diagnostics/custody.ts";
 import { menuAddon } from "../../../kernel/src/addons/menu/index.ts";
 import { runInProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import { createStateAddon } from "../../../kernel/src/kernel/state-seam.ts";
+import { readRootedFile } from "../../../kernel/src/shared/rooted-file-entry.ts";
+import { xdgBaseFolder } from "../../../kernel/src/shared/xdg-base.ts";
 import {
   programDetails,
   programsAddon,
@@ -2811,5 +2823,848 @@ describe("kernel behaviour changing.md states in words", () => {
           },
         },
       });
+  });
+
+  test("changing.md: declaration.revisions is recorded in history and returning before recording leaves transactionState unchanged", async () => {
+    const root = join(ownedFolder("kernel-author-guide-revisions-"), "state");
+    const state = stateAddon({ root, report: "rev.report" });
+    const causes = {
+      ...kernel.commonCauses,
+      DOMAIN_REV_HELD: refusedHandoff,
+      DOMAIN_REV_UNRESOLVED: refusedHandoff,
+      DOMAIN_REV_STALE: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+      },
+      DOMAIN_REV_UNKNOWN: {
+        ...refusedHandoff,
+        outcome: "failed",
+        transactionState: "unknown",
+      },
+    } as const;
+    const handoff = {
+      handoff: {
+        owner: "human",
+        reason: "Check report.",
+        inspect: [{ kind: "command", command: "rev.report", args: [] }],
+      },
+    } as const;
+    const report = kernel.command({
+      identity: "rev.report",
+      route: ["report"],
+      summary: "List unfinished runs.",
+      input: emptyInput,
+      capabilities: {},
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "rev.report",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: {
+            next: { kind: "instruction", text: "Inspect unfinished cases." },
+          },
+          independentObservable: "rev.report:read",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "rev.report", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+    let moved = false;
+    const update = kernel.changing({
+      identity: "rev.update",
+      route: ["update"],
+      summary: "Update a document.",
+      input: emptyInput,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["doc.write"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_REV_HELD",
+      unresolvedCaseCause: "DOMAIN_REV_UNRESOLVED",
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "rev.update",
+          causeCode: "SUCCESS_COMPLETED",
+          trigger: "Updated.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "rev.update:done",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "rev.update",
+          causeCode: "DOMAIN_REV_HELD",
+          trigger: "Held.",
+          repairAction: "Wait.",
+          guidance: handoff,
+          independentObservable: "rev.update:held",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "rev.update",
+          causeCode: "DOMAIN_REV_UNRESOLVED",
+          trigger: "Unresolved.",
+          repairAction: "Inspect report.",
+          guidance: handoff,
+          independentObservable: "rev.update:unresolved",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "rev.update",
+          causeCode: "DOMAIN_REV_STALE",
+          trigger: "Moved.",
+          repairAction: "Re-read and retry.",
+          guidance: {
+            next: { kind: "instruction", text: "Re-read and retry." },
+          },
+          independentObservable: "rev.update:stale",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "rev.update",
+          causeCode: "DOMAIN_REV_UNKNOWN",
+          trigger: "Unknown.",
+          repairAction: "Inspect report.",
+          guidance: handoff,
+          independentObservable: "rev.update:unknown",
+        }),
+      ],
+      run: async (_input, context) => {
+        const outcome = await state.transaction(
+          context.state,
+          {
+            command: "rev.update",
+            scope: { resources: [{ resource: "doc", key: "alpha" }] },
+            revisions: { "doc:alpha": "v1" },
+          },
+          async (transaction) => {
+            if (moved) return;
+            await transaction.record(
+              "doc.write",
+              () => Promise.resolve(),
+              () => Promise.resolve(true),
+            );
+          },
+        );
+        if (outcome.kind !== "ran")
+          return context.result(
+            {
+              commandIdentity: "rev.update",
+              causeCode: "DOMAIN_REV_UNRESOLVED",
+            },
+            { message: outcome.kind, data: null, effects: unchanged },
+          );
+        if (outcome.proof.transactionState === "unchanged")
+          return context.result(
+            { commandIdentity: "rev.update", causeCode: "DOMAIN_REV_STALE" },
+            { message: "Moved.", data: null, effects: unchanged },
+          );
+        if (outcome.proof.transactionState === "completed")
+          return context.result(
+            { commandIdentity: "rev.update", causeCode: "SUCCESS_COMPLETED" },
+            {
+              message: "Updated.",
+              data: { operationId: outcome.operationId },
+              transaction: outcome.proof,
+            },
+          );
+        return context.result(
+          { commandIdentity: "rev.update", causeCode: "DOMAIN_REV_UNKNOWN" },
+          { message: "Unknown.", data: null, transaction: outcome.proof },
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      cli: "rev",
+      commands: [report, update],
+      causes,
+      state: state.descriptor,
+      installedAddons: ["state"],
+    });
+    const run = kernel.runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    });
+    const first = await run(["update"]);
+    expect(first).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { causeCode: "SUCCESS_COMPLETED" } },
+    });
+    const firstData: unknown =
+      first.kind === "envelope" ? first.envelope.result.data : null;
+    const opId: unknown =
+      typeof firstData === "object" &&
+      firstData !== null &&
+      Object.hasOwn(firstData, "operationId")
+        ? Reflect.get(firstData, "operationId")
+        : undefined;
+    expect(typeof opId).toBe("string");
+    if (typeof opId === "string")
+      expect(await state.history(opId)).toMatchObject({
+        ok: true,
+        history: { revisions: { "doc:alpha": "v1" } },
+      });
+    moved = true;
+    expect(await run(["update"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          outcome: "refused",
+          causeCode: "DOMAIN_REV_STALE",
+          transactionState: "unchanged",
+        },
+      },
+    });
+    expect(state.report()).toEqual({ ok: true, unfinished: [] });
+  });
+
+  test("changing.md: a fast local write whose operation throws inside transaction.record leaves transactionState unknown and an unresolved case", async () => {
+    const folder = ownedFolder("kernel-author-guide-fast-local-");
+    const blockedDir = join(folder, "blocked");
+    const openDir = join(folder, "open");
+    await mkdir(blockedDir);
+    await mkdir(openDir);
+    await writeFile(join(blockedDir, "table.json"), '{"v":1}');
+    await writeFile(join(openDir, "table.json"), '{"v":1}');
+    const state = stateAddon({
+      root: join(folder, "state"),
+      report: "fl.report",
+    });
+    const causes = {
+      ...kernel.commonCauses,
+      DOMAIN_FL_HELD: refusedHandoff,
+      DOMAIN_FL_UNRESOLVED: refusedHandoff,
+      DOMAIN_FL_UNKNOWN: {
+        ...refusedHandoff,
+        outcome: "failed",
+        transactionState: "unknown",
+      },
+    } as const;
+    const handoff = {
+      handoff: {
+        owner: "human",
+        reason: "Inspect report.",
+        inspect: [{ kind: "command", command: "fl.report", args: [] }],
+      },
+    } as const;
+    const report = kernel.command({
+      identity: "fl.report",
+      route: ["report"],
+      summary: "List unfinished runs.",
+      input: emptyInput,
+      capabilities: {},
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "fl.report",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: {
+            next: { kind: "instruction", text: "Inspect unfinished cases." },
+          },
+          independentObservable: "fl.report:read",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "fl.report", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+    const writeTable = kernel.changing({
+      identity: "fl.write",
+      route: ["write"],
+      summary: "Update a table.",
+      input: {
+        ...emptyInput,
+        arguments: [
+          {
+            name: "dir",
+            summary: "Target folder.",
+            required: true,
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 512,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
+      },
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["table.write"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_FL_HELD",
+      unresolvedCaseCause: "DOMAIN_FL_UNRESOLVED",
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "fl.write",
+          causeCode: "SUCCESS_COMPLETED",
+          trigger: "Written.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "fl.write:done",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "fl.write",
+          causeCode: "DOMAIN_FL_HELD",
+          trigger: "Held.",
+          repairAction: "Wait.",
+          guidance: handoff,
+          independentObservable: "fl.write:held",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "fl.write",
+          causeCode: "DOMAIN_FL_UNRESOLVED",
+          trigger: "Unresolved.",
+          repairAction: "Inspect report.",
+          guidance: handoff,
+          independentObservable: "fl.write:unresolved",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "fl.write",
+          causeCode: "DOMAIN_FL_UNKNOWN",
+          trigger: "Unknown.",
+          repairAction: "Inspect report.",
+          guidance: handoff,
+          independentObservable: "fl.write:unknown",
+        }),
+      ],
+      run: async (input, context) => {
+        const target = join(input.dir, "table.json");
+        const before = await readFile(target, "utf8");
+        const next = `${before}\n`;
+        const outcome = await state.transaction(
+          context.state,
+          {
+            command: "fl.write",
+            scope: { resources: [{ resource: "table", key: target }] },
+          },
+          async (transaction) => {
+            await transaction.record(
+              "table.write",
+              async () => {
+                const temp = join(input.dir, ".table.tmp");
+                await writeFile(temp, next);
+                await rename(temp, target);
+              },
+              async () => (await readFile(target, "utf8")) === next,
+            );
+          },
+        );
+        if (outcome.kind !== "ran")
+          return context.result(
+            {
+              commandIdentity: "fl.write",
+              causeCode:
+                outcome.kind === "held-lock"
+                  ? "DOMAIN_FL_HELD"
+                  : "DOMAIN_FL_UNRESOLVED",
+            },
+            { message: outcome.kind, data: null, effects: unchanged },
+          );
+        if (outcome.proof.transactionState === "completed")
+          return context.result(
+            { commandIdentity: "fl.write", causeCode: "SUCCESS_COMPLETED" },
+            { message: "Written.", data: null, transaction: outcome.proof },
+          );
+        return context.result(
+          { commandIdentity: "fl.write", causeCode: "DOMAIN_FL_UNKNOWN" },
+          { message: "Unconfirmed.", data: null, transaction: outcome.proof },
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      cli: "fl",
+      commands: [report, writeTable],
+      causes,
+      state: state.descriptor,
+      installedAddons: ["state"],
+    });
+    const run = kernel.runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    });
+    await chmod(blockedDir, 0o555);
+    try {
+      expect(await run(["write", blockedDir])).toMatchObject({
+        kind: "envelope",
+        exitCode: 3,
+        envelope: {
+          result: {
+            outcome: "failed",
+            causeCode: "DOMAIN_FL_UNKNOWN",
+            transactionState: "unknown",
+            effects: {
+              completed: [],
+              remaining: [],
+              uncertain: ["table.write"],
+            },
+          },
+        },
+      });
+      expect(await run(["write", blockedDir])).toMatchObject({
+        kind: "envelope",
+        exitCode: 3,
+        envelope: {
+          result: {
+            outcome: "refused",
+            causeCode: "DOMAIN_FL_UNRESOLVED",
+            transactionState: "unchanged",
+          },
+        },
+      });
+      expect(state.report()).toMatchObject({
+        ok: true,
+        unfinished: [{ commandIdentity: "fl.write", effects: ["table.write"] }],
+      });
+      expect(await run(["write", openDir])).toMatchObject({
+        kind: "envelope",
+        exitCode: 0,
+        envelope: { result: { causeCode: "SUCCESS_COMPLETED" } },
+      });
+    } finally {
+      await chmod(blockedDir, 0o755);
+    }
+  });
+
+  test("source-layout.md: contractFor mounts factory commands with merged cause tables, refuses conflicting duplicate causes and foreign state descriptors", async () => {
+    const packageCauses = {
+      DOMAIN_PKG_BAD: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+      },
+    } as const;
+    const sharedCheckFor = <const Cli extends string>(cli: Cli) =>
+      kernel.command({
+        identity: `${cli}.shared-check`,
+        route: ["shared", "check"],
+        summary: "Check shared item.",
+        input: emptyInput,
+        capabilities: {},
+        stations: [
+          kernel.station(packageCauses, {
+            ...stationWords,
+            commandIdentity: `${cli}.shared-check`,
+            causeCode: "DOMAIN_PKG_BAD",
+            trigger: "Bad.",
+            repairAction: "Fix.",
+            guidance: { next: { kind: "instruction", text: "Fix." } },
+            independentObservable: `${cli}.shared-check:bad`,
+          }),
+        ],
+        run: (_input, context) =>
+          context.result(
+            {
+              commandIdentity: `${cli}.shared-check`,
+              causeCode: "DOMAIN_PKG_BAD",
+            },
+            { message: "Bad.", data: null, effects: unchanged },
+          ),
+      });
+    const mergedCauses = {
+      ...kernel.commonCauses,
+      ...packageCauses,
+      DOMAIN_HOST_HELD: refusedHandoff,
+      DOMAIN_HOST_UNRESOLVED: refusedHandoff,
+    } as const;
+    const mounted = kernel.contractFor({
+      cli: "host",
+      commands: [sharedCheckFor("host")],
+      causes: mergedCauses,
+    });
+    expect(
+      await kernel.runInProcess(mounted)(["shared", "check"]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_PKG_BAD" } },
+    });
+    expect(() =>
+      kernel.contractFor({
+        cli: "host",
+        commands: [sharedCheckFor("host")],
+        causes: {
+          ...kernel.commonCauses,
+          ...packageCauses,
+          DOMAIN_PKG_BAD: {
+            ...packageCauses.DOMAIN_PKG_BAD,
+            guidance: "handoff",
+          },
+        },
+      }),
+    ).toThrow("Station disagrees with the CLI cause owner.");
+    const folder = ownedFolder("kernel-author-guide-mount-state-");
+    const hostState = stateAddon({
+      root: join(folder, "host-state"),
+      report: "host.report",
+    });
+    const foreignState = stateAddon({
+      root: join(folder, "foreign-state"),
+      report: "host.report",
+    });
+    const report = kernel.command({
+      identity: "host.report",
+      route: ["report"],
+      summary: "Report.",
+      input: emptyInput,
+      capabilities: {},
+      stations: [
+        kernel.station(mergedCauses, {
+          ...stationWords,
+          commandIdentity: "host.report",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: {
+            next: { kind: "instruction", text: "Inspect unfinished cases." },
+          },
+          independentObservable: "host.report:read",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "host.report", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+    const handoff = {
+      handoff: {
+        owner: "human",
+        reason: "Inspect.",
+        inspect: [{ kind: "command", command: "host.report", args: [] }],
+      },
+    } as const;
+    const foreignAct = kernel.changing({
+      identity: "host.act",
+      route: ["act"],
+      summary: "Act.",
+      input: emptyInput,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["act.write"],
+      ifNoResult: foreignState.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_HOST_HELD",
+      unresolvedCaseCause: "DOMAIN_HOST_UNRESOLVED",
+      stations: [
+        kernel.station(mergedCauses, {
+          ...stationWords,
+          commandIdentity: "host.act",
+          causeCode: "SUCCESS_COMPLETED",
+          trigger: "Done.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "host.act:done",
+        }),
+        kernel.station(mergedCauses, {
+          ...stationWords,
+          commandIdentity: "host.act",
+          causeCode: "DOMAIN_HOST_HELD",
+          trigger: "Held.",
+          repairAction: "Wait.",
+          guidance: handoff,
+          independentObservable: "host.act:held",
+        }),
+        kernel.station(mergedCauses, {
+          ...stationWords,
+          commandIdentity: "host.act",
+          causeCode: "DOMAIN_HOST_UNRESOLVED",
+          trigger: "Unresolved.",
+          repairAction: "Inspect report.",
+          guidance: handoff,
+          independentObservable: "host.act:unresolved",
+        }),
+      ],
+      run: (_input, context) =>
+        Promise.resolve(
+          context.result(
+            { commandIdentity: "host.act", causeCode: "DOMAIN_HOST_HELD" },
+            { message: "Held.", data: null, effects: unchanged },
+          ),
+        ),
+    });
+    expect(() =>
+      kernel.contractFor({
+        cli: "host",
+        commands: [report, foreignAct],
+        causes: mergedCauses,
+        state: hostState.descriptor,
+        installedAddons: ["state"],
+      }),
+    ).toThrow(
+      "A changing command's ifNoResult step comes from a different state add-on descriptor.",
+    );
+  });
+
+  test("stations.md: a read-only check command can return findings in data on exit 0 or on a carriesData domain refusal with exit 3", async () => {
+    const causes = {
+      ...kernel.commonCauses,
+      DOMAIN_CHECK_FINDINGS: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+        carriesData: true,
+      },
+    } as const;
+    const reportCheck = kernel.command({
+      identity: "chk.report",
+      route: ["report"],
+      summary: "Report findings.",
+      input: emptyInput,
+      capabilities: {},
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "chk.report", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "1 finding.",
+            data: { findings: ["missing title"] },
+            effects: unchanged,
+          },
+        ),
+    });
+    const gateCheck = kernel.command({
+      identity: "chk.gate",
+      route: ["gate"],
+      summary: "Refuse when findings exist.",
+      input: emptyInput,
+      capabilities: {},
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "chk.gate",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "No findings.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "chk.gate:clean",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "chk.gate",
+          causeCode: "DOMAIN_CHECK_FINDINGS",
+          trigger: "One or more findings.",
+          repairAction: "Fix each finding and run gate again.",
+          guidance: {
+            next: { kind: "instruction", text: "Fix each finding." },
+          },
+          independentObservable: "chk.gate:findings",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "chk.gate", causeCode: "DOMAIN_CHECK_FINDINGS" },
+          {
+            message: "1 finding.",
+            data: { findings: ["missing title"] },
+            effects: unchanged,
+          },
+        ),
+    });
+    const contract = kernel.contractFor({
+      cli: "chk",
+      commands: [reportCheck, gateCheck],
+      causes,
+    });
+    const run = kernel.runInProcess(contract);
+    const reportResult = await run(["report"]);
+    expect(reportResult).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: {
+        result: {
+          outcome: "success",
+          causeCode: "SUCCESS_UNCHANGED",
+          data: { findings: ["missing title"] },
+        },
+      },
+    });
+    const gateResult = await run(["gate"]);
+    expect(gateResult).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          outcome: "refused",
+          causeCode: "DOMAIN_CHECK_FINDINGS",
+          data: { findings: ["missing title"] },
+        },
+      },
+    });
+    if (gateResult.kind === "envelope")
+      expect(renderHuman("chk", gateResult.envelope)).toEqual([
+        {
+          stream: "stderr",
+          text: "chk: 1 finding. [DOMAIN_CHECK_FINDINGS]\n",
+        },
+      ]);
+  });
+
+  test("commands.md: readRootedFile returns read, missing, or refused with all seven refusal reasons", async () => {
+    const outer = ownedFolder("kernel-author-guide-rooted-");
+    const root = join(outer, "root");
+    const outside = join(outer, "outside.txt");
+    const sub = join(root, "sub");
+    await mkdir(sub, { recursive: true });
+    await writeFile(outside, "out");
+    await writeFile(join(root, "ok.txt"), "hello");
+    await writeFile(join(root, "hard-target.txt"), "hard");
+    await symlink(outside, join(root, "sym.txt"));
+    await symlink(outer, join(root, "linked-dir"));
+    linkSync(join(root, "hard-target.txt"), join(root, "hard.txt"));
+    const ok = readRootedFile(root, "ok.txt", 16);
+    expect(ok).toMatchObject({
+      kind: "read",
+      facts: { size: 5 },
+    });
+    if (ok.kind === "read") {
+      expect(new TextDecoder("utf-8", { fatal: true }).decode(ok.bytes)).toBe(
+        "hello",
+      );
+      expect(Object.keys(ok.facts).sort()).toEqual([
+        "dev",
+        "gid",
+        "ino",
+        "mode",
+        "mtimeMs",
+        "size",
+        "uid",
+      ]);
+    }
+    expect(readRootedFile(root, "absent.txt", 16)).toEqual({ kind: "missing" });
+    const refusals = [
+      ["../outside.txt", "parent-step"],
+      [outside, "outside-root"],
+      ["sym.txt", "symbolic-link"],
+      ["linked-dir/outside.txt", "linked-folder"],
+      ["hard.txt", "hard-link"],
+      ["sub", "not-regular"],
+      ["ok.txt", "over-limit"],
+    ] as const;
+    for (const [path, reason] of refusals) {
+      const limit = reason === "over-limit" ? 2 : 16;
+      const result = readRootedFile(root, path, limit);
+      expect(result).toMatchObject({ kind: "refused", reason });
+      if (result.kind === "refused")
+        expect(result.message).toContain("Repair:");
+    }
+  });
+
+  test("changing.md: xdgBaseFolder state root matches diagnosticsAddon custody layout under XDG_STATE_HOME", () => {
+    const folder = ownedFolder("kernel-author-guide-xdg-");
+    const stateHome = join(folder, "xdg-state");
+    const home = join(folder, "home");
+    const env = { XDG_STATE_HOME: stateHome, HOME: home };
+    const base = xdgBaseFolder(env, "state");
+    expect(base).toBe(stateHome);
+    expect(locateDiagnostics(env, "moons")).toBe(
+      join(stateHome, "my-agent-dojo", "moons", "diagnostics"),
+    );
+    expect(xdgBaseFolder({ HOME: home }, "state")).toBe(
+      join(home, ".local", "state"),
+    );
+  });
+
+  test("testing.md: --discover-all omits station prose that --discover-command includes, while result.data stays identical across runs", async () => {
+    const list = kernel.command({
+      identity: "snap.list",
+      route: ["list"],
+      summary: "List items.",
+      input: emptyInput,
+      capabilities: {},
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "snap.list", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Listed.", data: [], effects: unchanged },
+        ),
+    });
+    const contract = kernel.contractFor({ cli: "snap", commands: [list] });
+    const run = kernel.runInProcess(contract);
+    const first = await run(["--discover-all"]);
+    const second = await run(["--discover-all"]);
+    const single = await run(["--discover-command", "snap.list"]);
+    expect(first.kind).toBe("envelope");
+    expect(second.kind).toBe("envelope");
+    expect(single.kind).toBe("envelope");
+    if (
+      first.kind === "envelope" &&
+      second.kind === "envelope" &&
+      single.kind === "envelope"
+    ) {
+      expect(first.envelope.result.data).toEqual(second.envelope.result.data);
+      expect(first.envelope.result.runId).not.toBe(
+        second.envelope.result.runId,
+      );
+      expect(first.envelope.result.data).toMatchObject({
+        stationProseSource:
+          "Run --discover-command <identity> for trigger, guidance and repairAction.",
+      });
+      const ownField = (value: unknown, key: string): unknown =>
+        typeof value === "object" && value !== null && Object.hasOwn(value, key)
+          ? Reflect.get(value, key)
+          : undefined;
+      const allCommands = ownField(first.envelope.result.data, "commands");
+      expect(Array.isArray(allCommands)).toBe(true);
+      const listEntry: unknown = Array.isArray(allCommands)
+        ? allCommands.find(
+            (entry: unknown) =>
+              ownField(ownField(entry, "command"), "commandIdentity") ===
+              "snap.list",
+          )
+        : undefined;
+      const allStations = ownField(listEntry, "stations");
+      const firstAllStation: unknown = Array.isArray(allStations)
+        ? allStations[0]
+        : undefined;
+      expect(
+        typeof firstAllStation === "object" && firstAllStation !== null,
+      ).toBe(true);
+      if (typeof firstAllStation === "object" && firstAllStation !== null) {
+        expect(Object.hasOwn(firstAllStation, "trigger")).toBe(false);
+        expect(Object.hasOwn(firstAllStation, "guidance")).toBe(false);
+        expect(Object.hasOwn(firstAllStation, "repairAction")).toBe(false);
+      }
+      const singleStations = ownField(single.envelope.result.data, "stations");
+      const firstSingleStation: unknown = Array.isArray(singleStations)
+        ? singleStations[0]
+        : undefined;
+      expect(
+        typeof firstSingleStation === "object" && firstSingleStation !== null,
+      ).toBe(true);
+      if (
+        typeof firstSingleStation === "object" &&
+        firstSingleStation !== null
+      ) {
+        expect(Object.hasOwn(firstSingleStation, "trigger")).toBe(true);
+        expect(Object.hasOwn(firstSingleStation, "guidance")).toBe(true);
+        expect(Object.hasOwn(firstSingleStation, "repairAction")).toBe(true);
+        expect(Object.hasOwn(firstSingleStation, "independentObservable")).toBe(
+          false,
+        );
+      }
+    }
   });
 });
