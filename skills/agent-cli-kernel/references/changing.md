@@ -455,5 +455,6 @@ the command:
   throws after `transaction.record` starts, the state add-on records
   `effect-unconfirmed`, returns `transactionState: "unknown"`, and leaves
   an unresolved case that blocks the next run on that scope while another
-  scope succeeds. Restore mode `0o755` in a later `"runner": "bun"` step so
-  `verify-cli cleanup` can remove `{scratch}`.
+  scope in a separate writable folder succeeds (a second scope in the
+  `0o555` folder fails too). Restore mode `0o755` in a later `"runner":
+  "bun"` step so `verify-cli cleanup` can remove `{scratch}`.
