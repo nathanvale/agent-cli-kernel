@@ -1,0 +1,7 @@
+{
+  "id": "b9a348ef-file-size-kernel-glossary",
+  "patch": "tests/planted-faults/patches/b9a348ef-file-size-kernel-glossary.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^FS\\.a ",
+  "source": "b9a348ef fix(file-size): scan GLOSSARY.md files under kernel folders"
+}

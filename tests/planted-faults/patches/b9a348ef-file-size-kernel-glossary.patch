@@ -1,0 +1,13 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -58,8 +58,7 @@ function excluded(path: string): boolean {
+     basename(path) === "bun.lock" ||
+     generatedHooks.has(path) ||
+     path.split("/").slice(0, -1).includes("vendor") ||
+-    (basename(path) !== "GLOSSARY.md" &&
+-      excludedFolders.some((folder) => path.startsWith(folder)))
++    excludedFolders.some((folder) => path.startsWith(folder))
+   );
+ }
+ 
