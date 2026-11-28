@@ -397,7 +397,7 @@ function parseScope(value: unknown): CanonicalScope | undefined {
   return { resources, invariants, unknown: scope.unknown, keys };
 }
 
-function parseRevisions(
+export function parseRevisions(
   value: unknown,
 ): Readonly<Record<string, string>> | undefined {
   const revisions = plainObject(value);
@@ -411,7 +411,7 @@ function parseRevisions(
   return out;
 }
 
-function parseApproval(value: unknown): Intent["approval"] | undefined {
+export function parseApproval(value: unknown): Intent["approval"] | undefined {
   if (value === null) return null;
   const approval = plainObject(value);
   const reference = text(approval?.reference);

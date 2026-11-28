@@ -43,6 +43,8 @@ import {
   moveSettledCase,
   openRunWriteGate,
   operationPattern,
+  parseApproval,
+  parseRevisions,
   publishStoreUpgrade,
   readCase,
   readClosure,
@@ -1016,22 +1018,26 @@ function snapshotRevisions(
     return undefined;
   const out: Record<string, string> = {};
   for (const key of reader.keys(raw)) {
-    const value = reader.field(raw, key);
-    if (typeof value !== "string") return undefined;
     Object.defineProperty(out, key, {
-      value,
+      value: reader.field(raw, key),
       enumerable: true,
       writable: false,
       configurable: false,
     });
   }
-  return Object.freeze(out);
+  return parseRevisions(out) === undefined ? undefined : Object.freeze(out);
 }
 
 const approvalBoundary = contractFor({
   cli: "state-approval",
   commands: [],
 }).boundary;
+
+function snapshotPreview(rawPreview: unknown): string | null | undefined {
+  if (rawPreview === undefined) return undefined;
+  const parsed = parseApproval({ kind: "preview", reference: rawPreview });
+  return parsed?.kind === "preview" ? parsed.reference : null;
+}
 
 function snapshotApprovalRequest(
   rawRequest: object,
@@ -1063,7 +1069,8 @@ function snapshotApprovalRequest(
   } catch {
     return undefined;
   }
-  const preview = typeof rawPreview === "string" ? rawPreview : undefined;
+  const preview = snapshotPreview(rawPreview);
+  if (preview === null) return undefined;
   const request: ApprovalRequest = Object.freeze({
     authority,
     resource,
@@ -1904,14 +1911,24 @@ export function install(options: StateOptions, seams: Seams) {
     );
     if (approval !== null && approval.kind !== "preview")
       return { ok: false, refusal: approval };
+    const commandIdentity = declaration.command;
+    const revisions = { ...declaration.revisions };
+    if (
+      parseRevisions(revisions) === undefined ||
+      parseApproval(approval) === undefined
+    )
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: "declaration" },
+      };
     const opened = await open(
       gate,
       runId,
       {
-        commandIdentity: declaration.command,
+        commandIdentity,
         effects: [...new Set<string>(declared)].sort(),
         scope,
-        revisions: { ...declaration.revisions },
+        revisions,
         facts: declaration.facts ?? null,
         approval,
         closes: null,
