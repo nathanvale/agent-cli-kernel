@@ -1,12 +1,12 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -756,8 +756,6 @@ export function moveSettledCase(
+@@ -784,8 +784,6 @@ export function moveSettledCase(
    id: string,
  ): "moved" | "occupied" {
    const source = paths.operation(id);
 -  if (!privateDirectory(source))
 -    throw new Error(`Case folder ${id} is not a private directory.`);
+   if (!privateDirectory(paths.settled))
+     throw new Error("Settled folder is not a private directory.");
    try {
-     lstatSync(paths.settledCase(id));
-     return "occupied";

@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -78,12 +78,5 @@ function recheckOpenedJournalFile(
+   changedMessage: string,
+   folderMessage: string,
+ ): void {
+-  const current = lstatSync(path);
+-  if (
+-    current.isSymbolicLink() ||
+-    current.dev !== opened.dev ||
+-    current.ino !== opened.ino
+-  )
+-    throw new Error(changedMessage);
+   if (!privateDirectory(dirname(path))) throw new Error(folderMessage);
+ }

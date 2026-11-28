@@ -1,0 +1,7 @@
+{
+  "id": "4054a043-store-problem-settled-v1-link",
+  "patch": "tests/planted-faults/patches/4054a043-store-problem-settled-v1-link.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "storeProblem refuses a linked settled/ folder in every journal version",
+  "source": "4054a043 fix(state): recheck opened journal descriptors and refuse linked store folders"
+}

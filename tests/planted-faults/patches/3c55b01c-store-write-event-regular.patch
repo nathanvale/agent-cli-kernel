@@ -1,12 +1,12 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -862,8 +862,6 @@ function writeEventRecord(
-       constants.O_NONBLOCK,
+@@ -893,8 +893,6 @@ function writeEventRecord(
    );
    try {
--    if (!fstatSync(descriptor).isFile())
+     const opened = fstatSync(descriptor);
+-    if (!opened.isFile())
 -      throw new Error("The journal events file is not a regular file.");
-     if (!endsOnWholeRecord(descriptor))
-       throw new Error(
-         "The events file does not end on a whole record, so nothing more is appended to this case.",
+     recheckOpenedJournalFile(
+       opened,
+       eventsPath,
