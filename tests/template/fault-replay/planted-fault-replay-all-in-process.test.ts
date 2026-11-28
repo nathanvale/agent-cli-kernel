@@ -543,11 +543,15 @@ test("O.refuses negative while limit still refuses NaN", () => {
     async () => {
       const { root, id, survivor } = killedAndSurvivor();
 
-      const run = await isolated(() =>
+      const withoutUpdate = await replayedAll(root);
+      expect(withoutUpdate.result).toBe(1);
+      expect([...readTimings(root)]).toEqual([]);
+
+      const withUpdate = await isolated(() =>
         replayAll(root, [], environment, { updateTimings: true }),
       );
 
-      expect(run.result).toBe(1);
+      expect(withUpdate.result).toBe(1);
       const timings = readTimings(root);
       expect(timings.get(id)).toBeGreaterThan(0);
       expect(timings.has(survivor.id)).toBe(false);

@@ -123,9 +123,11 @@ describe("writeTiming", () => {
     const root = folder("fault-shards-");
     writeTiming(root, "abc1234-example", 3.46);
     writeTiming(root, "fast-fault", 0.01);
+    writeTiming(root, "zero-fault", 0);
     expect(Object.fromEntries(readTimings(root))).toEqual({
       "abc1234-example": 3.5,
       "fast-fault": 0.1,
+      "zero-fault": 0.1,
     });
   });
 
