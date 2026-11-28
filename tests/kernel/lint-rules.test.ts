@@ -164,6 +164,41 @@ const fixes = [
       ].join("\n"),
   },
   {
+    rule: "no-in-operator",
+    filePath: "kernel/src/kernel/validation/result.ts",
+    failing:
+      'export const payload = (host: { readonly value: object }) => ("payload" in host.value ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (host: { readonly value: object }): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "kernel/src/kernel/validation/result.ts",
+    failing:
+      "export const payload = (key: string, read: () => object) => (key in read() ? 1 : 0);",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "kernel/src/kernel/validation/result.ts",
+    failing: [
+      "export const names = (value: object): string[] => {",
+      "  const found: string[] = [];",
+      "  for (const field in value) found.push(field);",
+      "  return found;",
+      "};",
+    ].join("\n"),
+    fixed: ([fix]: string[]) =>
+      [
+        "export const names = (value: object): string[] => {",
+        "  const found: string[] = [];",
+        `  ${fix} found.push(field);`,
+        "  return found;",
+        "};",
+      ].join("\n"),
+  },
+  {
     rule: "cause-literal-owner",
     filePath: "kernel/src/kernel/declaration-checks.ts",
     failing:
@@ -277,6 +312,19 @@ const refused = [
       'export const callable = (value: () => void) => "call" in value;',
     ],
     lines: [1, 2, 3, 4],
+  },
+  {
+    rule: "no-in-operator",
+    witness: "computed Reflect.has",
+    filePath: "kernel/src/kernel/validation/result.ts",
+    code: [
+      'export const bracket = (o: object, k: string) => Reflect["has"](o, k);',
+      "export const template = (o: object, k: string) => Reflect[`has`](o, k);",
+      "export function generic<T extends { a: number } | { b: string }>(value: T) {",
+      '  return "c" in value;',
+      "}",
+    ],
+    lines: [1, 2, 4],
   },
   {
     rule: "cause-literal-owner",
@@ -394,6 +442,19 @@ const admitted = [
       "  const descriptor = Object.getOwnPropertyDescriptor(value, key);",
       '  return descriptor !== undefined && "value" in descriptor;',
       "};",
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason:
+      "narrows a generic constrained to a union by a member's declared key",
+    filePath: "kernel/src/kernel/lifecycle.ts",
+    code: [
+      "export function has<T extends { a: number } | { b: string }>(value: T) {",
+      '  return "a" in value;',
+      "}",
+      'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };',
+      'export const reflected = (shape: Shape) => Reflect["has"](shape, "a");',
     ],
   },
   {

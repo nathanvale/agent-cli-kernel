@@ -1,0 +1,7 @@
+{
+  "id": "9a59e8f6-eslint-rules",
+  "patch": "tests/planted-faults/patches/9a59e8f6-eslint-rules.patch",
+  "testFile": "tests/kernel/lint-rules.test.ts",
+  "title": "^no-in-operator (refuses the computed Reflect\\.has|admits a value that narrows a generic)",
+  "source": "9a59e8f6 fix(lint): port repository no-in-operator logic into shipped rule"
+}
