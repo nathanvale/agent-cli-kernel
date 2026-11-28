@@ -13,10 +13,10 @@ const literalKey = (node) =>
     : node?.type === "TemplateLiteral" && node.expressions.length === 0
       ? node.quasis[0]?.value.cooked
       : undefined;
-export const propertyName = (node, context) =>
+export const propertyName = (node, context, depth = 0) =>
   node.computed
     ? context
-      ? staticString(context, node.property)
+      ? staticString(context, node.property, depth)
       : literalKey(node.property)
     : node.property.name;
 const lookup = (context, node) => {
@@ -147,8 +147,8 @@ const staticFolders = {
   CallExpression: (context, { callee, arguments: args }, depth) => {
     if (
       callee.type !== "MemberExpression" ||
-      propertyName(callee, context) !== "join" ||
-      callee.object.type !== "ArrayExpression"
+      callee.object.type !== "ArrayExpression" ||
+      propertyName(callee, context, depth + 1) !== "join"
     )
       return undefined;
     const parts = foldAll(
