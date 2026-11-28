@@ -80,7 +80,12 @@ export function checkCommitsFixture() {
     {
       signalAt,
       ownGroup = false,
-    }: { signalAt?: SignalAt; ownGroup?: boolean } = {},
+      boundMilliseconds,
+    }: {
+      signalAt?: SignalAt;
+      ownGroup?: boolean;
+      boundMilliseconds?: number;
+    } = {},
   ) {
     const temporary = folder("check-commits-tmp-");
     const entry = [process.execPath, "run", "check:commits", ...args];
@@ -92,6 +97,7 @@ export function checkCommitsFixture() {
         cwd: root,
         env: { ...inherited(), ...gitEnv, TMPDIR: temporary, ...env },
         signalAt,
+        ...(boundMilliseconds === undefined ? {} : { boundMilliseconds }),
       },
     );
     return { ...run, temporary, lines: run.stdout.split("\n") };

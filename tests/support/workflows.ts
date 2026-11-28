@@ -15,6 +15,7 @@ export type Job = {
   readonly name?: string;
   readonly if?: string;
   readonly needs?: string | string[];
+  readonly "timeout-minutes"?: number;
   readonly permissions?: Record<string, string>;
   readonly outputs?: Record<string, string>;
   readonly steps: readonly Step[];
