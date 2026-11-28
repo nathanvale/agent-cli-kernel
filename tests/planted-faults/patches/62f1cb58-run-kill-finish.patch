@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a58cf68..47bfe488 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -455,7 +455,6 @@ function session(
+       inputClosed = true;
+       frozen = true;
+       if (!pumping) closeWithoutMarker();
+-      finishing ??= finishWork();
+     },
+   };
+ }

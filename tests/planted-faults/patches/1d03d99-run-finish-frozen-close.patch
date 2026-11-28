@@ -1,12 +1,12 @@
 diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
-index 0a258359..34de0d96 100644
 --- a/kernel/src/addons/diagnostics/run.ts
 +++ b/kernel/src/addons/diagnostics/run.ts
-@@ -357,7 +357,7 @@ function session(
-       pump();
+@@ -369,8 +369,7 @@ function session(
        await pumping;
      }
+     if (pumping) await pumping;
 -    if (!frozen) closeSink();
+-    else closeWithoutMarker();
 +    closeSink();
    }
  

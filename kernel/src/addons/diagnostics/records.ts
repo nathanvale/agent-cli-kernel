@@ -18,6 +18,13 @@ export type Line = {
   readonly truncated: boolean;
 };
 type Cut = { truncated: boolean };
+type Walk = { readonly seen: Set<object>; visited: number };
+
+function nullPrototypeRecord(): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  Object.setPrototypeOf(result, null);
+  return result;
+}
 
 function forms(secrets: readonly string[]): readonly string[] {
   const all = new Set<string>();
@@ -61,44 +68,77 @@ function boundedString(
   return `${text.slice(0, limits.recordBytes)}${lost(cut, markers.record)}`;
 }
 
-function boundedObject(
-  value: unknown,
+function boundedArray(
+  value: readonly unknown[],
   secretForms: readonly string[],
   level: number,
   cut: Cut,
-  seen: Set<object>,
-): unknown {
-  if (Array.isArray(value)) {
-    const items: unknown[] = value
-      .slice(0, limits.entries)
-      .map((item: unknown) => bounded(item, secretForms, level + 1, cut, seen));
-    if (value.length > limits.entries)
-      items.push(
-        lost(cut, `[truncated: ${value.length - limits.entries} more entries]`),
-      );
-    return items;
+  walk: Walk,
+): unknown[] {
+  const items: unknown[] = [];
+  const count = Math.min(value.length, limits.entries);
+  for (let index = 0; index < count; index += 1) {
+    if (walk.visited >= limits.traversalNodes) {
+      items.push(lost(cut, markers.record));
+      return items;
+    }
+    items.push(bounded(value[index], secretForms, level + 1, cut, walk));
   }
-  if (typeof value !== "object" || value === null)
-    return lost(cut, markers.unserialisable);
-  const prototype: unknown = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null)
-    return lost(cut, markers.unserialisable);
-  const result: Record<string, unknown> = {};
+  if (value.length > limits.entries)
+    items.push(
+      lost(cut, `[truncated: ${value.length - limits.entries} more entries]`),
+    );
+  return items;
+}
+
+function boundedPlainObject(
+  value: object,
+  secretForms: readonly string[],
+  level: number,
+  cut: Cut,
+  walk: Walk,
+): Record<string, unknown> {
+  const result = nullPrototypeRecord();
   const keys = Object.keys(value);
-  for (const key of keys.slice(0, limits.entries))
+  const count = Math.min(keys.length, limits.entries);
+  for (let index = 0; index < count; index += 1) {
+    if (walk.visited >= limits.traversalNodes) {
+      result["[truncated]"] = lost(cut, markers.record);
+      return result;
+    }
+    const key = keys[index];
+    if (key === undefined) continue;
     result[conceal(key, secretForms)] = bounded(
       Reflect.get(value, key),
       secretForms,
       level + 1,
       cut,
-      seen,
+      walk,
     );
+  }
   if (keys.length > limits.entries)
     result["[truncated]"] = lost(
       cut,
       `${keys.length - limits.entries} more keys`,
     );
   return result;
+}
+
+function boundedObject(
+  value: unknown,
+  secretForms: readonly string[],
+  level: number,
+  cut: Cut,
+  walk: Walk,
+): unknown {
+  if (Array.isArray(value))
+    return boundedArray(value, secretForms, level, cut, walk);
+  if (typeof value !== "object" || value === null)
+    return lost(cut, markers.unserialisable);
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null)
+    return lost(cut, markers.unserialisable);
+  return boundedPlainObject(value, secretForms, level, cut, walk);
 }
 
 function boundedScalar(
@@ -119,18 +159,27 @@ function bounded(
   secretForms: readonly string[],
   level: number,
   cut: Cut,
-  seen: Set<object> = new Set(),
+  walk: Walk = { seen: new Set(), visited: 0 },
 ): unknown {
+  if (walk.visited >= limits.traversalNodes) return lost(cut, markers.record);
+  walk.visited += 1;
   if (typeof value !== "object" || value === null)
     return boundedScalar(value, secretForms, cut);
-  if (seen.has(value)) return lost(cut, markers.cycle);
+  if (walk.seen.has(value)) return lost(cut, markers.cycle);
   if (level >= limits.depth) return lost(cut, markers.depth);
-  seen.add(value);
+  walk.seen.add(value);
   try {
-    return boundedObject(value, secretForms, level, cut, seen);
+    return boundedObject(value, secretForms, level, cut, walk);
   } finally {
-    seen.delete(value);
+    walk.seen.delete(value);
   }
+}
+
+export function boundedValue(
+  value: unknown,
+  secrets: readonly string[] = [],
+): unknown {
+  return bounded(value, forms(secrets), 0, { truncated: false });
 }
 
 function header(record: LogRecord, cut: Cut) {

@@ -107,9 +107,13 @@ describe("D10 sink faults and the stuck flush", () => {
       const pending: ((count: number) => void)[] = [];
       let writes = 0;
       let closes = 0;
+      let sizeCalls = 0;
       const io: DiagnosticsIo = {
         open: nodeIo.open,
-        size: nodeIo.size,
+        size: (descriptor) => {
+          sizeCalls += 1;
+          return nodeIo.size(descriptor);
+        },
         write: (_descriptor, bytes) => {
           writes += 1;
           return new Promise((resolve) =>
@@ -143,7 +147,11 @@ describe("D10 sink faults and the stuck flush", () => {
       expect(JSON.stringify(await attached.freeze(500))).toBe(snapshot);
       expect(get(frozen, "sinkFailure")).toBe("flush-timeout");
       expect(writes).toBe(1);
-      expect(closes).toBe(0);
+      expect(closes).toBe(1);
+      expect(sizeCalls).toBe(0);
+      expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
+        "file",
+      ]);
       const after = statSync(onlyLog(where.dir).path);
       expect(after.size).toBe(before.size);
       expect(after.mtimeMs).toBe(before.mtimeMs);

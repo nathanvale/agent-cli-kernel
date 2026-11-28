@@ -1,0 +1,58 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a58cf68..0a258359 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -175,7 +175,6 @@ function session(
+   let accounting: "ok" | "invalid" | "unavailable" = "ok";
+   let opened: Opened | undefined;
+   let closed = false;
+-  let released = false;
+   let pipeline: RunPipeline | undefined;
+   let setup: Promise<void> | undefined;
+   let pumping: Promise<void> | undefined;
+@@ -341,9 +340,8 @@ function session(
+   }
+ 
+   function closeSink() {
+-    if (!opened || released) return;
++    if (!opened) return;
+     const size = checkedSize(opened.descriptor);
+-    released = true;
+     try {
+       io.close(opened.descriptor);
+       closed = true;
+@@ -353,25 +351,13 @@ function session(
+     if (closed && size !== undefined) confirmClosed(opened, size);
+   }
+ 
+-  function closeWithoutMarker() {
+-    if (!opened || released) return;
+-    released = true;
+-    try {
+-      io.close(opened.descriptor);
+-    } catch {
+-      return;
+-    }
+-  }
+-
+   async function finishWork() {
+     if (setup) await setup;
+     while (state === "open" && queue.length > 0 && !frozen) {
+       pump();
+       await pumping;
+     }
+-    if (pumping) await pumping;
+     if (!frozen) closeSink();
+-    else closeWithoutMarker();
+   }
+ 
+   function finish(limitMilliseconds: number) {
+@@ -454,8 +440,6 @@ function session(
+     killNow() {
+       inputClosed = true;
+       frozen = true;
+-      if (!pumping) closeWithoutMarker();
+-      finishing ??= finishWork();
+     },
+   };
+ }

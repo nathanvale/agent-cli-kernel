@@ -175,6 +175,7 @@ function session(
   let accounting: "ok" | "invalid" | "unavailable" = "ok";
   let opened: Opened | undefined;
   let closed = false;
+  let released = false;
   let pipeline: RunPipeline | undefined;
   let setup: Promise<void> | undefined;
   let pumping: Promise<void> | undefined;
@@ -340,8 +341,9 @@ function session(
   }
 
   function closeSink() {
-    if (!opened) return;
+    if (!opened || released) return;
     const size = checkedSize(opened.descriptor);
+    released = true;
     try {
       io.close(opened.descriptor);
       closed = true;
@@ -351,13 +353,25 @@ function session(
     if (closed && size !== undefined) confirmClosed(opened, size);
   }
 
+  function closeWithoutMarker() {
+    if (!opened || released) return;
+    released = true;
+    try {
+      io.close(opened.descriptor);
+    } catch {
+      return;
+    }
+  }
+
   async function finishWork() {
     if (setup) await setup;
     while (state === "open" && queue.length > 0 && !frozen) {
       pump();
       await pumping;
     }
+    if (pumping) await pumping;
     if (!frozen) closeSink();
+    else closeWithoutMarker();
   }
 
   function finish(limitMilliseconds: number) {
@@ -440,6 +454,8 @@ function session(
     killNow() {
       inputClosed = true;
       frozen = true;
+      if (!pumping) closeWithoutMarker();
+      finishing ??= finishWork();
     },
   };
 }

@@ -1,0 +1,33 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -77,10 +77,6 @@ function boundedArray(
+   const items: unknown[] = [];
+   const count = Math.min(value.length, limits.entries);
+   for (let index = 0; index < count; index += 1) {
+-    if (walk.visited >= limits.traversalNodes) {
+-      items.push(lost(cut, markers.record));
+-      return items;
+-    }
+     items.push(bounded(value[index], secretForms, level + 1, cut, walk));
+   }
+   if (value.length > limits.entries)
+@@ -102,10 +98,6 @@ function boundedPlainObject(
+   const keys = Object.keys(value);
+   const count = Math.min(keys.length, limits.entries);
+   for (let index = 0; index < count; index += 1) {
+-    if (walk.visited >= limits.traversalNodes) {
+-      result["[truncated]"] = lost(cut, markers.record);
+-      return result;
+-    }
+     const key = keys[index];
+     if (key === undefined) continue;
+     result[conceal(key, secretForms)] = bounded(
+@@ -162,7 +154,6 @@ function bounded(
+   cut: Cut,
+   walk: Walk = { seen: new Set(), visited: 0 },
+ ): unknown {
+-  if (walk.visited >= limits.traversalNodes) return lost(cut, markers.record);
+   walk.visited += 1;
+   if (typeof value !== "object" || value === null)
+     return boundedScalar(value, secretForms, cut);

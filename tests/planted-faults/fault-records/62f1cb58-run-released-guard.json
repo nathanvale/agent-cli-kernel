@@ -1,0 +1,7 @@
+{
+  "id": "62f1cb58-run-released-guard",
+  "patch": "tests/planted-faults/patches/62f1cb58-run-released-guard.patch",
+  "testFile": "tests/kernel/diagnostics/close-and-budget.test.ts",
+  "title": "S10\\.kill-after-close-does-not-double-close",
+  "source": "62f1cb58 fix(diagnostics): close descriptor on freeze/kill, bound walk, and preserve own __proto__"
+}

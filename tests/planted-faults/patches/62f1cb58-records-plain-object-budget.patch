@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index 6117e296..288b0591 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -102,10 +102,6 @@ function boundedPlainObject(
+   const keys = Object.keys(value);
+   const count = Math.min(keys.length, limits.entries);
+   for (let index = 0; index < count; index += 1) {
+-    if (walk.visited >= limits.traversalNodes) {
+-      result["[truncated]"] = lost(cut, markers.record);
+-      return result;
+-    }
+     const key = keys[index];
+     if (key === undefined) continue;
+     result[conceal(key, secretForms)] = bounded(

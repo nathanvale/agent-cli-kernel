@@ -1,0 +1,33 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a58cf68..e6860053 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -175,7 +175,6 @@ function session(
+   let accounting: "ok" | "invalid" | "unavailable" = "ok";
+   let opened: Opened | undefined;
+   let closed = false;
+-  let released = false;
+   let pipeline: RunPipeline | undefined;
+   let setup: Promise<void> | undefined;
+   let pumping: Promise<void> | undefined;
+@@ -341,9 +340,8 @@ function session(
+   }
+ 
+   function closeSink() {
+-    if (!opened || released) return;
++    if (!opened) return;
+     const size = checkedSize(opened.descriptor);
+-    released = true;
+     try {
+       io.close(opened.descriptor);
+       closed = true;
+@@ -354,8 +352,7 @@ function session(
+   }
+ 
+   function closeWithoutMarker() {
+-    if (!opened || released) return;
+-    released = true;
++    if (!opened) return;
+     try {
+       io.close(opened.descriptor);
+     } catch {
