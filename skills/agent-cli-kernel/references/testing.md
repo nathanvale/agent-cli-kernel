@@ -122,13 +122,14 @@ data:
   `{ command, semantics, ifNoResult, input, stations }`, including each
   station's `trigger`, `guidance` and `repairAction` (and omitting
   `independentObservable`, which discovery never prints).
-- Across runs, `envelope.result.runId` changes on every invocation, and
-  `envelope.diagnostics` (present when the diagnostics add-on is attached)
-  carries a run-specific log file path. `envelope.result.data` does not
-  change from run to run.
+- Across runs, `envelope.result.runId` changes on every invocation, while
+  `envelope.result.data` does not change from run to run. Discovery envelopes
+  never carry `envelope.diagnostics`, even when the diagnostics add-on is
+  installed and supplied, because built-in navigation returns before any
+  capability or reporter attaches.
 - Snapshot `envelope.result.data` from `--discover-all --json` (or strip
-  `result.runId` and `diagnostics` if snapshotting the whole envelope) to
-  pin routes, inputs and cause codes.
+  `result.runId` if snapshotting the whole envelope) to pin routes, inputs
+  and cause codes.
 - Snapshot `envelope.result.data` from `--discover-command <identity> --json`
   for any command whose `trigger`, `guidance` or `repairAction` is part of
   the tested contract.
