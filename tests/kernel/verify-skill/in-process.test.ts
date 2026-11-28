@@ -1047,6 +1047,236 @@ describe("how drive runs and keeps a step", () => {
     watchdog(4),
   );
 
+  test(
+    "drive refuses a linked scratch folder while allowing a linked verification run folder",
+    async () => {
+      const at = world();
+      const outside = join(at.folder, "outside");
+      mkdirSync(outside);
+      writeFileSync(join(outside, "secret.txt"), "outside");
+
+      const run = runFolder(at, "r-linked-scratch");
+      const launched = await helperContract(at.env, [
+        "launch",
+        run,
+        at.example,
+      ]).inProcess();
+      expect(launched.kind).toBe("envelope");
+      const place = verificationRun(run);
+      const swapScratch =
+        'const fs = require("node:fs"); fs.rmSync(process.argv[1], { recursive: true, force: true }); fs.symlinkSync(process.argv[2], process.argv[1]);';
+
+      const scenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "linked-scratch",
+        steps: [
+          {
+            name: "live-linked-scratch",
+            runner: "bun",
+            argv: ["-e", swapScratch, "{scratch}", outside],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/secret.txt", content: "outside" }],
+            },
+          },
+          {
+            name: "dangling-linked-scratch",
+            runner: "bun",
+            argv: ["-e", swapScratch, "{scratch}", join(at.folder, "nowhere")],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/lock", absent: true }],
+            },
+          },
+        ],
+      });
+
+      const driven = await helperContract(at.env, [
+        "drive",
+        run,
+        scenario,
+      ]).inProcess();
+      if (driven.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${driven.kind}.`);
+      expect(driven.envelope.result.causeCode).toBe(
+        "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      );
+
+      for (const name of ["live-linked-scratch", "dangling-linked-scratch"]) {
+        const kept: unknown = JSON.parse(
+          readFileSync(
+            join(place.evidence, "linked-scratch", `${name}.json`),
+            "utf8",
+          ),
+        );
+        expect({
+          verdict: field(kept, "verdict"),
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          fileKinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({
+          verdict: "unmet",
+          unmet: ["files.0"],
+          files: [null],
+          fileKinds: ["symbolic-link"],
+        });
+      }
+
+      const realRun = runFolder(at, "r-linked-run-target");
+      const launchedReal = await helperContract(at.env, [
+        "launch",
+        realRun,
+        at.example,
+      ]).inProcess();
+      expect(launchedReal.kind).toBe("envelope");
+      writeFileSync(
+        join(verificationRun(realRun).scratch, "plain.txt"),
+        "plain",
+      );
+      const linkedRun = join(at.folder, "r-linked-run");
+      symlinkSync(realRun, linkedRun);
+
+      const linkedRunScenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "linked-run-folder",
+        steps: [
+          {
+            name: "file-under-linked-run",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/plain.txt", content: "plain" }],
+            },
+          },
+        ],
+      });
+
+      const drivenLinkedRun = await helperContract(at.env, [
+        "drive",
+        linkedRun,
+        linkedRunScenario,
+      ]).inProcess();
+      if (drivenLinkedRun.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${drivenLinkedRun.kind}.`);
+      expect(drivenLinkedRun.envelope.result.causeCode).toBe(
+        "SUCCESS_COMPLETED",
+      );
+      const keptLinkedRun: unknown = JSON.parse(
+        readFileSync(
+          join(
+            verificationRun(linkedRun).evidence,
+            "linked-run-folder",
+            "file-under-linked-run.json",
+          ),
+          "utf8",
+        ),
+      );
+      expect({
+        verdict: field(keptLinkedRun, "verdict"),
+        unmet: field(keptLinkedRun, "unmet"),
+        files: field(keptLinkedRun, "observed", "files"),
+        fileKinds: field(keptLinkedRun, "observed", "fileKinds"),
+      }).toEqual({
+        verdict: "met",
+        unmet: [],
+        files: ["plain"],
+        fileKinds: ["file"],
+      });
+    },
+    watchdog(4),
+  );
+
+  test(
+    "drive refuses an in-scratch or dangling linked parent folder",
+    async () => {
+      const at = world();
+      const run = runFolder(at, "r-ancestor-links");
+      const launched = await helperContract(at.env, [
+        "launch",
+        run,
+        at.example,
+      ]).inProcess();
+      expect(launched.kind).toBe("envelope");
+      const place = verificationRun(run);
+      const sub = join(place.scratch, "sub");
+      mkdirSync(sub);
+      writeFileSync(join(sub, "plain.txt"), "inside");
+      symlinkSync(sub, join(place.scratch, "alias-dir"));
+      symlinkSync(
+        join(place.scratch, "nowhere"),
+        join(place.scratch, "dangling-dir"),
+      );
+
+      const scenario = scenarioFile(at, {
+        schema: "verify-scenario/1",
+        feature: "ancestor-links",
+        steps: [
+          {
+            name: "in-scratch-linked-parent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [
+                { path: "{scratch}/alias-dir/plain.txt", content: "inside" },
+              ],
+            },
+          },
+          {
+            name: "dangling-linked-parent",
+            runner: "bun",
+            argv: ["-e", ""],
+            expect: {
+              exitCode: 0,
+              stderr: "",
+              files: [{ path: "{scratch}/dangling-dir/lock", absent: true }],
+            },
+          },
+        ],
+      });
+
+      const driven = await helperContract(at.env, [
+        "drive",
+        run,
+        scenario,
+      ]).inProcess();
+      if (driven.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${driven.kind}.`);
+      expect(driven.envelope.result.causeCode).toBe(
+        "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      );
+
+      for (const name of [
+        "in-scratch-linked-parent",
+        "dangling-linked-parent",
+      ]) {
+        const kept: unknown = JSON.parse(
+          readFileSync(
+            join(place.evidence, "ancestor-links", `${name}.json`),
+            "utf8",
+          ),
+        );
+        expect({
+          verdict: field(kept, "verdict"),
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          fileKinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({
+          verdict: "unmet",
+          unmet: ["files.0"],
+          files: [null],
+          fileKinds: ["symbolic-link"],
+        });
+      }
+    },
+    watchdog(4),
+  );
+
   test("an expected file holds only as a file, and an absent one only when nothing stands there", () => {
     const step: ScenarioStep = {
       name: "s",
