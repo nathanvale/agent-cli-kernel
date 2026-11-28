@@ -36,9 +36,17 @@ const state = stateAddon({
 });
 ```
 
-Take the state folder from an argument or a variable, as `moons` takes
-`MOONS_HOME`. A test then passes its own folder, and verify-cli puts it in a
-run's scratch folder.
+Resolve the default state folder with `xdgBaseFolder(process.env, "state")`
+from `agent-cli-kernel/xdg-base` under
+`join(base, "my-agent-dojo", cli, "state")` (falling back to
+`join(homedir(), ".local", "state")` when `xdgBaseFolder` returns
+`undefined`). The diagnostics add-on uses
+`join(base, "my-agent-dojo", cli, "diagnostics")`, so setting `XDG_STATE_HOME`
+isolates both state and diagnostics in tests and in verify-cli with no
+test-only environment variable in `src/`. A CLI may also accept an explicit
+tool-scoped folder argument or environment variable (as `moons` accepts
+`MOONS_HOME`) and pass the folder into its contract-builder function for
+in-process tests.
 
 `changing` takes `command`'s fields, and these beside `capabilities`:
 
@@ -148,6 +156,16 @@ code 3), and leaves nothing pending.
 - `transaction(context.state, declaration, work)` opens the transaction.
   `scope` is what it locks; see [Choosing the scope](#choosing-the-scope).
   `facts` is kept with the case.
+- `declaration.revisions` is an optional map of resource keys to observed
+  revision strings. `state.transaction` records it in the journal intent,
+  returns it from `state.history(operationId)` as `history.revisions`, and
+  passes it to recovery observers. The state add-on does not compare
+  `declaration.revisions` against the live resource when taking the lock,
+  and offers no built-in staleness check today. If `work` returns before
+  calling `transaction.record`, `state.transaction` finishes with
+  `outcome.kind === "ran"` and `outcome.proof.transactionState === "unchanged"`,
+  which allows returning a refused `unchanged` station with
+  `effects: nothingChanged` and leaves no unresolved case.
 - Inside `work`, call `transaction.record(effect, operation, readBack)`
   once for each effect, in order, and await each one.
 - `outcome.kind` is `"ran"`, or the refusal that kept the work from
@@ -421,3 +439,22 @@ Then drive the real CLI with verify-cli's changing-command feature, in
 Its scenario runs a first change, a second run, an empty report, a run
 stopped by its time limit, the refusal and the listing it leaves, and a
 change to another scope.
+
+A fast `repository-local` command with no external program finishes before a
+step time limit can interrupt it. To reach `transactionState: "unknown"` and
+an unresolved case without a test seam in `src/`, prepare a real filesystem
+condition in `{scratch}` with a `"runner": "bun"` setup step before running
+the command:
+
+- For a direct file write, symlink the destination file to `/dev/null` so
+  `readBack` returns `false`.
+- For an atomic write-and-rename (which replaces a symlink), keep the
+  existing target file readable so pre-transaction look-ups pass, and set
+  the target's parent folder to mode `0o555` so creating the temp file or
+  renaming throws `EACCES` inside `transaction.record`. When `operation`
+  throws after `transaction.record` starts, the state add-on records
+  `effect-unconfirmed`, returns `transactionState: "unknown"`, and leaves
+  an unresolved case that blocks the next run on that scope while another
+  scope in a separate writable folder succeeds (a second scope in the
+  `0o555` folder fails too). Restore mode `0o755` in a later `"runner":
+  "bun"` step so `verify-cli cleanup` can remove `{scratch}`.

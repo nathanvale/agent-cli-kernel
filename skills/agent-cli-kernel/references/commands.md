@@ -36,9 +36,7 @@ import type { CauseTable } from "agent-cli-kernel";
   and absolute paths.
 - `readRootedFile(root, path, limitBytes)` from `agent-cli-kernel/rooted-file`
   reads a regular file inside a folder root when the path came from outside
-  (derived or user-given), declining any path with a `..` segment
-  (`parent-step`) before touching the filesystem, and refusing links, escapes
-  and over-limit reads.
+  (derived or user-given); see [Rooted files](#rooted-files).
 - `xdgBaseFolder(environment, kind, options?)` from `agent-cli-kernel/xdg-base`
   resolves a CLI's XDG base folder for config, data, state, cache or runtime.
 - `runProcess(contract, setup)(argv)` is the entry. It parses, routes, runs
@@ -250,6 +248,37 @@ it out and the CLI uses none.
   argument or an option the command does not declare.
 - The exit code comes from the result's cause: 0 success, 1 internal,
   2 usage, 3 domain, 4 schema, 75 transient.
+
+## Rooted files
+
+Use `readRootedFile(root, path, limitBytes)` from
+`agent-cli-kernel/rooted-file` instead of `node:fs` whenever a command reads a
+single file inside a folder root from an externally derived or user-given
+path. `kernelLint` does not enforce this in consumer repositories; review
+checks it.
+
+- `readRootedFile` returns a `RootedFileResult`:
+  - `{ kind: "read", bytes, facts }`: `bytes` is a `Uint8Array` and `facts`
+    holds `dev`, `ino`, `uid`, `gid`, `mode`, `size` and `mtimeMs`. Decode
+    text with `new TextDecoder("utf-8", { fatal: true }).decode(result.bytes)`
+    when invalid UTF-8 must be refused.
+  - `{ kind: "missing" }`: the root, a parent folder or the file does not
+    exist.
+  - `{ kind: "refused", path, reason, message }`: `reason` is one of
+    `"parent-step"`, `"outside-root"`, `"symbolic-link"`, `"linked-folder"`,
+    `"hard-link"`, `"not-regular"` or `"over-limit"`, and `message` ends
+    with a `Repair:` line.
+- `readRootedFile` opens with `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, so FIFOs
+  do not block, and checks for post-open swaps. It throws `RangeError` when
+  `limitBytes` is not a non-negative safe integer.
+- Walking a folder: `readRootedFile` reads one named file, and the kernel has
+  no folder-walking helper. Resolve the root with `realpath`, list entries
+  with `readdir`, and check every entry with `lstat` before recursing or
+  opening. Recurse only into real folders (`isDirectory()` and not
+  `isSymbolicLink()`), refuse symbolic links, FIFOs, sockets and devices
+  without opening them, and read each regular file with `readRootedFile`.
+- Rooted writes and deletes: `agent-cli-kernel` provides no rooted write or
+  rooted delete helper today.
 
 ## What the kernel's lint refuses
 

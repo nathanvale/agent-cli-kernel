@@ -7,9 +7,9 @@ so a repository that installs the kernel by its pin finds it at
 is an agent writing commands in that repository.
 
 - Keep that path. A generated repository's pointer skill names it.
-- Keep the skill to this kernel's own rules: commands, input, stations,
-  testing and the example. General CLI design belongs to the user-level
-  `cli-design` skill.
+- Keep the skill as the single owner of command design and naming for CLIs
+  built on this kernel, alongside input, stations, changing commands, source
+  layout, testing and the example.
 - Write for that reader. Give paths from that repository's root, and name
   the kernel by its package name, `agent-cli-kernel`.
 - Change a code block by changing the example in

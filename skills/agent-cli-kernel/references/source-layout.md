@@ -39,6 +39,37 @@ and turn on the Fallow boundary gate in the same change.
   those). The folder name `shared` is reserved: name no subject `shared`, or
   its commands become importable by every subject.
 
+## Packages that export commands
+
+A package that exports commands for other CLIs to mount exposes factory
+functions and its host cause table:
+
+- Parameterize each command factory by the mounting CLI's `cli` name so its
+  command identities (`<cli>.<name>`) and command-step targets belong to the
+  mounting CLI.
+- Parameterize each changing command factory by the mounting CLI's `state`
+  add-on and by the report command's identity as a literal type parameter
+  (`<const Report extends string>`). Pass `state.descriptor.ifNoResult` to
+  `changing({...})`, and build handoff `inspect` steps as
+  `{ kind: "command", command: report, args: [] }` instead of reusing
+  `state.descriptor.ifNoResult.step` (whose `command` is widened to `string`,
+  which `contractFor` rejects at compile time). `contractFor` throws at
+  start-up if a changing command carries `ifNoResult` from a different state
+  add-on descriptor.
+- Export the package's host cause rows (`as const satisfies CauseTable`) so
+  the mounting CLI merges them into
+  `contractFor({ causes: { ...commonCauses, ...packageCauses, ...cliCauses } })`.
+  Prefix cause codes with the package or subject name: `contractFor` checks
+  each declared station's row against the merged `causes` table and throws
+  `Station disagrees with the CLI cause owner.` when a station's row was
+  overwritten by a different row, whereas a differing row that no declared
+  station uses is silently overwritten by the spread.
+- Keep command factories in their subject folders (`src/<subject>/<verb>.ts`)
+  and re-export them from entry files (`src/commands.ts` or
+  `src/commands/**`). Place cross-subject or commandless library code that
+  imports shared edges in `src/shared/`, and pure logic with no `src/shared/`
+  or I/O imports in `src/<subject>/rules.ts`.
+
 ## Tests
 
 - Drive command tests through the command line or the contract built in

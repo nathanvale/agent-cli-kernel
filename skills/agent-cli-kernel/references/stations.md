@@ -71,6 +71,23 @@ const causes = {
 - `DOMAIN_PRECONDITION_UNMET` is a common row with the same shape as the one
   above. Use it when a command has a single refusal.
 
+## Check commands
+
+A read-only check command (`command({...})`) that reports findings uses one of
+two shapes:
+
+- **Informational report (exit 0)**: return `SUCCESS_UNCHANGED` with
+  structured findings in `data` (such as `{ findings }`). Use this when
+  findings are data for the caller to inspect rather than a failing gate.
+  Plain output prints the message line followed by pretty-printed `data` on
+  stdout.
+- **Failing gate (exit 3)**: declare a host-owned `refused`, `unchanged`,
+  `domain` cause row with `carriesData: true` and return findings in `data`
+  when any finding is present (and `SUCCESS_UNCHANGED` when clean). Use this
+  when any finding must fail the invocation. With `--json`, the envelope
+  carries `data`; without `--json`, plain output prints only one line to
+  stderr (`<cli>: <message> [<causeCode>]`) and omits `data`.
+
 ## A station
 
 ```ts
