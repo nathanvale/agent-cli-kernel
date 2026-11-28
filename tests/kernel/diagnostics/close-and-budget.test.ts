@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import type { LogRecord } from "@logtape/logtape";
 import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import type { DiagnosticsIo } from "../../../kernel/src/addons/diagnostics/io.ts";
@@ -194,6 +195,10 @@ describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", (
       attached.capability.record("first", { index: 0 });
       await waitWithin(held.writeEntered, "first write entry");
       attached.killNow();
+      const frozenBefore = await attached.freeze(50);
+      const snapshot = JSON.stringify(frozenBefore);
+      expect(get(frozenBefore, "closed")).toBe(false);
+      expect(get(frozenBefore, "unflushedRecords")).toBe(1);
       expect(held.counts().closes).toBe(0);
       held.releaseWrite();
       await waitWithin(held.writeSettled, "first write settle");
@@ -202,15 +207,14 @@ describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", (
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
       ]);
-      const frozen = await attached.freeze(50);
-      expect(get(frozen, "closed")).toBe(false);
+      expect(JSON.stringify(await attached.freeze(50))).toBe(snapshot);
       expect(held.counts().closes).toBe(1);
     },
     timeout,
   );
 
   test(
-    "S10.kill-closes-without-finish: killNow closes an open descriptor even when no finish is in progress",
+    "S10.kill-closes-without-finish: killNow closes an open descriptor at once when idle and no finish is in progress",
     async () => {
       const where = tree();
       const tracked = trackedIo(false);
@@ -225,15 +229,47 @@ describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", (
       });
       attached.capability.record("only", { index: 0 });
       await waitWithin(tracked.writeSettled, "first write settle");
+      const info = await waitWithin(
+        stat(onlyLog(where.dir).path),
+        "log file stat after write",
+      );
+      expect(info.size).toBeGreaterThan(0);
       expect(tracked.counts().closes).toBe(0);
       attached.killNow();
-      await waitWithin(tracked.closeCalled, "descriptor close on killNow");
       expect(tracked.counts()).toEqual({ writes: 1, closes: 1, sizeCalls: 0 });
+      attached.killNow();
+      expect(tracked.counts().closes).toBe(1);
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
       ]);
       const frozen = await attached.freeze(50);
       expect(get(frozen, "closed")).toBe(false);
+      expect(tracked.counts().closes).toBe(1);
+    },
+    timeout,
+  );
+
+  test(
+    "S10.kill-after-close-does-not-double-close: killNow after a finished close keeps the close count at 1",
+    async () => {
+      const where = tree();
+      const tracked = trackedIo(false);
+      const attached = createDiagnostics(
+        { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
+        tracked.io,
+      ).attach({
+        runId: crypto.randomUUID(),
+        commandIdentity: "dxs.read",
+        summary: "Kill after finished close.",
+        signal: new AbortController().signal,
+      });
+      attached.capability.record("only", { index: 0 });
+      const frozen = await attached.freeze(500);
+      expect(get(frozen, "closed")).toBe(true);
+      expect(tracked.counts().closes).toBe(1);
+      attached.killNow();
+      attached.killNow();
+      await attached.settle(50);
       expect(tracked.counts().closes).toBe(1);
     },
     timeout,
@@ -301,6 +337,85 @@ describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", (
       const dagLine = make(logRecord(dag));
       expect(dagReads).toBeLessThanOrEqual(traversalBudget);
       expect(dagLine.truncated).toBe(true);
+    },
+    timeout,
+  );
+
+  test(
+    "S11.plain-object-budget: a plain-object root stops at the traversal budget at last admitted, first refused, and repeated large object sizes",
+    () => {
+      const make = lineMaker([]);
+      let admittedReads = 0;
+      const admittedRow = countingRow(100, () => {
+        admittedReads += 1;
+      });
+      const lastAdmitted: Record<string, unknown> = {};
+      for (let index = 0; index < 158; index += 1)
+        lastAdmitted[`r${index}`] = admittedRow;
+      for (let index = 0; index < 41; index += 1)
+        Object.defineProperty(lastAdmitted, `s${index}`, {
+          enumerable: true,
+          get() {
+            admittedReads += 1;
+            return 0;
+          },
+        });
+      const admittedLine = make(logRecord(lastAdmitted));
+      expect(admittedReads).toBe(15_841);
+      expect(admittedLine.truncated).toBe(false);
+
+      let refusedReads = 0;
+      let tailReads = 0;
+      const refusedRow = countingRow(100, () => {
+        refusedReads += 1;
+      });
+      const firstRefused: Record<string, unknown> = {};
+      for (let index = 0; index < 158; index += 1)
+        firstRefused[`r${index}`] = refusedRow;
+      for (let index = 0; index < 41; index += 1)
+        Object.defineProperty(firstRefused, `s${index}`, {
+          enumerable: true,
+          get() {
+            refusedReads += 1;
+            return 0;
+          },
+        });
+      Object.defineProperty(firstRefused, "tail", {
+        enumerable: true,
+        get() {
+          tailReads += 1;
+          return 0;
+        },
+      });
+      const refusedLine = make(logRecord(firstRefused));
+      expect(refusedReads).toBe(15_841);
+      expect(tailReads).toBe(0);
+      expect(refusedLine.truncated).toBe(true);
+
+      let wideReads = 0;
+      const sharedLarge = countingObject(1_000, () => {
+        wideReads += 1;
+      });
+      const wideRoot: Record<string, unknown> = {};
+      for (let index = 0; index < 500; index += 1)
+        Object.defineProperty(wideRoot, `k${index}`, {
+          enumerable: true,
+          get() {
+            wideReads += 1;
+            return 0;
+          },
+        });
+      for (let index = 0; index < 20; index += 1)
+        Object.defineProperty(wideRoot, `ref${index}`, {
+          enumerable: true,
+          get() {
+            wideReads += 1;
+            return sharedLarge;
+          },
+        });
+      const wideLine = make(logRecord(wideRoot));
+      expect(wideReads).toBeLessThanOrEqual(traversalBudget);
+      expect(wideLine.truncated).toBe(true);
     },
     timeout,
   );

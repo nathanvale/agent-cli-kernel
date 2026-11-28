@@ -1,0 +1,7 @@
+{
+  "id": "62f1cb58-records-plain-object-budget",
+  "patch": "tests/planted-faults/patches/62f1cb58-records-plain-object-budget.patch",
+  "testFile": "tests/kernel/diagnostics/close-and-budget.test.ts",
+  "title": "S11\\.plain-object-budget",
+  "source": "62f1cb58 fix(diagnostics): close descriptor on freeze/kill, bound walk, and preserve own __proto__"
+}
