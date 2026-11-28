@@ -1,0 +1,7 @@
+{
+  "id": "4ba44fd0-install-snapshot-revisions",
+  "patch": "tests/planted-faults/patches/4ba44fd0-install-snapshot-revisions.patch",
+  "testFile": "tests/kernel/state/intent-boundary.test.ts",
+  "title": "^IB02\\.",
+  "source": "4ba44fd0 fix(state): refuse invalid revision and preview values at intent boundary"
+}

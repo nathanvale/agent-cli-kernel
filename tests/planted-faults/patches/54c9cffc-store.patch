@@ -1,0 +1,30 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 285be8a2..c6b23f0a 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -400,20 +400,15 @@ function parseScope(value: unknown): CanonicalScope | undefined {
+ export function parseRevisions(
+   value: unknown,
+ ): Readonly<Record<string, string>> | undefined {
+-  if (typeof value !== "object" || value === null || Array.isArray(value))
+-    return undefined;
++  const revisions = plainObject(value);
++  if (!revisions) return undefined;
+   const out: Record<string, string> = {};
+-  for (const [key, entry] of Object.entries(value)) {
++  for (const [key, entry] of Object.entries(revisions)) {
+     const revision = text(entry);
+     if (revision === undefined) return undefined;
+-    Object.defineProperty(out, key, {
+-      value: revision,
+-      enumerable: true,
+-      writable: false,
+-      configurable: false,
+-    });
++    out[key] = revision;
+   }
+-  return Object.freeze(out);
++  return out;
+ }
+ 
+ export function parseApproval(value: unknown): Intent["approval"] | undefined {

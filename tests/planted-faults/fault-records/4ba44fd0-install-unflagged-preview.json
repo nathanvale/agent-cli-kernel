@@ -1,7 +1,7 @@
 {
-  "id": "4ba44fd0-install",
-  "patch": "tests/planted-faults/patches/4ba44fd0-install.patch",
+  "id": "4ba44fd0-install-unflagged-preview",
+  "patch": "tests/planted-faults/patches/4ba44fd0-install-unflagged-preview.patch",
   "testFile": "tests/kernel/state/intent-boundary.test.ts",
-  "title": "IB0[1-5]",
+  "title": "^IB04\\.",
   "source": "4ba44fd0 fix(state): refuse invalid revision and preview values at intent boundary"
 }
