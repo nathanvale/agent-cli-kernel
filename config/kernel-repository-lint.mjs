@@ -38,6 +38,7 @@ export default [
       "kernel/src/addons/programs/*.ts",
       "kernel/src/addons/state/*.ts",
       "kernel/src/kernel/state-seam.ts",
+      "kernel/src/shared/error-code.ts",
       "kernel/src/shared/rooted-file.ts",
       "kernel/src/addons/approval/store.ts",
       "kernel/src/addons/diagnostics/custody.ts",

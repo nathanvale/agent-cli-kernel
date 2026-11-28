@@ -117,6 +117,7 @@ export type SourceFile = { readonly path: string; readonly bytes: Uint8Array };
 const kernelSourceFolder = "kernel/src";
 const qualifiedFolders = ["addons/programs", "addons/state"] as const;
 const stateSeam = "kernel/state-seam.ts";
+const errorCodeHelper = "shared/error-code.ts";
 const tableFile = "addons/state/capability-qualification-table.ts";
 
 export function messageOf(error: unknown): string {
@@ -140,6 +141,7 @@ export function qualifiedSourceFiles(
         .map((entry) => `${folder}/${entry.name}`),
     ),
     stateSeam,
+    errorCodeHelper,
   ].filter((path) => path !== tableFile);
   return paths
     .map((path) => ({ path, bytes: readFileSync(join(sourceRoot, path)) }))

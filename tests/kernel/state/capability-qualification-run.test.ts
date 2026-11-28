@@ -159,6 +159,7 @@ function checkout() {
     "kernel/src/addons/state/install.ts": "install\n",
     "kernel/src/addons/programs/index.ts": "programs\n",
     "kernel/src/kernel/state-seam.ts": "seam\n",
+    "kernel/src/shared/error-code.ts": "error-code\n",
   });
   symlinkSync("state", join(root, "kernel/src/addons/linked-state"));
   git(root, "add", "--", "kernel/src/addons/linked-state");

@@ -756,6 +756,7 @@ const relativeSource = {
   "addons/programs/index.ts": "programs\n",
   "kernel/state-seam.ts": "seam\n",
   "kernel/index.ts": "kernel\n",
+  "shared/error-code.ts": "error-code\n",
 } as const;
 
 function sourceTreeUnder(
@@ -780,6 +781,7 @@ test("sourceHash covers the state and programs add-on files and the state seam, 
     "addons/programs/index.ts",
     "addons/state/install.ts",
     "kernel/state-seam.ts",
+    "shared/error-code.ts",
   ]);
   const expected = createHash("sha256");
   for (const file of files) {
@@ -787,6 +789,17 @@ test("sourceHash covers the state and programs add-on files and the state seam, 
     expected.update(file.bytes);
   }
   expect(sourceHash(files)).toBe(expected.digest("hex"));
+});
+
+test("sourceHash covers shared/error-code.ts and changes when it changes", () => {
+  expect(qualifiedSourceFiles(repository).map((file) => file.path)).toContain(
+    "shared/error-code.ts",
+  );
+  const root = folder("c3-source-");
+  layout(root, scratchSource);
+  const before = sourceHash(qualifiedSourceFiles(root));
+  layout(root, { "kernel/src/shared/error-code.ts": "error-code-changed\n" });
+  expect(sourceHash(qualifiedSourceFiles(root))).not.toBe(before);
 });
 
 test("sourceHash takes each file path from the kernel source folder, not the repository root", () => {
@@ -801,6 +814,7 @@ test("sourceHash takes each file path from the kernel source folder, not the rep
     "addons/programs/index.ts",
     "addons/state/install.ts",
     "kernel/state-seam.ts",
+    "shared/error-code.ts",
   ]);
   expect(fromSrc.map((file) => file.path)).toEqual(
     fromKernelSrc.map((file) => file.path),
@@ -812,6 +826,7 @@ test("sourceHash takes each file path from the kernel source folder, not the rep
     ["src/addons/state/install.ts", "instalm\n"],
     ["src/addons/programs/index.ts", "programz\n"],
     ["src/kernel/state-seam.ts", "seak\n"],
+    ["src/shared/error-code.ts", "error-codf\n"],
   ] as const;
   for (const [path, text] of byteEdits) {
     const edited = folder("c3-source-");
