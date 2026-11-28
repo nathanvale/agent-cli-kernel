@@ -470,7 +470,7 @@ describe("bun run fault-replay", () => {
   );
 
   test(
-    "FR.r --update-timings refreshes the timing file for each KILLED fault",
+    "FR.aa --update-timings refreshes the timing file for each KILLED fault",
     async () => {
       const { root, id } = await repositoryWithFault({});
       const run = await faultReplay(root, [
