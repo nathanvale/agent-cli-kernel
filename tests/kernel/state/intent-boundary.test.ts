@@ -63,9 +63,12 @@ function keyScope(key: string): ScopeDeclaration {
   return { resources: [{ resource: "note", key }] };
 }
 
-function revisionMap(value: unknown): Readonly<Record<string, string>> {
+function revisionMap(
+  value: unknown,
+  key = "note",
+): Readonly<Record<string, string>> {
   const out: Record<string, string> = {};
-  Object.defineProperty(out, "note", {
+  Object.defineProperty(out, key, {
     value,
     enumerable: true,
     configurable: true,
@@ -366,6 +369,42 @@ supportingTest(
       expect(result.outcome?.kind).toBe("ran");
       expect(result.report).toEqual({ ok: true, unfinished: [] });
       expect(calls.count).toBe(1);
+    }
+  },
+);
+
+const invalidProtoRevisionValues: readonly unknown[] = [
+  "",
+  42,
+  null,
+  { bad: "" },
+];
+
+supportingTest(
+  "IB07.unflagged-proto-invalid-revision-refused: unflagged path refuses empty, numeric, null, and object values under an own __proto__ revision key with declaration and keeps root usable",
+  async () => {
+    for (const value of invalidProtoRevisionValues) {
+      const root = stateRoot();
+      await assertRefusedAndUsable(root, {
+        command: "ib.apply",
+        scope: keyScope("alpha"),
+        revisions: revisionMap(value, "__proto__"),
+      });
+    }
+  },
+);
+
+supportingTest(
+  "IB08.flagged-proto-invalid-revision-refused: flagged path refuses empty, numeric, null, and object values under an own __proto__ revision key with declaration and keeps root usable",
+  async () => {
+    for (const value of invalidProtoRevisionValues) {
+      const root = stateRoot();
+      await assertRefusedAndUsable(root, {
+        command: "ib.apply",
+        scope: keyScope("alpha"),
+        revisions: revisionMap(value, "__proto__"),
+        supersedeUnresolved: true,
+      });
     }
   },
 );
