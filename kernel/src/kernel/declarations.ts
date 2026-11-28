@@ -21,6 +21,7 @@ import type {
 import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { validateHostInput } from "./host-input.ts";
+import { inputSchema } from "./validation/input.ts";
 import {
   abortSignalOf,
   approvalContext,
@@ -180,29 +181,13 @@ export function validateChangingShape(declaration: {
     );
 }
 const lookOnlyChangingOptions = new Set(["--check", "--dry-run"]);
-function optionFlagNames(option: unknown): readonly string[] | undefined {
-  if (!record(option)) return undefined;
-  const name = Object.hasOwn(option, "name") ? option.name : undefined;
-  const aliases = Object.hasOwn(option, "aliases") ? option.aliases : undefined;
-  if (typeof name !== "string" || !Array.isArray(aliases)) return undefined;
-  const names: string[] = [name];
-  for (const alias of aliases) {
-    if (typeof alias !== "string") return undefined;
-    names.push(alias);
-  }
-  return names;
-}
 function hasLookOnlyOption(input: unknown): boolean {
-  if (!record(input)) return false;
-  const options = Object.hasOwn(input, "options") ? input.options : undefined;
-  if (!Array.isArray(options)) return false;
-  const flagNames: string[] = [];
-  for (const option of options) {
-    const names = optionFlagNames(option);
-    if (!names) return false;
-    flagNames.push(...names);
-  }
-  return flagNames.some((flag) => lookOnlyChangingOptions.has(flag));
+  if (!inputSchema(input)) return false;
+  return input.options.some(
+    (option) =>
+      lookOnlyChangingOptions.has(option.name) ||
+      option.aliases.some((alias) => lookOnlyChangingOptions.has(alias)),
+  );
 }
 export function validateCommandIdentity(identity: string): void {
   if (!text(identity) || new TextEncoder().encode(identity).byteLength > 128)

@@ -1,8 +1,15 @@
 diff --git a/kernel/src/kernel/declarations.ts b/kernel/src/kernel/declarations.ts
-index f18b8390..2c1db0b9 100644
 --- a/kernel/src/kernel/declarations.ts
 +++ b/kernel/src/kernel/declarations.ts
-@@ -154,7 +154,6 @@ export function validateChangingShape(declaration: {
+@@ -21,7 +21,6 @@
+ import type { InputSchema, ParsedInput } from "./input-types.ts";
+ import { parseInput, acceptsRootInput } from "./input.ts";
+ import { validateHostInput } from "./host-input.ts";
+-import { inputSchema } from "./validation/input.ts";
+ import {
+   abortSignalOf,
+   approvalContext,
+@@ -155,7 +154,6 @@
    readonly heldLockCause?: unknown;
    readonly unresolvedCaseCause?: unknown;
    readonly stations: readonly { readonly causeCode: string }[];
@@ -10,7 +17,7 @@ index f18b8390..2c1db0b9 100644
  }): void {
    if (
      declaration.effectClass !== "repository-local" &&
-@@ -174,35 +173,6 @@ export function validateChangingShape(declaration: {
+@@ -175,20 +173,6 @@
    const effects = declaration.effects ?? [];
    if (effects.length === 0 || new Set(effects).size !== effects.length)
      throw new Error("Invalid changing declaration.");
@@ -20,29 +27,13 @@ index f18b8390..2c1db0b9 100644
 -    );
 -}
 -const lookOnlyChangingOptions = new Set(["--check", "--dry-run"]);
--function optionFlagNames(option: unknown): readonly string[] | undefined {
--  if (!record(option)) return undefined;
--  const name = Object.hasOwn(option, "name") ? option.name : undefined;
--  const aliases = Object.hasOwn(option, "aliases") ? option.aliases : undefined;
--  if (typeof name !== "string" || !Array.isArray(aliases)) return undefined;
--  const names: string[] = [name];
--  for (const alias of aliases) {
--    if (typeof alias !== "string") return undefined;
--    names.push(alias);
--  }
--  return names;
--}
 -function hasLookOnlyOption(input: unknown): boolean {
--  if (!record(input)) return false;
--  const options = Object.hasOwn(input, "options") ? input.options : undefined;
--  if (!Array.isArray(options)) return false;
--  const flagNames: string[] = [];
--  for (const option of options) {
--    const names = optionFlagNames(option);
--    if (!names) return false;
--    flagNames.push(...names);
--  }
--  return flagNames.some((flag) => lookOnlyChangingOptions.has(flag));
+-  if (!inputSchema(input)) return false;
+-  return input.options.some(
+-    (option) =>
+-      lookOnlyChangingOptions.has(option.name) ||
+-      option.aliases.some((alias) => lookOnlyChangingOptions.has(alias)),
+-  );
  }
  export function validateCommandIdentity(identity: string): void {
    if (!text(identity) || new TextEncoder().encode(identity).byteLength > 128)
