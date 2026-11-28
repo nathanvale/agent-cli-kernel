@@ -141,6 +141,10 @@ describe("kernelLint in a host layout", () => {
     "unselected add-on folders are host-owned: their allowances are off and the two host rules reach them",
     async () => {
       const tree = await hostTree([], ["diagnostics", "state"]);
+      await writeFile(
+        join(tree, "src/addons/diagnostics/planted-in.ts"),
+        'export const has = (o: object) => "code" in o;\n',
+      );
       const found = await findings(tree);
       for (const finding of [
         {
@@ -152,7 +156,7 @@ describe("kernelLint in a host layout", () => {
           ruleId: "no-restricted-imports",
         },
         {
-          file: "src/addons/diagnostics/io.ts",
+          file: "src/addons/diagnostics/planted-in.ts",
           ruleId: "repository/no-in-operator",
         },
       ])
