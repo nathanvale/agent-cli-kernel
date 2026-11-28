@@ -103,6 +103,24 @@ async function resolveReal(
   }
 }
 
+async function resolveNonLink(
+  target: string,
+): Promise<
+  | { readonly kind: "ok"; readonly value: string }
+  | { readonly kind: "stop"; readonly status: Exclude<ParentCheck, "ok"> }
+> {
+  try {
+    if ((await lstat(target)).isSymbolicLink())
+      return { kind: "stop", status: "symbolic-link" };
+  } catch (error) {
+    return {
+      kind: "stop",
+      status: absentCode(at(error, "code")) ? "absent" : "unreadable",
+    };
+  }
+  return resolveReal(target);
+}
+
 async function ancestorLinkUnder(
   realScratch: string,
   segments: readonly string[],
@@ -125,11 +143,12 @@ async function parentWithinScratch(
   path: string,
   scratch: string,
 ): Promise<ParentCheck> {
-  const realScratch = await resolveReal(scratch);
+  const resolvedScratch = resolve(scratch);
+  const realScratch = await resolveNonLink(resolvedScratch);
   if (realScratch.kind !== "ok") return realScratch.status;
   const resolvedPath = resolve(path);
   const rel =
-    relativeUnder(resolve(scratch), resolvedPath) ??
+    relativeUnder(resolvedScratch, resolvedPath) ??
     relativeUnder(realScratch.value, resolvedPath);
   if (rel === undefined) return "symbolic-link";
   const walked = await ancestorLinkUnder(
