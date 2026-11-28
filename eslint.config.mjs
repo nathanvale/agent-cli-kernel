@@ -2,17 +2,17 @@ import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import antiSlop, { chainedTypeAssertions } from "./config/anti-slop-rules.mjs";
 import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
-import payloadRules from "./config/payload-rules.mjs";
 import platformRules from "./config/platform-rules.mjs";
 import templateRules from "./config/template-rules.mjs";
 import verifySkill, { verifySkillPaths } from "./config/verify-skill-lint.mjs";
+import kernelRules from "./kernel/config/kernel/eslint-rules.mjs";
 import tseslint from "typescript-eslint";
 
 const localRules = {
   rules: {
     ...templateRules.rules,
     ...platformRules.rules,
-    ...payloadRules.rules,
+    "no-in-operator": kernelRules.rules["no-in-operator"],
   },
 };
 

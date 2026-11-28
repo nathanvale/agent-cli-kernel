@@ -3,7 +3,6 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import ts from "typescript";
-import payloadRuleSet from "../../../config/payload-rules.mjs";
 import platformRuleSet from "../../../config/platform-rules.mjs";
 import templateRuleSet from "../../../config/template-rules.mjs";
 import { commentCases } from "../../support/lint-comment-cases.ts";
@@ -17,10 +16,10 @@ import {
 } from "../../support/template-lint.ts";
 
 const templateRules = [
-  templateRuleSet,
-  platformRuleSet,
-  payloadRuleSet,
-].flatMap((module) => Object.keys(module.rules));
+  ...Object.keys(templateRuleSet.rules),
+  ...Object.keys(platformRuleSet.rules),
+  "no-in-operator",
+];
 const tracked = execFileSync(
   "git",
   ["ls-files", "--cached", "--others", "--exclude-standard"],

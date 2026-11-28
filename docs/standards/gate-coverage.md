@@ -192,7 +192,7 @@ file extensions in those directories.
 - Lint `repository/no-locale-compare` refuses `localeCompare` and
   `Collator` as a property, a destructured name, or a constant string such as
   `Reflect.get(Intl, "Collator")`.
-- Lint `repository/no-in-operator` in `config/payload-rules.mjs` refuses
+- Lint `repository/no-in-operator` in `kernel/config/kernel/eslint-rules.mjs` refuses
   the `in` operator and `Reflect.has` on a key the target's type does not
   declare, and every `for...in`. A key
   declared on the target's type, or on one member of its union, passes, so
@@ -276,11 +276,11 @@ file extensions in those directories.
   `--fail-on-baseline-growth`, refusing any new key in
   `fallow-health-recorded-hits.json` against the base revision.
 - The lint rules for files outside the kernel live in
-  `config/template-rules.mjs`, `config/platform-rules.mjs` and
-  `config/payload-rules.mjs`.
-  `platform-rules.mjs` owns `no-host-path-literal` and `payload-rules.mjs`
-  owns `no-in-operator`. `eslint.config.mjs` joins the three under the
-  `repository` plugin.
+  `config/template-rules.mjs` and `config/platform-rules.mjs`, plus
+  `no-in-operator` from `kernel/config/kernel/eslint-rules.mjs`.
+  `platform-rules.mjs` owns `no-host-path-literal` and
+  `kernel/config/kernel/eslint-rules.mjs` owns `no-in-operator`.
+  `eslint.config.mjs` joins them under the `repository` plugin.
 - The kernel lint rules and their recorded hits run from
   `config/kernel-repository-lint.mjs`.
 - `kernel/config/kernel/` reaches generated repositories in the installed
