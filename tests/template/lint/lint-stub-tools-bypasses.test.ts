@@ -71,6 +71,14 @@ const stubToolBypasses = [
     'fs.symlinkSync() links or copies system binary "//usr/./bin/env"',
   ],
   [
+    'import { symlinkSync } from "node:fs";\nsymlinkSync(["", "usr", "bin", "git"].join("/"), "x");',
+    'fs.symlinkSync() links or copies system binary "/usr/bin/git"',
+  ],
+  [
+    'import fs = require("node:fs");\nfs.symlinkSync("/usr/bin/git", "x");',
+    'fs.symlinkSync() links or copies system binary "/usr/bin/git"',
+  ],
+  [
     'import { symlinkSync } from "node:fs";\nsymlinkSync("./fixture.sh", "node_modules/.bin/tool");',
     undefined,
   ],
@@ -94,4 +102,30 @@ for (const [code, fix] of stubToolBypasses)
     expect(
       found.map(({ message }) => fix !== undefined && message.includes(fix)),
     ).toEqual(fix ? [true] : []);
+  });
+
+const cyclicPropertyLookups = [
+  [
+    "self-referencing array element lookup",
+    'import { symlinkSync } from "node:fs";\nconst k = ["a"][k]();\nsymlinkSync(k, "x");',
+  ],
+  [
+    "self-referencing object property lookup",
+    'import { symlinkSync } from "node:fs";\nconst k = obj[k]();\nsymlinkSync(k, "x");',
+  ],
+  [
+    "mutually recursive object property lookup",
+    'import { symlinkSync } from "node:fs";\nconst a = obj[b]();\nconst b = obj[a]();\nsymlinkSync(a, "x");',
+  ],
+] as const;
+
+for (const [label, code] of cyclicPropertyLookups)
+  test(`tests-stub-tools bounds ${label} without throwing`, async () => {
+    expect(
+      await hits(
+        "tests-stub-tools",
+        "tests/template/doctor/doctor.test.ts",
+        code,
+      ),
+    ).toEqual([]);
   });

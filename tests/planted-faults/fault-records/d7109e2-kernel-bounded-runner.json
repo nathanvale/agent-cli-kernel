@@ -1,7 +1,0 @@
-{
-  "id": "d7109e2-kernel-bounded-runner",
-  "patch": "tests/planted-faults/patches/d7109e2-kernel-bounded-runner.patch",
-  "testFile": "tests/kernel/lint-rules.test.ts",
-  "title": "^tests-use-bounded-runner refuses the 9086c3b shape in tests/kernel/state/journal\\.test\\.ts and names the fix$",
-  "source": "d7109e2 feat(lint): enforce repository/tests-use-bounded-runner across template and kernel tests"
-}

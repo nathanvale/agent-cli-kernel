@@ -168,11 +168,11 @@ the kernel. They are plugin rules, so a host block that sets its own
   first argument folds to a static POSIX path under `/bin/`, `/usr/bin/`,
   `/usr/local/bin/`, `/sbin/`, `/usr/sbin/` or `/usr/local/sbin/` (after
   `path.posix.normalize`).
-- The rule traces named, renamed, default or namespace imports,
-  `fs.promises` / `import { promises } from "node:fs"`, destructuring
+- The rule traces named, renamed, default, namespace and `import ... = require(...)`
+  imports, `fs.promises` / `import { promises } from "node:fs"`, destructuring
   (including `{ default: fs }`), `require()`, `import()`, static string /
   template-literal / `const`-identifier computed keys, and static `+` /
-  interpolated template / `const` string targets.
+  interpolated template / `.join(...)` / `const` string targets.
 - Test placement (`scripts/check-names.ts` and
   `tests/template/names-check/names-check-test-placement.test.ts`) refuses
   every file Bun runs as a test outside `.test.ts` files in `repository.json`
@@ -242,12 +242,12 @@ file extensions in those directories.
 - Everything else goes into code: a name, a type, a test title, or a lint
   rule whose message explains the constraint. An empty `catch` says what
   happens next in code (`return`, `continue`, or a rethrow), not in prose.
-- Fault `5ac4285-template-rules` admits a marker on any line of a block; the
-  lint test that refuses `Platform:` on a second line kills it. Fault
-  `5ac4285-eslint-rules` plants the same fault in the kernel's copy.
-- Fault `bbfce9a-template-rules` admits a `SAFETY:` block anywhere; the lint
-  test that refuses one above a statement with no cast kills it. Fault
-  `bbfce9a-eslint-rules` plants the same fault in the kernel's copy.
+- Fault `5ac4285-test-rules` admits a marker on any line of a block in
+  `config/test-rules.mjs`; the lint test that refuses `Platform:` on a second
+  line kills it.
+- Fault `bbfce9a-test-rules` admits a `SAFETY:` block anywhere in
+  `config/test-rules.mjs`; the lint test that refuses one above a statement
+  with no cast kills it.
 - In review, verify what a `Platform:` or `Interface:` comment claims and
   whether it names something outside this repository.
 - In review, verify each accepted decision citation. Require a Command
@@ -284,6 +284,9 @@ file extensions in those directories.
 - The kernel lint rules and their recorded hits run from
   `config/kernel-repository-lint.mjs`.
 - `kernel/config/kernel/` reaches generated repositories in the installed
-  kernel, so it holds only the rules `kernelLint` turns on. The kernel
-  repository's own lint rules, `no-comments` and the test lint rules,
-  live in `config/kernel-repository-rules.mjs`.
+  kernel, so it holds only the rules `kernelLint` turns on. The six shared
+  repository rules (`no-comments`, `require-to-throw-message`,
+  `tests-use-test-folder`, `tests-no-sleep`, `tests-use-bounded-runner` and
+  `tests-stub-tools`) live once in `config/test-rules.mjs`, imported and
+  spread by both `config/template-rules.mjs` and
+  `config/kernel-repository-rules.mjs`.

@@ -13,10 +13,10 @@ const literalKey = (node) =>
     : node?.type === "TemplateLiteral" && node.expressions.length === 0
       ? node.quasis[0]?.value.cooked
       : undefined;
-export const propertyName = (node, context) =>
+export const propertyName = (node, context, depth = 0) =>
   node.computed
     ? context
-      ? staticString(context, node.property)
+      ? staticString(context, node.property, depth)
       : literalKey(node.property)
     : node.property.name;
 const lookup = (context, node) => {
@@ -129,6 +129,11 @@ const staticTemplate = (context, node, depth) => {
   }
   return out;
 };
+const comma = { type: "Literal", value: "," };
+const foldAll = (context, nodes, depth) => {
+  const parts = nodes.map((node) => staticString(context, node, depth));
+  return parts.includes(undefined) ? undefined : parts;
+};
 const staticFolders = {
   Literal: (_context, node) =>
     typeof node.value === "string" ? node.value : undefined,
@@ -138,6 +143,20 @@ const staticFolders = {
     const left = staticString(context, node.left, depth + 1);
     const right = staticString(context, node.right, depth + 1);
     return left !== undefined && right !== undefined ? left + right : undefined;
+  },
+  CallExpression: (context, { callee, arguments: args }, depth) => {
+    if (
+      callee.type !== "MemberExpression" ||
+      callee.object.type !== "ArrayExpression" ||
+      propertyName(callee, context, depth + 1) !== "join"
+    )
+      return undefined;
+    const parts = foldAll(
+      context,
+      [...args, comma, ...callee.object.elements],
+      depth + 1,
+    );
+    return parts?.slice(args.length + 1).join(parts[0]);
   },
   Identifier: (context, node, depth) => {
     const def = lookup(context, node)?.defs[0];

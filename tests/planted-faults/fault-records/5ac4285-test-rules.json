@@ -1,6 +1,6 @@
 {
-  "id": "5ac4285-template-rules",
-  "patch": "tests/planted-faults/patches/5ac4285-template-rules.patch",
+  "id": "5ac4285-test-rules",
+  "patch": "tests/planted-faults/patches/5ac4285-test-rules.patch",
   "testFile": "tests/template/lint/lint-comments.test.ts",
   "title": "^no-comments refuses .*Note\\.",
   "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"

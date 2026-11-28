@@ -1,0 +1,14 @@
+diff --git a/config/test-rules.mjs b/config/test-rules.mjs
+--- a/config/test-rules.mjs
++++ b/config/test-rules.mjs
+@@ -152,9 +152,7 @@ function isAdmitted(source, block, placed) {
+     isDirectiveBlock(block, source) ||
+     commentMarker.test(first) ||
+     acceptedDecision.test(lines.join(" ")) ||
+-    (safetyJustification.test(first) &&
+-      source.lines[start.line - 1].slice(0, start.column).trim() === "" &&
+-      placed.has(block[block.length - 1]))
++    safetyJustification.test(first)
+   );
+ }
+ 
