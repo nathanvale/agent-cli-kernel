@@ -23,6 +23,7 @@ import {
   glossary,
   namesCheckFixture,
   put,
+  thrownBy,
 } from "./names-check-fixture.ts";
 
 const { emptyRepository } = namesCheckFixture();
@@ -257,3 +258,34 @@ A required validation.
     'glossary-ownership.json accepts "Missing term", and GLOSSARY.md does not define it outside the shared tool words. Repair: define it here, or remove it from kernelEntries.',
   ]);
 });
+
+test.each([
+  ["leading ./", `./${stateGlossaryPath}`],
+  [". segment", "kernel/./src/addons/state/GLOSSARY.md"],
+  [".. segment", "kernel/src/addons/../addons/state/GLOSSARY.md"],
+  ["doubled slash", "kernel/src//addons/state/GLOSSARY.md"],
+  ["leading /", `/${stateGlossaryPath}`],
+  ["trailing /", `${stateGlossaryPath}/`],
+])(
+  "CG.g a non-plain mapped glossary path (%s) is refused by mapProblems and every mapped reader",
+  async (_kind, badPath) => {
+    const root = splitRepository({ [stateGlossaryPath]: stateGlossary }, [
+      `| State add-on | State words | [${badPath}](${badPath}) |`,
+    ]);
+    const map = readFileSync(join(root, "GLOSSARY-MAP.md"), "utf8");
+    const expected = `GLOSSARY-MAP.md points to ${badPath}, which is not a plain repository-relative path. Repair: write the link with no leading / or ./, no trailing /, and no . or .. or empty segment.`;
+    expect(mapProblems(map, root)).toEqual([expected]);
+    expect(thrownBy(() => mappedGlossaryFiles(map))).toBe(expected);
+    expect(thrownBy(() => readRepositoryGlossary(root))).toBe(expected);
+    expect(thrownBy(() => trackedTexts(root))).toBe(expected);
+    expect(await check(root, ["docs/notes.md"])).toEqual({
+      stderr: `${expected}\n`,
+      code: 2,
+    });
+    expect(await check(root, ["--staged"])).toEqual({
+      stderr: `${expected}\n`,
+      code: 2,
+    });
+  },
+  57_000,
+);

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export const mapFile = "GLOSSARY-MAP.md";
-const glossaryFile = /(?:^|\/)GLOSSARY\.md$/;
+const glossaryFile = /(?:^|\/)GLOSSARY\.md\/*$/;
 const linkPattern = /\]\(([^)\s#]+)(?:#([^)\s]*))?[^)\s]*\)/g;
 const termLine = /^\*\*(.+)\*\*:$/m;
 const termLines = /^\*\*(.+)\*\*:$/gm;
@@ -56,8 +56,23 @@ function isFile(root: string, path: string): boolean {
   return existsSync(join(root, path)) && statSync(join(root, path)).isFile();
 }
 
+function nonPlainGlossaryPathProblem(path: string): string | undefined {
+  if (
+    !path
+      .split("/")
+      .some((part) => part === "" || part === "." || part === "..")
+  )
+    return undefined;
+  return `${mapFile} points to ${path}, which is not a plain repository-relative path. Repair: write the link with no leading / or ./, no trailing /, and no . or .. or empty segment.`;
+}
+
 function linkProblems(links: readonly Link[], root: string): string[] {
   return links.flatMap(({ path, fragment }) => {
+    if (
+      glossaryFile.test(path) &&
+      nonPlainGlossaryPathProblem(path) !== undefined
+    )
+      return [];
     if (!existsSync(join(root, path)))
       return [
         `${mapFile} points to ${path}, which does not exist. Repair: correct the link, or remove its row.`,
@@ -95,12 +110,13 @@ function targetProblems(
   ownsWords: boolean,
   root: string,
 ): string[] {
-  if (!/(?:^|\/)GLOSSARY\.md$/.test(path))
+  if (!glossaryFile.test(path))
     return ownsWords
       ? [
           `${mapFile} makes "${owner}" the owner of ${path}, which is not a GLOSSARY.md file. Repair: point the row at the glossary that defines its words, or begin its Owns cell with "No word".`,
         ]
       : [];
+  if (nonPlainGlossaryPathProblem(path) !== undefined) return [];
   return isFile(root, path) &&
     !termLine.test(readFileSync(join(root, path), "utf8"))
     ? [
@@ -157,11 +173,25 @@ function ownerProblems(map: string, root: string): string[] {
   );
 }
 
-export function mappedGlossaryFiles(map: string): string[] {
+function mappedGlossaryLinks(map: string): string[] {
   const files = new Set<string>();
   for (const { path } of localLinks(map))
     if (glossaryFile.test(path)) files.add(path);
   return [...files];
+}
+
+function glossaryPathProblems(paths: readonly string[]): string[] {
+  return paths.flatMap((path) => {
+    const problem = nonPlainGlossaryPathProblem(path);
+    return problem === undefined ? [] : [problem];
+  });
+}
+
+export function mappedGlossaryFiles(map: string): string[] {
+  const files = mappedGlossaryLinks(map);
+  const problems = glossaryPathProblems(files);
+  if (problems.length > 0) throw new Error(problems.join("\n"));
+  return files;
 }
 
 export function duplicateTermProblems(
@@ -192,8 +222,13 @@ export function mapProblems(map: string, root: string): string[] {
       `${mapFile} points to no glossary file, so this check would check nothing. Repair: link each glossary it names.`,
     ];
   const ownGlossary = links.some(({ path }) => path === "GLOSSARY.md");
-  const existingGlossaries = mappedGlossaryFiles(map)
-    .filter((path) => isFile(root, path))
+  const glossaryPaths = mappedGlossaryLinks(map);
+  const pathProblems = glossaryPathProblems(glossaryPaths);
+  const existingGlossaries = glossaryPaths
+    .filter(
+      (path) =>
+        nonPlainGlossaryPathProblem(path) === undefined && isFile(root, path),
+    )
     .map((path) => ({ path, text: readFileSync(join(root, path), "utf8") }));
   return [
     ...(ownGlossary
@@ -201,6 +236,7 @@ export function mapProblems(map: string, root: string): string[] {
       : [
           `${mapFile} does not link this repository's own GLOSSARY.md, so it names no glossary that this check can read. Repair: link GLOSSARY.md in the row of the glossary that owns this repository's words.`,
         ]),
+    ...pathProblems,
     ...linkProblems(links, root),
     ...ownerProblems(map, root),
     ...duplicateTermProblems(existingGlossaries),
