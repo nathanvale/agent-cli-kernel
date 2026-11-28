@@ -90,6 +90,17 @@ diagnostics and menu add-ons.
 **State add-on**:
 The add-on that owns the journal and the state a changing command works in.
 
+**Journal**:
+The state add-on's record of each changing command's intent, events and close,
+kept in the state root.
+
+**Case**:
+One changing command's entry in the journal, from intent to close.
+
+**Unresolved case**:
+A case with no close; it blocks later changes to the same resources until it is
+closed or superseded.
+
 **supersedeUnresolved**:
 A changing command's promise that it is safe to run again, even alongside a
 leftover copy of a program an earlier run started; with it, the next run of
@@ -105,6 +116,9 @@ The add-on that owns starting and stopping the programs a command runs.
 The add-on that checks authority before a command attempts its approved
 effects.
 
+**Grant**:
+The approval add-on's single-use record that lets one approved effect run.
+
 **ApprovalRejection**:
 The approval add-on's public error when authority storage, exclusive
 coordination or confirmation of durable consumption prevents an approved effect
@@ -113,7 +127,9 @@ an unconsumed refusal from a failure after grant consumption.
 _Avoid_: refusal (for every ApprovalRejection, since some follow consumption)
 
 **Diagnostics add-on**:
-The add-on that owns the diagnostic records of a run and their custody.
+The add-on that owns a run's diagnostic records and custody. `DiagnosticsAddon`
+and `DiagnosticsAttached` (with bounded `freeze`) are its public types;
+`StatusAddon` and `StatusAttached` remain deprecated aliases under decision N11.
 
 **Menu**:
 The add-on ability to show rows on a terminal in an interactive run and hand
@@ -221,23 +237,15 @@ construction or registration. It does not admit a command for a run.
 
 **Lock probe**:
 A compiler input used by the kernel's lock tests to check a type constraint
-with the native and lint-view compilers. `lock-probes.ts` owns their batch
-runner. This is separate from verify-cli's Probe of a target CLI.
-
-**Diagnostics add-on**:
-The optional diagnostics capability. `DiagnosticsAddon` is its public type;
-`DiagnosticsAttached` is the attachment to one run, including its bounded
-`freeze` operation. `StatusAddon` and `StatusAttached` remain exported as
-deprecated aliases of those types under accepted decision N11.
+with the native and lint-view compilers (`lock-probes.ts` runs them). Separate
+from verify-cli's Probe of a target CLI.
 
 **Rooted file**:
-A path derived or given from outside under a folder root, read with
-`readRootedFile` from `agent-cli-kernel/rooted-file` (implemented in
-`kernel/src/shared/rooted-file.ts`). It reads regular files inside the
-resolved root up to a byte limit, and refuses paths with a `..` segment
-(`parent-step`), paths outside the root, symbolic links, linked folders, hard
-links, non-regular files, over-limit files and post-open swaps, returning a
-`RootedRefusal` whose message ends with a `Repair:` line.
+A path under a folder root, read with `readRootedFile` from
+`agent-cli-kernel/rooted-file` (`kernel/src/shared/rooted-file.ts`). It reads
+regular files inside the resolved root up to a byte limit, refusing `..`
+(`parent-step`), outside paths, links, non-regular or over-limit files, and
+post-open swaps with a `RootedRefusal` ending in `Repair:`.
 _Avoid_: safe path, guard (unqualified), helper (for a rooted-file module)
 
 **RootedFileResult**:
@@ -333,16 +341,12 @@ an envelope's exit code is the process's, `--json` prints one envelope and
 nothing on stderr, and a failed run prints nothing on stdout.
 
 **Self-verification**:
-The kernel's own test area that runs verify-cli on every change against two
-CLIs: the helper, which it sweeps, and the author skill's example, which it
-launches, drives with the scenario verify-cli's read-only feature file
-shows, and reports on. Its station record, `stations.json`, lists each
-station that each run reaches, as swept, driven or owed, and the helper's
-check count. It fails, printing a repair, on a run verify-cli cannot trust,
-a finding (quoting each failed check), an unmet step (quoting what was
-expected and observed), an unconfirmed process end, a sweep with no check,
-a report with nothing driven, and any station or count that differs from
-the record.
+The kernel's test area that sweeps verify-cli's helper and launches, drives
+(with verify-cli's read-only scenario), and reports on the author skill's
+example. Its `stations.json` records each reached station (swept, driven, or
+owed) and the helper's check count, failing with a repair on untrusted runs,
+findings, unmet steps, unconfirmed process ends, empty sweeps or reports, or
+station/count drift.
 
 ### Fault replay timings
 
