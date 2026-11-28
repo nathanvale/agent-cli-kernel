@@ -27,6 +27,17 @@ import {
 } from "./names-check-fixture.ts";
 
 const { emptyRepository } = namesCheckFixture();
+const fixtureGitBound = 4_000;
+const namesGitBound = 10_000;
+const timeoutHeadroom = 5_000;
+
+function sequentialTimeout(fixtureCalls: number, namesCalls: number): number {
+  return (
+    fixtureCalls * fixtureGitBound +
+    namesCalls * namesGitBound +
+    timeoutHeadroom
+  );
+}
 
 const stateGlossaryPath = "kernel/src/addons/state/GLOSSARY.md";
 const stateGlossary = `# State add-on glossary
@@ -99,128 +110,144 @@ test("CG.a mappedGlossaryFiles returns the linked GLOSSARY.md paths in order", (
   expect(mappedGlossaryFiles(map)).toEqual(["GLOSSARY.md", stateGlossaryPath]);
 });
 
-test("CG.b a term defined only in a context glossary counts as defined and context glossaries are not read as uses", () => {
-  const root = splitRepository(
-    {
-      [stateGlossaryPath]: stateGlossary,
-      "docs/notes.md":
-        "A planted fault, a recorded hit and the state add-on.\n",
-    },
-    [
-      `| State add-on | State words | [${stateGlossaryPath}](${stateGlossaryPath}) |`,
-    ],
-  );
-  const loaded = readRepositoryGlossary(root);
-  const texts = trackedTexts(root);
-  expect(texts).not.toContain(stateGlossary);
-  expect(termUseProblems(loaded, texts, [])).toEqual([
-    `"supersedeUnresolved" appears in no tracked file outside the glossary files. Repair: use it, remove it from ${stateGlossaryPath}, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
-  ]);
-  expect(
-    termUseProblems(loaded, texts, [
+test(
+  "CG.b a term defined only in a context glossary counts as defined and context glossaries are not read as uses",
+  () => {
+    const root = splitRepository(
       {
-        term: "supersedeUnresolved",
-        reason: "Not used yet.",
-        ticket: "MAG-1",
+        [stateGlossaryPath]: stateGlossary,
+        "docs/notes.md":
+          "A planted fault, a recorded hit and the state add-on.\n",
       },
-    ]),
-  ).toEqual([]);
-});
+      [
+        `| State add-on | State words | [${stateGlossaryPath}](${stateGlossaryPath}) |`,
+      ],
+    );
+    const loaded = readRepositoryGlossary(root);
+    const texts = trackedTexts(root);
+    expect(texts).not.toContain(stateGlossary);
+    expect(termUseProblems(loaded, texts, [])).toEqual([
+      `"supersedeUnresolved" appears in no tracked file outside the glossary files. Repair: use it, remove it from ${stateGlossaryPath}, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
+    ]);
+    expect(
+      termUseProblems(loaded, texts, [
+        {
+          term: "supersedeUnresolved",
+          reason: "Not used yet.",
+          ticket: "MAG-1",
+        },
+      ]),
+    ).toEqual([]);
+  },
+  sequentialTimeout(3, 1),
+);
 
-test("CG.c an Avoid word from a context glossary is refused in a file name, in --staged mode, and on the public surface", async () => {
-  const root = splitRepository(
-    {
-      [stateGlossaryPath]: stateGlossary,
-      "src/public.ts": "export function reclaimState() {}\n",
-    },
-    [
-      `| State add-on | State words | [${stateGlossaryPath}](${stateGlossaryPath}) |`,
-    ],
-    ["src/public.ts"],
-  );
-  expect(await check(root, ["docs/reclaim-notes.md"])).toEqual({
-    stderr: `docs/reclaim-notes.md uses "reclaim", which ${stateGlossaryPath} lists under Avoid for "supersedeUnresolved". Repair: rename it with the glossary word.\n`,
-    code: 1,
-  });
-  expect(await check(root, ["src/public.ts"])).toEqual({
-    stderr: `src/public.ts:1 public declaration "reclaimState" breaks Avoid: uses "reclaim", which ${stateGlossaryPath} lists under Avoid for "supersedeUnresolved". Repair: rename it with the glossary word.\n`,
-    code: 1,
-  });
-  put(
-    root,
-    stateGlossaryPath,
-    stateGlossary.replace("_Avoid_: reclaim", "_Avoid_: force"),
-  );
-  put(root, "docs/force-notes.md", "notes\n");
-  git(root, "add", "--", stateGlossaryPath, "docs/force-notes.md");
-  put(root, stateGlossaryPath, stateGlossary);
-  expect(await check(root, ["--staged"])).toEqual({
-    stderr: `docs/force-notes.md uses "force", which ${stateGlossaryPath} lists under Avoid for "supersedeUnresolved". Repair: rename it with the glossary word.\n`,
-    code: 1,
-  });
-});
+test(
+  "CG.c an Avoid word from a context glossary is refused in a file name, in --staged mode, and on the public surface",
+  async () => {
+    const root = splitRepository(
+      {
+        [stateGlossaryPath]: stateGlossary,
+        "src/public.ts": "export function reclaimState() {}\n",
+      },
+      [
+        `| State add-on | State words | [${stateGlossaryPath}](${stateGlossaryPath}) |`,
+      ],
+      ["src/public.ts"],
+    );
+    expect(await check(root, ["docs/reclaim-notes.md"])).toEqual({
+      stderr: `docs/reclaim-notes.md uses "reclaim", which ${stateGlossaryPath} lists under Avoid for "supersedeUnresolved". Repair: rename it with the glossary word.\n`,
+      code: 1,
+    });
+    expect(await check(root, ["src/public.ts"])).toEqual({
+      stderr: `src/public.ts:1 public declaration "reclaimState" breaks Avoid: uses "reclaim", which ${stateGlossaryPath} lists under Avoid for "supersedeUnresolved". Repair: rename it with the glossary word.\n`,
+      code: 1,
+    });
+    put(
+      root,
+      stateGlossaryPath,
+      stateGlossary.replace("_Avoid_: reclaim", "_Avoid_: force"),
+    );
+    put(root, "docs/force-notes.md", "notes\n");
+    git(root, "add", "--", stateGlossaryPath, "docs/force-notes.md");
+    put(root, stateGlossaryPath, stateGlossary);
+    expect(await check(root, ["--staged"])).toEqual({
+      stderr: `docs/force-notes.md uses "force", which ${stateGlossaryPath} lists under Avoid for "supersedeUnresolved". Repair: rename it with the glossary word.\n`,
+      code: 1,
+    });
+  },
+  sequentialTimeout(4, 14),
+);
 
-test("CG.d a term defined in two glossaries is refused, while two entries with the same name in one glossary pass", async () => {
-  const duplicatePath = "kernel/src/addons/state/GLOSSARY.md";
-  const duplicateRoot = splitRepository(
-    {
-      [duplicatePath]:
-        "# State add-on glossary\n\n**Planted fault**:\nDefined twice.\n",
-    },
-    [`| State add-on | State words | [${duplicatePath}](${duplicatePath}) |`],
-  );
-  const expected = `"Planted fault" is defined in both GLOSSARY.md and ${duplicatePath}. Repair: keep its definition in the one glossary that owns it.`;
-  expect(
-    mapProblems(
-      readFileSync(join(duplicateRoot, "GLOSSARY-MAP.md"), "utf8"),
-      duplicateRoot,
-    ),
-  ).toEqual([expected]);
-  expect(await check(duplicateRoot, ["docs/notes.md"])).toEqual({
-    stderr: `${expected}\n`,
-    code: 2,
-  });
+test(
+  "CG.d a term defined in two glossaries is refused, while two entries with the same name in one glossary pass",
+  async () => {
+    const duplicatePath = "kernel/src/addons/state/GLOSSARY.md";
+    const duplicateRoot = splitRepository(
+      {
+        [duplicatePath]:
+          "# State add-on glossary\n\n**Planted fault**:\nDefined twice.\n",
+      },
+      [`| State add-on | State words | [${duplicatePath}](${duplicatePath}) |`],
+    );
+    const expected = `"Planted fault" is defined in both GLOSSARY.md and ${duplicatePath}. Repair: keep its definition in the one glossary that owns it.`;
+    expect(
+      mapProblems(
+        readFileSync(join(duplicateRoot, "GLOSSARY-MAP.md"), "utf8"),
+        duplicateRoot,
+      ),
+    ).toEqual([expected]);
+    expect(await check(duplicateRoot, ["docs/notes.md"])).toEqual({
+      stderr: `${expected}\n`,
+      code: 2,
+    });
 
-  const diagnosticsPath = "kernel/src/addons/diagnostics/GLOSSARY.md";
-  const diagnosticsRoot = splitRepository(
-    {
-      [diagnosticsPath]:
-        "# Diagnostics add-on glossary\n\n**Diagnostics add-on**:\nFirst entry.\n\n**Diagnostics add-on**:\nSecond entry.\n",
-    },
-    [
-      `| Diagnostics add-on | Diagnostics words | [${diagnosticsPath}](${diagnosticsPath}) |`,
-    ],
-  );
-  expect(
-    mapProblems(
-      readFileSync(join(diagnosticsRoot, "GLOSSARY-MAP.md"), "utf8"),
-      diagnosticsRoot,
-    ),
-  ).toEqual([]);
-  expect(await check(diagnosticsRoot, ["docs/notes.md"])).toEqual({
-    stderr: "",
-    code: 0,
-  });
-});
+    const diagnosticsPath = "kernel/src/addons/diagnostics/GLOSSARY.md";
+    const diagnosticsRoot = splitRepository(
+      {
+        [diagnosticsPath]:
+          "# Diagnostics add-on glossary\n\n**Diagnostics add-on**:\nFirst entry.\n\n**Diagnostics add-on**:\nSecond entry.\n",
+      },
+      [
+        `| Diagnostics add-on | Diagnostics words | [${diagnosticsPath}](${diagnosticsPath}) |`,
+      ],
+    );
+    expect(
+      mapProblems(
+        readFileSync(join(diagnosticsRoot, "GLOSSARY-MAP.md"), "utf8"),
+        diagnosticsRoot,
+      ),
+    ).toEqual([]);
+    expect(await check(diagnosticsRoot, ["docs/notes.md"])).toEqual({
+      stderr: "",
+      code: 0,
+    });
+  },
+  sequentialTimeout(6, 0),
+);
 
-test("CG.e a map link to a missing context glossary is refused in mapProblems, working-tree check, and --staged mode", async () => {
-  const missingPath = "kernel/src/addons/missing/GLOSSARY.md";
-  const root = splitRepository({}, [
-    `| Missing add-on | Missing words | [${missingPath}](${missingPath}) |`,
-  ]);
-  const expected = `GLOSSARY-MAP.md points to ${missingPath}, which does not exist. Repair: correct the link, or remove its row.`;
-  expect(
-    mapProblems(readFileSync(join(root, "GLOSSARY-MAP.md"), "utf8"), root),
-  ).toEqual([expected]);
-  expect(await check(root, ["docs/notes.md"])).toEqual({
-    stderr: `${expected}\n`,
-    code: 2,
-  });
-  expect(await check(root, ["--staged"])).toEqual({
-    stderr: `git has no staged ${missingPath}, so the names check cannot judge a commit by the ${missingPath} it will contain. Repair: stage it with git add ${missingPath}, then run the names check again.\n`,
-    code: 2,
-  });
-});
+test(
+  "CG.e a map link to a missing context glossary is refused in mapProblems, working-tree check, and --staged mode",
+  async () => {
+    const missingPath = "kernel/src/addons/missing/GLOSSARY.md";
+    const root = splitRepository({}, [
+      `| Missing add-on | Missing words | [${missingPath}](${missingPath}) |`,
+    ]);
+    const expected = `GLOSSARY-MAP.md points to ${missingPath}, which does not exist. Repair: correct the link, or remove its row.`;
+    expect(
+      mapProblems(readFileSync(join(root, "GLOSSARY-MAP.md"), "utf8"), root),
+    ).toEqual([expected]);
+    expect(await check(root, ["docs/notes.md"])).toEqual({
+      stderr: `${expected}\n`,
+      code: 2,
+    });
+    expect(await check(root, ["--staged"])).toEqual({
+      stderr: `git has no staged ${missingPath}, so the names check cannot judge a commit by the ${missingPath} it will contain. Repair: stage it with git add ${missingPath}, then run the names check again.\n`,
+      code: 2,
+    });
+  },
+  sequentialTimeout(3, 5),
+);
 
 test("CG.f kernelEntries defined only in a context glossary pass ownership, while an undefined one is refused", () => {
   const rootGlossary = `# Root glossary
@@ -287,5 +314,5 @@ test.each([
       code: 2,
     });
   },
-  57_000,
+  sequentialTimeout(3, 4),
 );
