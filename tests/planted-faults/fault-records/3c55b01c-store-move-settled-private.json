@@ -1,0 +1,7 @@
+{
+  "id": "3c55b01c-store-move-settled-private",
+  "patch": "tests/planted-faults/patches/3c55b01c-store-move-settled-private.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "moving a settled case refuses a linked case folder",
+  "source": "3c55b01c fix(state): refuse linked case folders and FIFOs, skip non-directory stray entries"
+}

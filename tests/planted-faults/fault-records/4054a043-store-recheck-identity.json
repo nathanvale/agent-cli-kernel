@@ -1,0 +1,7 @@
+{
+  "id": "4054a043-store-recheck-identity",
+  "patch": "tests/planted-faults/patches/4054a043-store-recheck-identity.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "post-open recheck refuses a journal file whose inode changes after open on read and event write",
+  "source": "4054a043 fix(state): recheck opened journal descriptors and refuse linked store folders"
+}

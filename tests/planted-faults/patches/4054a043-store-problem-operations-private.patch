@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -727,7 +727,6 @@ export function storeProblem(
+     const journal = journalOf(paths);
+     if (!privateDirectory(paths.root) || journal === undefined)
+       return "corrupt";
+-    if (!privateDirectory(paths.operations)) return "corrupt";
+     if (
+       journal === journals.two
+         ? !privateDirectory(paths.settled)

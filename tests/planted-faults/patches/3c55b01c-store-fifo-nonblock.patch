@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -91,7 +91,7 @@ function readJournalFile(path: string): Uint8Array {
+   const descriptor = openSync(
+     path,
+-    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
++    constants.O_RDONLY | constants.O_NOFOLLOW,
+   );
+   try {
+     const opened = fstatSync(descriptor);

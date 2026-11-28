@@ -1,13 +1,11 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 6d6a31a1..e70d1bf3 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -73,7 +73,7 @@ function flushDirectory(path: string): void {
- }
- 
- function readJournalFile(path: string): Uint8Array {
--  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-+  const descriptor = openSync(path, constants.O_RDONLY);
+@@ -93,7 +93,7 @@ function readJournalFile(path: string, root: string): Uint8Array {
+   const descriptor = openSync(
+     path,
+-    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
++    constants.O_RDONLY | constants.O_NONBLOCK,
+   );
    try {
-     return readFileSync(descriptor);
-   } finally {
+     const opened = fstatSync(descriptor);

@@ -302,11 +302,6 @@
       "count": 1
     }
   },
-  "tests/kernel/state/journal.test.ts": {
-    "repository/tests-use-bounded-runner": {
-      "count": 1
-    }
-  },
   "tests/kernel/state/linux-coordination.probe.test.ts": {
     "repository/tests-no-sleep": {
       "count": 4

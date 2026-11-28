@@ -2,6 +2,6 @@
   "id": "b5db46dc-store-journal-read-follows-link",
   "patch": "tests/planted-faults/patches/b5db46dc-store-journal-read-follows-link.patch",
   "testFile": "tests/kernel/state/journal-file-links.test.ts",
-  "title": "symbolic link to identical bytes outside the root is refused by history, pending and admission",
+  "title": "dangling symbolic link at closure is refused by history, pending and admission",
   "source": "b5db46dc fix(state): open journal files without following a link"
 }

@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -691,7 +691,6 @@ function readOperationIn(
+   directory: string,
+   id: string,
+ ): Operation | "corrupt" {
+-  if (!privateRootedDirectory(root, directory)) return "corrupt";
+   const intent = readIntent(root, directory, id);
+   const events = intent && readEvents(root, directory, intent.intent.effects);
+   if (!intent || !events) return "corrupt";

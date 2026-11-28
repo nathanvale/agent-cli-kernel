@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -893,8 +893,6 @@ function writeEventRecord(
+   );
+   try {
+     const opened = fstatSync(descriptor);
+-    if (!opened.isFile())
+-      throw new Error("The journal events file is not a regular file.");
+     recheckOpenedJournalFile(
+       opened,
+       eventsPath,

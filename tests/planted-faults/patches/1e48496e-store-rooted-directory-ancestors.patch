@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -152,15 +152,4 @@ function privateDirectory(path: string): boolean {
+ function privateRootedDirectory(root: string, directory: string): boolean {
+-  if (!privateDirectory(root)) return false;
+-  const rel = relative(root, directory);
+-  if (rel === "") return true;
+-  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))
+-    return false;
+-  const segments = rel.split(sep);
+-  let current = root;
+-  for (const segment of segments) {
+-    current = join(current, segment);
+-    if (!privateDirectory(current)) return false;
+-  }
+-  return realpathSync(directory) === join(realpathSync(root), ...segments);
++  return privateDirectory(directory);
+ }

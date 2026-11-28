@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -934,13 +934,6 @@ function writeEventRecord(
+     const opened = fstatSync(descriptor);
+     if (!opened.isFile())
+       throw new Error("The journal events file is not a regular file.");
+-    recheckOpenedJournalFile(
+-      opened,
+-      eventsPath,
+-      root,
+-      "The journal events file changed during write.",
+-      "Case folder changed to a non-private directory during write.",
+-    );
+     if (!endsOnWholeRecord(descriptor))
+       throw new Error(
+         "The events file does not end on a whole record, so nothing more is appended to this case.",

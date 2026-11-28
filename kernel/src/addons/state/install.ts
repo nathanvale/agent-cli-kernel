@@ -62,6 +62,7 @@ import type {
   Intent,
   Layout,
   Operation,
+  ReadResult,
   UpgradePhase,
   UpgradeProblem,
   WriteGate,
@@ -197,6 +198,7 @@ export type ReportResult =
   | {
       readonly ok: false;
       readonly reason: "missing" | "unreadable" | "corrupt";
+      readonly detail?: string;
     };
 export type HistoryResult =
   | { readonly ok: true; readonly history: HistoryData }
@@ -498,6 +500,18 @@ function settledCheck(
   return operation.status === "unresolved"
     ? undefined
     : { kind: "not-unresolved" };
+}
+
+function storeRefusal(
+  store: Extract<ReadResult, { readonly ok: false }>,
+): Refusal {
+  return store.detail === undefined
+    ? { kind: "unavailable", reason: `store-${store.reason}` }
+    : {
+        kind: "unavailable",
+        reason: `store-${store.reason}`,
+        detail: store.detail,
+      };
 }
 
 function readProblem(
@@ -1366,7 +1380,7 @@ export function install(options: StateOptions, seams: Seams) {
       const refusal: Refusal | undefined = upgradeProblem
         ? { kind: "unavailable", reason: upgradeProblem }
         : !store.ok
-          ? { kind: "unavailable", reason: `store-${store.reason}` }
+          ? storeRefusal(store)
           : blocking(paths, store.operations, keys, check);
       if (refusal || !store.ok)
         return {
@@ -1624,11 +1638,7 @@ export function install(options: StateOptions, seams: Seams) {
         refusal: { kind: "unavailable", reason: upgradeProblem },
       };
     const store = readStore(paths);
-    if (!store.ok)
-      return {
-        ok: false,
-        refusal: { kind: "unavailable", reason: `store-${store.reason}` },
-      };
+    if (!store.ok) return { ok: false, refusal: storeRefusal(store) };
     const conflicting = store.operations.filter(
       (operation) =>
         operation.status === "unresolved" &&
@@ -2328,11 +2338,7 @@ export function install(options: StateOptions, seams: Seams) {
         stop: { kind: "unavailable", reason: upgradeProblem },
       };
     const store = readStore(paths);
-    if (!store.ok)
-      return {
-        ok: false,
-        stop: { kind: "unavailable", reason: `store-${store.reason}` },
-      };
+    if (!store.ok) return { ok: false, stop: storeRefusal(store) };
     const refusal = blocking(paths, store.operations, targetKeys, {
       liveOnly: true,
       except: id,

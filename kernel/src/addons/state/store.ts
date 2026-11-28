@@ -19,7 +19,7 @@ import {
   writeSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import type { StateIssuer } from "../../kernel/index.ts";
 import { errorCode } from "../../shared/error-code.ts";
 import {
@@ -72,9 +72,40 @@ function flushDirectory(path: string): void {
   }
 }
 
-function readJournalFile(path: string): Uint8Array {
-  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+function recheckOpenedJournalFile(
+  opened: ReturnType<typeof fstatSync>,
+  path: string,
+  root: string,
+  changedMessage: string,
+  folderMessage: string,
+): void {
+  const current = lstatSync(path);
+  if (
+    current.isSymbolicLink() ||
+    current.dev !== opened.dev ||
+    current.ino !== opened.ino
+  )
+    throw new Error(changedMessage);
+  if (!privateRootedDirectory(root, dirname(path)))
+    throw new Error(folderMessage);
+}
+
+function readJournalFile(path: string, root: string): Uint8Array {
+  const descriptor = openSync(
+    path,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
   try {
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile())
+      throw new Error("The journal file is not a regular file.");
+    recheckOpenedJournalFile(
+      opened,
+      path,
+      root,
+      "The journal file changed during read.",
+      "The journal folder is not a private directory.",
+    );
     return readFileSync(descriptor);
   } finally {
     closeSync(descriptor);
@@ -100,6 +131,15 @@ function writeDurable(path: string, bytes: Uint8Array, exclusive = true): void {
   }
 }
 
+function lstatOptional(path: string): ReturnType<typeof lstatSync> | undefined {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
 function privateDirectory(path: string): boolean {
   const stats = lstatSync(path);
   return (
@@ -108,6 +148,29 @@ function privateDirectory(path: string): boolean {
     stats.uid === process.getuid?.() &&
     (stats.mode & 0o022) === 0
   );
+}
+
+function privateRootedDirectory(root: string, directory: string): boolean {
+  if (!privateDirectory(root)) return false;
+  const rel = relative(root, directory);
+  if (rel === "") return true;
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))
+    return false;
+  const segments = rel.split(sep);
+  let current = root;
+  for (const segment of segments) {
+    current = join(current, segment);
+    if (!privateDirectory(current)) return false;
+  }
+  return realpathSync(directory) === join(realpathSync(root), ...segments);
+}
+
+function eventRootOf(directory: string): string {
+  const parent = dirname(directory);
+  const name = basename(parent);
+  return name === "operations" || name === "settled"
+    ? dirname(parent)
+    : directory;
 }
 
 export function ensureStore(paths: Layout): boolean {
@@ -146,7 +209,7 @@ const journals = { one: "contract3.state", two: "contract3.state.2" } as const;
 type Journal = (typeof journals)[keyof typeof journals];
 
 function journalOf(paths: Layout): Journal | undefined {
-  const parsed = parseRecords(readJournalFile(paths.format));
+  const parsed = parseRecords(readJournalFile(paths.format, paths.root));
   const record = parsed.ok && !parsed.tornTail ? parsed.records : [];
   const journal = record[0]?.payload.journal;
   return record.length === 1 && record[0]?.kind === "format"
@@ -549,11 +612,12 @@ export type ReadResult =
   | {
       readonly ok: false;
       readonly reason: "missing" | "unreadable" | "corrupt";
+      readonly detail?: string;
     };
 
-function readOptional(path: string): Uint8Array | undefined {
+function readOptional(path: string, root: string): Uint8Array | undefined {
   try {
-    return readJournalFile(path);
+    return readJournalFile(path, root);
   } catch (error) {
     if (errorCode(error) === "ENOENT") return undefined;
     throw error;
@@ -567,8 +631,8 @@ export function revisionOf(
   return `r-${createHash("sha256").update(intentBytes).update("\n").update(eventBytes).digest("hex")}`;
 }
 
-function readIntent(directory: string, id: string) {
-  const bytes = readOptional(join(directory, "intent"));
+function readIntent(root: string, directory: string, id: string) {
+  const bytes = readOptional(join(directory, "intent"), root);
   if (!bytes) return undefined;
   const file = parseRecords(bytes);
   const record =
@@ -579,8 +643,12 @@ function readIntent(directory: string, id: string) {
   return intent ? { intent, bytes } : undefined;
 }
 
-function readEvents(directory: string, effects: readonly string[]) {
-  const bytes = readOptional(join(directory, "events"));
+function readEvents(
+  root: string,
+  directory: string,
+  effects: readonly string[],
+) {
+  const bytes = readOptional(join(directory, "events"), root);
   if (!bytes) return undefined;
   const file = parseRecords(bytes);
   if (!file.ok) return undefined;
@@ -591,8 +659,8 @@ function readEvents(directory: string, effects: readonly string[]) {
     : undefined;
 }
 
-function closureState(directory: string, id: string) {
-  const bytes = readOptional(join(directory, "closure"));
+function closureState(root: string, directory: string, id: string) {
+  const bytes = readOptional(join(directory, "closure"), root);
   if (!bytes) return { closure: undefined, closureDamaged: false };
   const parsed = parseRecords(bytes);
   const record =
@@ -618,11 +686,16 @@ function statusOf(
       : "unresolved";
 }
 
-function readOperationIn(directory: string, id: string): Operation | "corrupt" {
-  const intent = readIntent(directory, id);
-  const events = intent && readEvents(directory, intent.intent.effects);
+function readOperationIn(
+  root: string,
+  directory: string,
+  id: string,
+): Operation | "corrupt" {
+  if (!privateRootedDirectory(root, directory)) return "corrupt";
+  const intent = readIntent(root, directory, id);
+  const events = intent && readEvents(root, directory, intent.intent.effects);
   if (!intent || !events) return "corrupt";
-  const { closure, closureDamaged } = closureState(directory, id);
+  const { closure, closureDamaged } = closureState(root, directory, id);
   return {
     intent: intent.intent,
     intentBytes: intent.bytes,
@@ -660,11 +733,12 @@ function fromCaseFolders<T>(
 }
 
 function readCaseIn(
+  root: string,
   directory: string,
   id: string,
 ): Operation | "corrupt" | "unreadable" {
   try {
-    return readOperationIn(directory, id);
+    return readOperationIn(root, directory, id);
   } catch {
     return "unreadable";
   }
@@ -673,7 +747,9 @@ function readCaseIn(
 export type CaseRead = Operation | "not-found" | "corrupt" | "unreadable";
 
 export function readCase(paths: Layout, id: string): CaseRead {
-  return fromCaseFolders(paths, id, (directory) => readCaseIn(directory, id));
+  return fromCaseFolders(paths, id, (directory) =>
+    readCaseIn(paths.root, directory, id),
+  );
 }
 
 export function storeProblem(
@@ -685,15 +761,34 @@ export function storeProblem(
     return "missing";
   }
   try {
+    if (!privateDirectory(paths.root)) return "corrupt";
     const journal = journalOf(paths);
-    return privateDirectory(paths.root) &&
-      journal !== undefined &&
-      (journal === journals.one || privateDirectory(paths.settled))
-      ? undefined
-      : "corrupt";
+    if (journal === undefined) return "corrupt";
+    if (!privateDirectory(paths.operations)) return "corrupt";
+    if (
+      journal === journals.two
+        ? !privateDirectory(paths.settled)
+        : lstatOptional(paths.settled)?.isSymbolicLink() === true
+    )
+      return "corrupt";
+    return undefined;
   } catch {
     return "unreadable";
   }
+}
+
+function strayEntryProblem(
+  entryPath: string,
+  name: string,
+): ReadResult | undefined {
+  const stats = lstatOptional(entryPath);
+  if (stats?.isDirectory())
+    return {
+      ok: false,
+      reason: "corrupt",
+      detail: `unexpected folder in journal: ${name}`,
+    };
+  return undefined;
 }
 
 export function readStore(paths: Layout): ReadResult {
@@ -702,9 +797,14 @@ export function readStore(paths: Layout): ReadResult {
   try {
     const operations: Operation[] = [];
     for (const name of readdirSync(paths.operations).sort()) {
-      if (!operationPattern.test(name)) return { ok: false, reason: "corrupt" };
-      const read = readCaseIn(paths.operation(name), name);
-      if (!folderRemains(paths.operation(name))) continue;
+      const entryPath = paths.operation(name);
+      if (!operationPattern.test(name)) {
+        const stray = strayEntryProblem(entryPath, name);
+        if (stray) return stray;
+        continue;
+      }
+      const read = readCaseIn(paths.root, entryPath, name);
+      if (!folderRemains(entryPath)) continue;
       if (read === "corrupt" || read === "unreadable")
         return { ok: false, reason: read };
       operations.push(read);
@@ -720,6 +820,11 @@ export function moveSettledCase(
   paths: Layout,
   id: string,
 ): "moved" | "occupied" {
+  const source = paths.operation(id);
+  if (!privateRootedDirectory(paths.root, source))
+    throw new Error(`Case folder ${id} is not a private directory.`);
+  if (!privateRootedDirectory(paths.root, paths.settled))
+    throw new Error("Settled folder is not a private directory.");
   try {
     lstatSync(paths.settledCase(id));
     return "occupied";
@@ -727,7 +832,7 @@ export function moveSettledCase(
     if (errorCode(error) !== "ENOENT") throw error;
   }
   return gate((done) => {
-    renameSync(paths.operation(id), paths.settledCase(id));
+    renameSync(source, paths.settledCase(id));
     return done("moved");
   });
 }
@@ -814,11 +919,28 @@ function writeEventRecord(
   kind: EventKind,
   payload: Readonly<Record<string, unknown>>,
 ): void {
+  const directory = dirname(eventsPath);
+  const root = eventRootOf(directory);
+  if (!privateRootedDirectory(root, directory))
+    throw new Error("Case folder is not a private directory.");
   const descriptor = openSync(
     eventsPath,
-    constants.O_RDWR | constants.O_APPEND | constants.O_NOFOLLOW,
+    constants.O_RDWR |
+      constants.O_APPEND |
+      constants.O_NOFOLLOW |
+      constants.O_NONBLOCK,
   );
   try {
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile())
+      throw new Error("The journal events file is not a regular file.");
+    recheckOpenedJournalFile(
+      opened,
+      eventsPath,
+      root,
+      "The journal events file changed during write.",
+      "Case folder changed to a non-private directory during write.",
+    );
     if (!endsOnWholeRecord(descriptor))
       throw new Error(
         "The events file does not end on a whole record, so nothing more is appended to this case.",
@@ -891,8 +1013,11 @@ export function commitClosure(
   commitLink?: (link: () => boolean) => void,
 ): "published" | "exists" {
   const state: { outcome: "published" | "exists" } = { outcome: "exists" };
-  const target = join(paths.operation(operationId), "closure");
+  const directory = paths.operation(operationId);
+  const target = join(directory, "closure");
   const link = () => {
+    if (!privateRootedDirectory(paths.root, directory))
+      throw new Error(`Case folder ${operationId} is not a private directory.`);
     const linked = linkStagedClosure(staged, target);
     if (linked) state.outcome = "published";
     return linked;
@@ -906,8 +1031,7 @@ export function commitClosure(
   } finally {
     rmSync(staged, { force: true });
   }
-  if (state.outcome === "published")
-    flushDirectory(paths.operation(operationId));
+  if (state.outcome === "published") flushDirectory(directory);
   return state.outcome;
 }
 
@@ -915,15 +1039,16 @@ export type ClosureRead = Closure | "damaged" | "unreadable" | undefined;
 
 export function readClosure(paths: Layout, id: string): ClosureRead {
   const found = fromCaseFolders(paths, id, (directory) =>
-    closureIn(directory, id),
+    closureIn(paths.root, directory, id),
   );
   return found === "not-found" ? undefined : found;
 }
 
-function closureIn(directory: string, id: string): ClosureRead {
+function closureIn(root: string, directory: string, id: string): ClosureRead {
   let bytes: Uint8Array | undefined;
   try {
-    bytes = readOptional(join(directory, "closure"));
+    if (!privateRootedDirectory(root, directory)) return "unreadable";
+    bytes = readOptional(join(directory, "closure"), root);
   } catch {
     return "unreadable";
   }

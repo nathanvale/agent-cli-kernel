@@ -116,6 +116,33 @@ for (const leaf of leaves) {
   );
 }
 
+supportingTest(
+  "journal file links: a dangling symbolic link at closure is refused by history, pending and admission",
+  () =>
+    within(async (world) => {
+      await world.killAt(apply("a"), "effect");
+      const id = only(world);
+      const missingOutside = join(world.base, "outside", "missing-closure");
+      symlinkSync(missingOutside, leafPath(world, id, "closure"));
+      const runs = await readingRoutes(world, id);
+      expect(outcomes(runs)).toEqual({
+        history: "refused",
+        pending: "refused",
+        admission: "refused",
+      });
+      expect(runs.history?.result.causeCode).toBe("SCHEMA_SX_STATE_UNREADABLE");
+      expect(runs.history?.envelope.message).toBe("The journal is unreadable.");
+      expect(runs.pending?.result.causeCode).toBe("SCHEMA_SX_STATE_UNREADABLE");
+      expect(runs.pending?.envelope.message).toBe("The journal is unreadable.");
+      expect(runs.admission?.result.causeCode).toBe("DOMAIN_SX_UNAVAILABLE");
+      expect(runs.admission?.envelope.message).toBe(
+        "State unavailable: store-unreadable.",
+      );
+      expect(world.noteLedger("b")).toBe(0);
+    }),
+  250_000,
+);
+
 const stateSource = resolve(
   import.meta.dir,
   "../../../kernel/src/addons/state",

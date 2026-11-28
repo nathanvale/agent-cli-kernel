@@ -1,0 +1,7 @@
+{
+  "id": "1e48496e-store-rooted-directory-ancestors",
+  "patch": "tests/planted-faults/patches/1e48496e-store-rooted-directory-ancestors.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "through index\\.ts a swapped operations/ ancestor is refused with exact cause",
+  "source": "1e48496e fix(state): verify rooted directory chain on every case path and check root before format"
+}

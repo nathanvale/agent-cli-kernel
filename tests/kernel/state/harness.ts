@@ -356,7 +356,7 @@ export function writeSyntheticOperation(
     options.id ??
     `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
   const directory = join(root, "operations", id);
-  mkdirSync(directory);
+  mkdirSync(directory, { mode: 0o700 });
   writeFileSync(
     join(directory, "intent"),
     framed("intent", {

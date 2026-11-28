@@ -1,0 +1,10 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -86,6 +86,4 @@ function recheckOpenedJournalFile(
+     current.ino !== opened.ino
+   )
+     throw new Error(changedMessage);
+-  if (!privateRootedDirectory(root, dirname(path)))
+-    throw new Error(folderMessage);
+ }

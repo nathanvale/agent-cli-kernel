@@ -1,0 +1,10 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -1047,7 +1047,6 @@ function closureIn(root: string, directory: string, id: string): ClosureRead {
+   let bytes: Uint8Array | undefined;
+   try {
+-    if (!privateRootedDirectory(root, directory)) return "unreadable";
+     bytes = readOptional(join(directory, "closure"), root);
+   } catch {
+     return "unreadable";
