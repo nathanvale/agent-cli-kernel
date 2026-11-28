@@ -1,0 +1,7 @@
+{
+  "id": "c9997d49-declarations",
+  "patch": "tests/planted-faults/patches/c9997d49-declarations.patch",
+  "testFile": "tests/kernel/declaration-admission.test.ts",
+  "title": "changing\\(\\) and raw contractFor refuse --dry-run and --check by name or alias",
+  "source": "c9997d49 fix(kernel): refuse --check and --dry-run on changing commands"
+}
