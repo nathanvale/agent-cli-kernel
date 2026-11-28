@@ -1025,7 +1025,7 @@ function snapshotRevisions(
       configurable: false,
     });
   }
-  return parseRevisions(out) === undefined ? undefined : Object.freeze(out);
+  return parseRevisions(out);
 }
 
 const approvalBoundary = contractFor({
@@ -1912,11 +1912,9 @@ export function install(options: StateOptions, seams: Seams) {
     if (approval !== null && approval.kind !== "preview")
       return { ok: false, refusal: approval };
     const commandIdentity = declaration.command;
-    const revisions = { ...declaration.revisions };
-    if (
-      parseRevisions(revisions) === undefined ||
-      parseApproval(approval) === undefined
-    )
+    const revisions = parseRevisions({ ...declaration.revisions });
+    const parsedApproval = parseApproval(approval);
+    if (revisions === undefined || parsedApproval === undefined)
       return {
         ok: false,
         refusal: { kind: "unavailable", reason: "declaration" },
@@ -1930,7 +1928,7 @@ export function install(options: StateOptions, seams: Seams) {
         scope,
         revisions,
         facts: declaration.facts ?? null,
-        approval,
+        approval: parsedApproval,
         closes: null,
         coordination: admitted.order,
       },
