@@ -1,0 +1,7 @@
+{
+  "id": "d42bb86b-planted-fault-shards-balance",
+  "patch": "tests/planted-faults/patches/d42bb86b-planted-fault-shards-balance.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-shards-in-process.test.ts",
+  "title": "balances skewed timings within 25 percent instead of assigning in record order",
+  "source": "d42bb86b fix(fault-replay): raise shard timeout to 15m and refresh fault timings"
+}

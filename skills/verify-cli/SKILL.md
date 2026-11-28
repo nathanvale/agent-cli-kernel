@@ -150,7 +150,7 @@ Each step writes `evidence/<feature>/<step>.json` in the run folder: the
 argv, the limits, what was expected, what was observed (exit code,
 `timedOut`, `outputTruncated`, `terminationConfirmed`, byte counts, stdout
 or the expected result keys, stderr, each expected file's content, and in
-`fileKinds` what stood at its path: `file`, `absent`, `folder`, `other`,
+`fileKinds` what stood at its path: `file`, `absent`, `folder`, `symbolic-link`, `other`,
 `too-large` (over 1,048,576 bytes, not read) or `unreadable`), the `unmet`
 list, the verdict, and in `repository` the head commit and count of
 uncommitted paths when drive ran it, so a change made after launch shows

@@ -1,0 +1,17 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index d2a0167a..18818762 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -305,11 +305,7 @@ export function hooks(root: string): Finding {
+ }
+ 
+ export async function doctor(root: string, active?: Active): Promise<boolean> {
+-  const fallowLimit = stepLimitMilliseconds(
+-    process.env,
+-    stepLimitVariable,
+-    defaultFallowSeconds,
+-  );
++  const fallowLimit = defaultFallowSeconds * 1000;
+   const installed = toolchain(root);
+   const findings = [
+     await bunVersion(root),

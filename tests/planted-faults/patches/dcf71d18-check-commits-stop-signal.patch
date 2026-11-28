@@ -1,0 +1,13 @@
+diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
+index 6e7acb77..faba8aad 100644
+--- a/scripts/check-commits.ts
++++ b/scripts/check-commits.ts
+@@ -74,7 +74,7 @@ async function git(run: Run, args: readonly string[]) {
+   } finally {
+     delete active.stop;
+   }
+-  if (!result.timedOut && isStopSignal(result.signalCode))
++  if (isStopSignal(result.signalCode))
+     active.stoppedBy ??= result.signalCode;
+   if (result.timedOut)
+     throw new Error(

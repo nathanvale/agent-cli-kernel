@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -115,8 +115,7 @@ async function verifyOpened(
+   }
+   const entry = await lstatTarget(checked.target);
+   if (entry.kind !== "ok") return entry.status;
+-  if (entry.value.dev !== info.dev || entry.value.ino !== info.ino)
+-    return "symbolic-link";
++  void info;
+   const parentNow = await resolveReal(checked.realParent);
+   if (parentNow.kind !== "ok") return parentNow.status;
+   return parentNow.value === checked.realParent ? "ok" : "symbolic-link";

@@ -151,142 +151,185 @@ describe("fallowReport", () => {
   });
 });
 
+const fallowBound = 4_000;
+const fallowTestTimeout = fallowBound + 5_000;
+
 describe("fallowReadiness", () => {
-  test("a missing fallow binary fails with the install repair", () => {
-    expect(fallowReadiness(root(null))).toStrictEqual({
-      status: "FAIL",
-      check: "fallow",
-      detail: `node_modules/.bin/fallow is missing. Repair: ${install}.`,
-    });
-  });
+  test(
+    "a missing fallow binary fails with the install repair",
+    async () => {
+      expect(await fallowReadiness(root(null), fallowBound)).toStrictEqual({
+        status: "FAIL",
+        check: "fallow",
+        detail: `node_modules/.bin/fallow is missing. Repair: ${install}.`,
+      });
+    },
+    fallowTestTimeout,
+  );
 
-  test("a passing report is ok whatever its checks say", () => {
-    const folder = reported({
-      status: "pass",
-      checks: [{ id: "cache", status: "fail", message: "Ignored." }],
-    });
+  test(
+    "a passing report is ok whatever its checks say",
+    async () => {
+      const folder = reported({
+        status: "pass",
+        checks: [{ id: "cache", status: "fail", message: "Ignored." }],
+      });
 
-    expect(fallowReadiness(folder)).toStrictEqual({
-      status: "ok",
-      check: "fallow",
-      detail: "fallow doctor passes.",
-    });
-  });
+      expect(await fallowReadiness(folder, fallowBound)).toStrictEqual({
+        status: "ok",
+        check: "fallow",
+        detail: "fallow doctor passes.",
+      });
+    },
+    fallowTestTimeout,
+  );
 
-  test("fallow runs doctor in the root with JSON output and no chatter, and stderr is ignored", () => {
-    const folder = root(
-      '#!/bin/sh\necho "noise" >&2\necho "{\\"status\\":\\"warn\\",\\"checks\\":[{\\"id\\":\\"run\\",\\"status\\":\\"warn\\",\\"message\\":\\"$* in $(pwd)\\"}]}"\n',
-    );
+  test(
+    "fallow runs doctor in the root with JSON output and no chatter, and stderr is ignored",
+    async () => {
+      const folder = root(
+        '#!/bin/sh\necho "noise" >&2\necho "{\\"status\\":\\"warn\\",\\"checks\\":[{\\"id\\":\\"run\\",\\"status\\":\\"warn\\",\\"message\\":\\"$* in $(pwd)\\"}]}"\n',
+      );
 
-    expect(fallowReadiness(folder)).toStrictEqual({
-      status: "WARN",
-      check: "fallow",
-      detail: `run: doctor --format json --quiet in ${folder}. Repair: run node_modules/.bin/fallow doctor for the details.`,
-    });
-  });
+      expect(await fallowReadiness(folder, fallowBound)).toStrictEqual({
+        status: "WARN",
+        check: "fallow",
+        detail: `run: doctor --format json --quiet in ${folder}. Repair: run node_modules/.bin/fallow doctor for the details.`,
+      });
+    },
+    fallowTestTimeout,
+  );
 
-  test("a warning with a remediation is a WARN naming that command", () => {
-    const folder = reported({
-      status: "warn",
-      checks: [
-        { id: "root", status: "pass", message: "Root is readable." },
-        {
-          id: "cache",
-          status: "warn",
-          message: "Cache is cold",
-          remediation: { command: "fallow dead-code --quiet" },
-        },
-      ],
-    });
-
-    expect(fallowReadiness(folder)).toStrictEqual({
-      status: "WARN",
-      check: "fallow",
-      detail:
-        "cache: Cache is cold. Repair: run fallow dead-code --quiet from the repository root.",
-    });
-  });
-
-  test("a message that already ends in a full stop gains no second one", () => {
-    const folder = reported({
-      status: "warn",
-      checks: [{ id: "cache", status: "warn", message: "Cache is cold." }],
-    });
-
-    expect(fallowReadiness(folder).detail).toBe(
-      "cache: Cache is cold. Repair: run node_modules/.bin/fallow doctor for the details.",
-    );
-  });
-
-  test("a failing check is a FAIL and wins over an earlier warning", () => {
-    const folder = reported(
-      {
-        status: "fail",
+  test(
+    "a warning with a remediation is a WARN naming that command",
+    async () => {
+      const folder = reported({
+        status: "warn",
         checks: [
-          { id: "cache", status: "warn", message: "Cache is cold." },
+          { id: "root", status: "pass", message: "Root is readable." },
           {
-            id: "config",
-            status: "fail",
-            message: "The config could not be parsed",
-            remediation: { command: "fallow init" },
+            id: "cache",
+            status: "warn",
+            message: "Cache is cold",
+            remediation: { command: "fallow dead-code --quiet" },
           },
         ],
-      },
-      2,
-    );
+      });
 
-    expect(fallowReadiness(folder)).toStrictEqual({
-      status: "FAIL",
-      check: "fallow",
-      detail:
-        "config: The config could not be parsed. Repair: run fallow init from the repository root.",
-    });
-  });
+      expect(await fallowReadiness(folder, fallowBound)).toStrictEqual({
+        status: "WARN",
+        check: "fallow",
+        detail:
+          "cache: Cache is cold. Repair: run fallow dead-code --quiet from the repository root.",
+      });
+    },
+    fallowTestTimeout,
+  );
 
-  test("a failing check without a remediation points at fallow doctor", () => {
-    const folder = reported(
-      {
-        status: "fail",
-        checks: [{ id: "config", status: "fail", message: "Bad config." }],
-      },
-      2,
-    );
+  test(
+    "a message that already ends in a full stop gains no second one",
+    async () => {
+      const folder = reported({
+        status: "warn",
+        checks: [{ id: "cache", status: "warn", message: "Cache is cold." }],
+      });
 
-    expect(fallowReadiness(folder).detail).toBe(
-      "config: Bad config. Repair: run node_modules/.bin/fallow doctor for the details.",
-    );
-  });
+      expect((await fallowReadiness(folder, fallowBound)).detail).toBe(
+        "cache: Cache is cold. Repair: run node_modules/.bin/fallow doctor for the details.",
+      );
+    },
+    fallowTestTimeout,
+  );
 
-  test("a warn report whose checks hold no failure or warning names the status", () => {
-    const folder = reported({
-      status: "warn",
-      checks: [{ id: "root", status: "pass", message: "Root is readable." }],
-    });
+  test(
+    "a failing check is a FAIL and wins over an earlier warning",
+    async () => {
+      const folder = reported(
+        {
+          status: "fail",
+          checks: [
+            { id: "cache", status: "warn", message: "Cache is cold." },
+            {
+              id: "config",
+              status: "fail",
+              message: "The config could not be parsed",
+              remediation: { command: "fallow init" },
+            },
+          ],
+        },
+        2,
+      );
 
-    expect(fallowReadiness(folder)).toStrictEqual({
-      status: "WARN",
-      check: "fallow",
-      detail:
-        "fallow doctor reported warn. Repair: run node_modules/.bin/fallow doctor for the details.",
-    });
-  });
+      expect(await fallowReadiness(folder, fallowBound)).toStrictEqual({
+        status: "FAIL",
+        check: "fallow",
+        detail:
+          "config: The config could not be parsed. Repair: run fallow init from the repository root.",
+      });
+    },
+    fallowTestTimeout,
+  );
 
-  test("a fail report with no checks is a FAIL naming the status", () => {
-    const folder = reported({ status: "fail", checks: [] }, 2);
+  test(
+    "a failing check without a remediation points at fallow doctor",
+    async () => {
+      const folder = reported(
+        {
+          status: "fail",
+          checks: [{ id: "config", status: "fail", message: "Bad config." }],
+        },
+        2,
+      );
 
-    expect(fallowReadiness(folder)).toStrictEqual({
-      status: "FAIL",
-      check: "fallow",
-      detail:
-        "fallow doctor reported fail. Repair: run node_modules/.bin/fallow doctor for the details.",
-    });
-  });
+      expect((await fallowReadiness(folder, fallowBound)).detail).toBe(
+        "config: Bad config. Repair: run node_modules/.bin/fallow doctor for the details.",
+      );
+    },
+    fallowTestTimeout,
+  );
 
-  test("a status other than pass or fail is only a WARN", () => {
-    const folder = reported({ status: "skipped", checks: [] });
+  test(
+    "a warn report whose checks hold no failure or warning names the status",
+    async () => {
+      const folder = reported({
+        status: "warn",
+        checks: [{ id: "root", status: "pass", message: "Root is readable." }],
+      });
 
-    expect(fallowReadiness(folder).status).toBe("WARN");
-  });
+      expect(await fallowReadiness(folder, fallowBound)).toStrictEqual({
+        status: "WARN",
+        check: "fallow",
+        detail:
+          "fallow doctor reported warn. Repair: run node_modules/.bin/fallow doctor for the details.",
+      });
+    },
+    fallowTestTimeout,
+  );
+
+  test(
+    "a fail report with no checks is a FAIL naming the status",
+    async () => {
+      const folder = reported({ status: "fail", checks: [] }, 2);
+
+      expect(await fallowReadiness(folder, fallowBound)).toStrictEqual({
+        status: "FAIL",
+        check: "fallow",
+        detail:
+          "fallow doctor reported fail. Repair: run node_modules/.bin/fallow doctor for the details.",
+      });
+    },
+    fallowTestTimeout,
+  );
+
+  test(
+    "a status other than pass or fail is only a WARN",
+    async () => {
+      const folder = reported({ status: "skipped", checks: [] });
+
+      expect((await fallowReadiness(folder, fallowBound)).status).toBe("WARN");
+    },
+    fallowTestTimeout,
+  );
 
   test.each([
     ["error text", "error: unknown command", 2],
@@ -294,12 +337,15 @@ describe("fallowReadiness", () => {
     ["a report with a malformed check", '{"status":"pass","checks":[{}]}', 0],
   ])(
     "%s is not a readiness report and names the exit code",
-    (_kind, body, exitCode) => {
-      expect(fallowReadiness(root(stub(body, exitCode)))).toStrictEqual({
+    async (_kind, body, exitCode) => {
+      expect(
+        await fallowReadiness(root(stub(body, exitCode)), fallowBound),
+      ).toStrictEqual({
         status: "FAIL",
         check: "fallow",
         detail: `fallow doctor exited ${exitCode} without a readiness report. Repair: ${install}, then run node_modules/.bin/fallow doctor to read its error.`,
       });
     },
+    fallowTestTimeout,
   );
 });

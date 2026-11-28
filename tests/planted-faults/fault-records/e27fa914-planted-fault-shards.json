@@ -1,0 +1,7 @@
+{
+  "id": "e27fa914-planted-fault-shards",
+  "patch": "tests/planted-faults/patches/e27fa914-planted-fault-shards.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-shards-in-process.test.ts",
+  "title": "refuses an empty --update-timings= folder so nothing is written at the repository root",
+  "source": "e27fa914 fix(fault-replay): isolate shard timing output and size sequential test timeout"
+}

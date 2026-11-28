@@ -1,0 +1,12 @@
+diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
+index 6e7acb77..7813e9a3 100644
+--- a/scripts/check-commits.ts
++++ b/scripts/check-commits.ts
+@@ -176,7 +176,6 @@ export async function check(run: Run, commit: Commit): Promise<Checked> {
+         [process.execPath, ...step],
+         dir,
+         run.active,
+-        { limitMilliseconds: limit },
+       );
+       haltIfStopped(run, commit);
+       if (timedOut)

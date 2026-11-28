@@ -1,0 +1,36 @@
+diff --git a/kernel/src/kernel/command-result.ts b/kernel/src/kernel/command-result.ts
+index b1a35b06..ff19b80a 100644
+--- a/kernel/src/kernel/command-result.ts
++++ b/kernel/src/kernel/command-result.ts
+@@ -8,7 +8,6 @@ import { commonCauses } from "./causes.ts";
+ import type { CapabilitySelection } from "./capabilities.ts";
+ import { programStopOf } from "./program-stop.ts";
+ import { deadlineCause } from "./state-causes.ts";
+-import { copyJson } from "./validation/primitives.ts";
+ const resultIdentity = Symbol("kernel.commandResult");
+ export type CommandResult<Identity extends string = string> = {
+   readonly commandIdentity: Identity;
+@@ -73,14 +72,6 @@ export type ResultPlan = {
+   readonly runId: string;
+   readonly invocation: Invocation;
+ };
+-function copyData(facts: Record<string, unknown>): Record<string, unknown> {
+-  if (Object.hasOwn(facts, "data")) {
+-    const copied = copyJson(facts.data);
+-    if (!copied.ok) throw new Error("Result data must be plain bounded JSON.");
+-    facts.data = copied.value;
+-  }
+-  return facts;
+-}
+ const results = new WeakMap<CommandResult, ResultPlan>();
+ export function resultContext<
+   const Identity extends string,
+@@ -119,7 +110,7 @@ export function resultContext<
+       });
+       results.set(result, {
+         selected: Object.freeze({ ...selected }),
+-        facts: freeze(copyData({ ...facts, runId })),
++        facts: freeze({ ...facts, runId }),
+         runId,
+         invocation,
+       });

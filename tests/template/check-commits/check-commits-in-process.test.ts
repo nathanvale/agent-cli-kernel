@@ -16,8 +16,13 @@ import {
   ledgered,
   ledgerScript,
   refusal,
+  stepLimitMilliseconds,
 } from "../../support/check-commits-in-process-fixture.ts";
-import { git, worktreeLines } from "../../support/git-fixture.ts";
+import {
+  fixtureGitMilliseconds,
+  git,
+  worktreeLines,
+} from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
 
 const { folder, repositoryAt, inTemporaryFolder, worktreeAt } =
@@ -29,97 +34,133 @@ const lockfileListingADroppedDependency = JSON.stringify({
   packages: { dep: ["dep@file:dep", {}] },
 });
 
+const releaseGraceMilliseconds = 2_000;
+const timeoutMargin = 5_000;
+const releaseTestTimeout =
+  10 * fixtureGitMilliseconds +
+  stepLimitMilliseconds +
+  releaseGraceMilliseconds +
+  timeoutMargin;
+
 describe("release", () => {
-  test("a registered worktree is removed with its administrative folder", () => {
-    const { root, run } = repositoryAt();
-    const { dir, admin } = worktreeAt(root, "plain");
+  test(
+    "a registered worktree is removed with its administrative folder",
+    async () => {
+      const { root, run } = repositoryAt();
+      const { dir, admin } = worktreeAt(root, "plain");
 
-    release(run, dir, admin);
+      await release(run, dir, admin);
 
-    expect(existsSync(dir)).toBe(false);
-    expect(existsSync(admin)).toBe(false);
-    expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(existsSync(admin)).toBe(false);
+      expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
+    },
+    releaseTestTimeout,
+  );
 
-  test("a worktree git refuses to remove loses the administrative folder that still names it", async () => {
-    const { root, run } = repositoryAt();
-    const { dir, admin } = worktreeAt(root, "locked");
-    git(root, "worktree", "lock", dir);
+  test(
+    "a worktree git refuses to remove loses the administrative folder that still names it",
+    async () => {
+      const { root, run } = repositoryAt();
+      const { dir, admin } = worktreeAt(root, "locked");
+      git(root, "worktree", "lock", dir);
 
-    const shown = await captured(() => release(run, dir, admin));
+      const shown = await captured(() => release(run, dir, admin));
 
-    expect(existsSync(dir)).toBe(false);
-    expect(existsSync(admin)).toBe(false);
-    expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
-    expect(shown.stderr).toBe("");
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(existsSync(admin)).toBe(false);
+      expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
+      expect(shown.stderr).toBe("");
+    },
+    releaseTestTimeout,
+  );
 
-  test("a worktree git refuses to remove keeps a registration that names another folder, and says how to repair it", async () => {
-    const { root, run } = repositoryAt();
-    const { dir, admin } = worktreeAt(root, "moved");
-    git(root, "worktree", "lock", dir);
-    writeFileSync(join(admin, "gitdir"), join(dir, "elsewhere", ".git"));
+  test(
+    "a worktree git refuses to remove keeps a registration that names another folder, and says how to repair it",
+    async () => {
+      const { root, run } = repositoryAt();
+      const { dir, admin } = worktreeAt(root, "moved");
+      git(root, "worktree", "lock", dir);
+      writeFileSync(join(admin, "gitdir"), join(dir, "elsewhere", ".git"));
 
-    const shown = await captured(() => release(run, dir, admin));
+      const shown = await captured(() => release(run, dir, admin));
 
-    expect(existsSync(dir)).toBe(false);
-    expect(existsSync(admin)).toBe(true);
-    expect(shown.stderr).toBe(
-      `git worktree remove failed for ${dir}, and ${admin} no longer names it, so that registration stays. Repair: git worktree prune\n`,
-    );
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(existsSync(admin)).toBe(true);
+      expect(shown.stderr).toBe(
+        `git worktree remove failed for ${dir}, and ${admin} no longer names it, so that registration stays. Repair: git worktree prune\n`,
+      );
+    },
+    releaseTestTimeout,
+  );
 
-  test("a locked worktree whose administrative folder lost its gitdir file keeps that folder", async () => {
-    const { root, run } = repositoryAt();
-    const { dir, admin } = worktreeAt(root, "headless");
-    git(root, "worktree", "lock", dir);
-    rmSync(join(admin, "gitdir"));
+  test(
+    "a locked worktree whose administrative folder lost its gitdir file keeps that folder",
+    async () => {
+      const { root, run } = repositoryAt();
+      const { dir, admin } = worktreeAt(root, "headless");
+      git(root, "worktree", "lock", dir);
+      rmSync(join(admin, "gitdir"));
 
-    const shown = await captured(() => release(run, dir, admin));
+      const shown = await captured(() => release(run, dir, admin));
 
-    expect(existsSync(dir)).toBe(false);
-    expect(existsSync(admin)).toBe(true);
-    expect(shown.stderr).toContain("no longer names it");
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(existsSync(admin)).toBe(true);
+      expect(shown.stderr).toContain("no longer names it");
+    },
+    releaseTestTimeout,
+  );
 
-  test("a folder git does not know is deleted quietly when no administrative folder was found", async () => {
-    const { root, run } = repositoryAt();
-    const dir = join(folder("check-commits-process-tree-"), "unknown");
-    mkdirSync(dir);
-    writeFileSync(join(dir, "left-over"), "");
+  test(
+    "a folder git does not know is deleted quietly when no administrative folder was found",
+    async () => {
+      const { root, run } = repositoryAt();
+      const dir = join(folder("check-commits-process-tree-"), "unknown");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "left-over"), "");
 
-    const shown = await captured(() => release(run, dir, undefined));
+      const shown = await captured(() => release(run, dir, undefined));
 
-    expect(existsSync(dir)).toBe(false);
-    expect(shown.stderr).toBe("");
-    expect(worktreeLines(root)).toHaveLength(1);
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(shown.stderr).toBe("");
+      expect(worktreeLines(root)).toHaveLength(1);
+    },
+    releaseTestTimeout,
+  );
 
-  test("a folder git does not know is deleted quietly when its administrative folder is already gone", async () => {
-    const { run } = repositoryAt();
-    const dir = join(folder("check-commits-process-tree-"), "unknown");
-    mkdirSync(dir);
+  test(
+    "a folder git does not know is deleted quietly when its administrative folder is already gone",
+    async () => {
+      const { run } = repositoryAt();
+      const dir = join(folder("check-commits-process-tree-"), "unknown");
+      mkdirSync(dir);
 
-    const shown = await captured(() =>
-      release(run, dir, join(dir, "no-such-admin")),
-    );
+      const shown = await captured(() =>
+        release(run, dir, join(dir, "no-such-admin")),
+      );
 
-    expect(existsSync(dir)).toBe(false);
-    expect(shown.stderr).toBe("");
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(shown.stderr).toBe("");
+    },
+    releaseTestTimeout,
+  );
 
-  test("a worktree git removed itself leaves any folder that was passed as its administrative folder alone", async () => {
-    const { root, run } = repositoryAt();
-    const { dir } = worktreeAt(root, "removed-by-git");
-    const bystander = folder("check-commits-process-bystander-");
-    writeFileSync(join(bystander, "gitdir"), join(dir, ".git"));
+  test(
+    "a worktree git removed itself leaves any folder that was passed as its administrative folder alone",
+    async () => {
+      const { root, run } = repositoryAt();
+      const { dir } = worktreeAt(root, "removed-by-git");
+      const bystander = folder("check-commits-process-bystander-");
+      writeFileSync(join(bystander, "gitdir"), join(dir, ".git"));
 
-    const shown = await captured(() => release(run, dir, bystander));
+      const shown = await captured(() => release(run, dir, bystander));
 
-    expect(existsSync(dir)).toBe(false);
-    expect(existsSync(bystander)).toBe(true);
-    expect(shown.stderr).toBe("");
-  });
+      expect(existsSync(dir)).toBe(false);
+      expect(existsSync(bystander)).toBe(true);
+      expect(shown.stderr).toBe("");
+    },
+    releaseTestTimeout,
+  );
 });
 
 describe("check", () => {

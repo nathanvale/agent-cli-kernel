@@ -21,7 +21,7 @@ import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
 import { validateHostInput } from "./host-input.ts";
 import { carriesGlobalSwitch, routedIdentity } from "./routing.ts";
-import { stepVectorProblem } from "./step-vector.ts";
+import { checkDeclaredStep } from "./input.ts";
 import { keys, record, text } from "./validation/primitives.ts";
 export type AddonName =
   | "state"
@@ -123,7 +123,7 @@ function validateIfNoResult(
     throw new Error(
       `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} carries a global switch before --.`,
     );
-  const problem = stepVectorProblem(target, route.args, true);
+  const problem = checkDeclaredStep(target, route.args, true);
   if (problem)
     throw new Error(
       `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} can never parse: ${problem}.`,
@@ -240,7 +240,7 @@ function validateStepVectors(
 ): void {
   for (const { target, args } of guidanceTargets(command, commands)) {
     const problem = target
-      ? stepVectorProblem(
+      ? checkDeclaredStep(
           target,
           args,
           target.commandIdentity !== `${cli}.dispatch`,

@@ -43,11 +43,11 @@ owner.
 
 A lint rule's owner determines where to define, enable, and test it.
 
-| Owner              | Rule files                                                                           | Turned on in                        | Cases                                         |
-| ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------- | --------------------------------------------- |
-| Template           | `config/template-rules.mjs`, `config/platform-rules.mjs`, `config/payload-rules.mjs` | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts`      |
-| Template anti-slop | `config/anti-slop-rules.mjs`, `config/anti-slop-type-rules.mjs`                      | `eslint.config.mjs`                 | `tests/template/lint/anti-slop-rules.test.ts` |
-| Kernel             | `config/kernel-repository-rules.mjs`                                                 | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`             |
+| Owner              | Rule files                                                      | Turned on in                        | Cases                                         |
+| ------------------ | --------------------------------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| Template           | `config/template-rules.mjs`, `config/platform-rules.mjs`        | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts`      |
+| Template anti-slop | `config/anti-slop-rules.mjs`, `config/anti-slop-type-rules.mjs` | `eslint.config.mjs`                 | `tests/template/lint/anti-slop-rules.test.ts` |
+| Kernel             | `config/kernel-repository-rules.mjs`                            | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`             |
 
 - A rule both owners need has one copy per owner. Change both copies to
   the same text, with a case in each owner's cases file.

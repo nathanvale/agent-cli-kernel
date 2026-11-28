@@ -8,6 +8,10 @@ import {
   replayAll,
 } from "../../../scripts/planted-faults.ts";
 import {
+  readTimings,
+  writeTiming,
+} from "../../../scripts/planted-fault-shards.ts";
+import {
   createPlantedFaultFixture,
   guarded,
   headOf,
@@ -54,7 +58,11 @@ describe("replayAll", () => {
   const environment = { [stepVariable]: "20" };
   const setupOnlyTimeout = processWatchdog(4);
   const oneFaultTimeout = processWatchdog(14);
-  const twoFaultTimeout = processWatchdog(19);
+  const twoFaultBounds = 19;
+  const twoFaultTimeout = processWatchdog(twoFaultBounds);
+  const sequentialTwoFaultTimeout = processWatchdog(
+    twoFaultBounds + twoFaultBounds,
+  );
 
   async function replayedAll(
     root: string,
@@ -271,7 +279,7 @@ test("O.refuses negative on a clean tree", () => {
       const run = replayedAll(subject.root, [], { [stepVariable]: "-3" });
 
       expect(await rejection(run)).toBe(
-        `${stepVariable} is '-3'. Repair: set it to a positive number of seconds, or unset it for 300 s.`,
+        `${stepVariable} is '-3'. Repair: set it to a positive number of seconds up to 2147483, or unset it for 300 s.`,
       );
     },
     setupOnlyTimeout,
@@ -533,6 +541,51 @@ test("O.refuses negative while limit still refuses NaN", () => {
       expect(run.stdout).toContain(`KILLED ${second.id} in `);
       expect(run.stdout).toContain("2 of 2 planted faults KILLED in ");
       expect(run.leftovers).toEqual([]);
+    },
+    twoFaultTimeout,
+  );
+
+  test(
+    "refreshes recorded timings for KILLED faults only when updateTimings is enabled",
+    async () => {
+      const { root, id, survivor } = killedAndSurvivor();
+
+      const withoutUpdate = await replayedAll(root);
+      expect(withoutUpdate.result).toBe(1);
+      expect([...readTimings(root)]).toEqual([]);
+
+      const withUpdate = await isolated(() =>
+        replayAll(root, [], environment, { updateTimings: true }),
+      );
+
+      expect(withUpdate.result).toBe(1);
+      const timings = readTimings(root);
+      expect(timings.get(id)).toBeGreaterThan(0);
+      expect(timings.has(survivor.id)).toBe(false);
+    },
+    sequentialTwoFaultTimeout,
+  );
+
+  test(
+    "writes only the killed faults from this run when timingsFolder is set",
+    async () => {
+      const { root, id } = killedAndSurvivor();
+      writeTiming(root, "other-shard", 4.5);
+      const output = join(root, "shard-timings");
+
+      const run = await isolated(() =>
+        replayAll(root, [], environment, {
+          updateTimings: true,
+          timingsFolder: output,
+        }),
+      );
+
+      expect(run.result).toBe(1);
+      expect(readdirSync(output)).toEqual([`${id}.json`]);
+      expect(
+        JSON.parse(readFileSync(join(output, `${id}.json`), "utf8")),
+      ).toBeGreaterThan(0);
+      expect([...readTimings(root)]).toEqual([["other-shard", 4.5]]);
     },
     twoFaultTimeout,
   );

@@ -27,14 +27,29 @@ describe("stepLimitMilliseconds", () => {
     expect(stepLimitMilliseconds({ [stepVariable]: given })).toBe(milliseconds);
   });
 
-  test.each(["0", "-1", "abc", "Infinity", "NaN", " "])(
-    "refuses %j and names the repair",
-    (given) => {
-      expect(() => stepLimitMilliseconds({ [stepVariable]: given })).toThrow(
-        `${stepVariable} is '${given}'. Repair: set it to a positive number of seconds, or unset it for 300 s.`,
-      );
-    },
-  );
+  test.each([
+    "0",
+    "-1",
+    "abc",
+    "Infinity",
+    "NaN",
+    " ",
+    "2147483.001",
+    "2147484",
+  ])("refuses %j and names the repair", (given) => {
+    expect(() => stepLimitMilliseconds({ [stepVariable]: given })).toThrow(
+      `${stepVariable} is '${given}'. Repair: set it to a positive number of seconds up to 2147483, or unset it for 300 s.`,
+    );
+  });
+
+  test("ignores an inherited prototype property", () => {
+    const inheritedEnv = Object.create({ [stepVariable]: "1" }) as Record<
+      string,
+      string | undefined
+    >;
+
+    expect(stepLimitMilliseconds(inheritedEnv)).toBe(300_000);
+  });
 
   test("quotes a single quote in the refused value", () => {
     expect(() => stepLimitMilliseconds({ [stepVariable]: "it's" })).toThrow(

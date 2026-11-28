@@ -1,0 +1,7 @@
+{
+  "id": "d42bb86b-planted-fault-shards-timing-floor",
+  "patch": "tests/planted-faults/patches/d42bb86b-planted-fault-shards-timing-floor.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-shards-in-process.test.ts",
+  "title": "floors a replay faster than 0.1 s to 0.1 s so readTimings never meets 0",
+  "source": "d42bb86b fix(fault-replay): raise shard timeout to 15m and refresh fault timings"
+}

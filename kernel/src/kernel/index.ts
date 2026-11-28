@@ -29,7 +29,7 @@ import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { preparerOf } from "./declarations.ts";
 import type { DeclaredStation } from "./stations.ts";
-import { parseInput, acceptsRootInput } from "./input.ts";
+import { acceptsRootInput, checkDeclaredStep, parseInput } from "./input.ts";
 import { builtins, stationsFor } from "./navigation.ts";
 import { freeze } from "./stations.ts";
 import { commonCauses } from "./causes.ts";
@@ -38,7 +38,6 @@ import { classifyVersion, contractVersion } from "./validation/version.ts";
 import { validateEnvelope } from "./validation/envelope.ts";
 import { renderGuidance } from "./guidance.ts";
 import { wireResult } from "./validation/result.ts";
-import { stepVectorProblem } from "./step-vector.ts";
 import { record, text } from "./validation/primitives.ts";
 
 export { command, changing } from "./declarations.ts";
@@ -74,7 +73,7 @@ function validateDefaultCommand(
     throw new Error(`defaultCommand cannot name built-in command ${identity}.`);
   if (!hostCommands.includes(candidate))
     throw new Error("defaultCommand must be one of the declared commands.");
-  const problem = stepVectorProblem(candidate, [], true);
+  const problem = checkDeclaredStep(candidate, [], true);
   if (problem)
     throw new Error(
       `defaultCommand ${candidate.commandIdentity} cannot run with no arguments: ${problem}.`,

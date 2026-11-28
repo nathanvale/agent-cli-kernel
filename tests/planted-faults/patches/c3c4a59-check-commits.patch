@@ -1,13 +1,13 @@
 diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
-index b3b1536..8016c7a 100644
 --- a/scripts/check-commits.ts
 +++ b/scripts/check-commits.ts
-@@ -163,23 +163,17 @@ function report(
- function commitsToCheck(run: Run, base: string, head: string): Commit[] {
+@@ -221,24 +221,17 @@ async function commitsToCheck(
    const { fixedPoint } = run;
-   const present = git(run, ["cat-file", "-e", `${fixedPoint}^{commit}`]).ok;
+   const present = (await git(run, ["cat-file", "-e", `${fixedPoint}^{commit}`]))
+     .ok;
 -  const behind =
--    present && git(run, ["merge-base", "--is-ancestor", fixedPoint, head]).ok;
+-    present &&
+-    (await git(run, ["merge-base", "--is-ancestor", fixedPoint, head])).ok;
    if (!present)
      print(
        `since ${fixedPoint} is not in this clone, so every commit in ${base}..${head} is checked.`,
@@ -16,7 +16,7 @@ index b3b1536..8016c7a 100644
 -    print(
 -      `since ${fixedPoint} is not behind ${head}, so every commit in ${base}..${head} is checked.`,
 -    );
-   const listed = git(run, [
+   const listed = await git(run, [
      "rev-list",
      "--reverse",
      "--no-commit-header",

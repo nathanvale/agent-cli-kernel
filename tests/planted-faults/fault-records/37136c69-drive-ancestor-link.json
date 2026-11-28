@@ -1,0 +1,7 @@
+{
+  "id": "37136c69-drive-ancestor-link",
+  "patch": "tests/planted-faults/patches/37136c69-drive-ancestor-link.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "drive refuses an in-scratch or dangling linked parent folder",
+  "source": "37136c69 fix(verify-cli): refuse symbolic links when drive judges files"
+}
