@@ -7,9 +7,16 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { runWithOwnTools } from "./process-runner.ts";
+import {
+  runWithOwnTools,
+  startChild,
+  stepLimitMilliseconds,
+} from "./process-runner.ts";
 import { doctor } from "./doctor.ts";
 import { readRepository } from "./repository.ts";
+
+const stepLimitVariable = "CHECK_COMMITS_STEP_SECONDS";
+const defaultStepLimitSeconds = 300;
 
 const steps = [
   ["install", "--frozen-lockfile"],
@@ -31,25 +38,50 @@ export type Run = {
   readonly root: string;
   readonly fixedPoint: string;
   readonly active: Active;
+  readonly limitMilliseconds?: number;
 };
 
+function limitOf(run: Run): number {
+  return (
+    run.limitMilliseconds ??
+    stepLimitMilliseconds(
+      process.env,
+      stepLimitVariable,
+      defaultStepLimitSeconds,
+    )
+  );
+}
+
 function isStopSignal(
-  signal: NodeJS.Signals | number | undefined,
+  signal: NodeJS.Signals | number | null | undefined,
 ): signal is StopSignal {
   return signals.some((each) => each === signal);
 }
 
-function git({ root, active }: Run, args: readonly string[]) {
-  const result = Bun.spawnSync(["git", ...args], {
+async function git(run: Run, args: readonly string[]) {
+  const { root, active } = run;
+  const limit = limitOf(run);
+  const child = startChild(["git", ...args], {
     cwd: root,
-    stdout: "pipe",
-    stderr: "pipe",
+    env: process.env,
+    limitMilliseconds: limit,
   });
+  active.stop = child.stop;
+  let result;
+  try {
+    result = await child.finished;
+  } finally {
+    delete active.stop;
+  }
   if (isStopSignal(result.signalCode)) active.stoppedBy ??= result.signalCode;
+  if (result.timedOut)
+    throw new Error(
+      `FAIL check:commits: git ${args.join(" ")} did not finish within ${limit / 1000} s. Repair: run git ${args.join(" ")} by hand in ${root} to see where it hangs, or raise ${stepLimitVariable}.`,
+    );
   return {
     ok: result.exitCode === 0,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
+    stdout: result.stdout,
+    stderr: result.stderr,
   };
 }
 
@@ -61,9 +93,12 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
-function adminFolderOf(run: Run, dir: string): string | undefined {
+async function adminFolderOf(
+  run: Run,
+  dir: string,
+): Promise<string | undefined> {
   if (!existsSync(join(dir, ".git"))) return undefined;
-  const found = git(run, [
+  const found = await git(run, [
     "-C",
     dir,
     "rev-parse",
@@ -87,20 +122,28 @@ function pruneOnlyThisWorktree(admin: string): void {
   rmSync(admin, { recursive: true, force: true });
 }
 
-export function release(
+export async function release(
   run: Run,
   dir: string,
   admin: string | undefined,
-): void {
+): Promise<void> {
   const owned = admin !== undefined && pointsBackTo(admin, dir);
-  const removed = git(run, ["worktree", "remove", "--force", dir]).ok;
+  let removed = false;
+  let removalFailure: Error | undefined;
+  try {
+    removed = (await git(run, ["worktree", "remove", "--force", dir])).ok;
+  } catch (error) {
+    removalFailure = error instanceof Error ? error : new Error(String(error));
+  }
   rmSync(dir, { recursive: true, force: true });
-  if (removed || admin === undefined || !existsSync(admin)) return;
-  if (owned) pruneOnlyThisWorktree(admin);
-  else
-    process.stderr.write(
-      `git worktree remove failed for ${dir}, and ${admin} no longer names it, so that registration stays. Repair: git worktree prune\n`,
-    );
+  if (!removed && admin !== undefined && existsSync(admin)) {
+    if (owned) pruneOnlyThisWorktree(admin);
+    else
+      process.stderr.write(
+        `git worktree remove failed for ${dir}, and ${admin} no longer names it, so that registration stays. Repair: git worktree prune\n`,
+      );
+  }
+  if (removalFailure !== undefined) throw removalFailure;
 }
 
 function haltIfStopped({ active }: Run, commit: Commit): void {
@@ -112,9 +155,10 @@ function haltIfStopped({ active }: Run, commit: Commit): void {
 
 export async function check(run: Run, commit: Commit): Promise<Checked> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "check-commits-")));
+  const limit = limitOf(run);
   let admin: string | undefined;
   try {
-    const added = git(run, [
+    const added = await git(run, [
       "worktree",
       "add",
       "--detach",
@@ -122,16 +166,21 @@ export async function check(run: Run, commit: Commit): Promise<Checked> {
       dir,
       commit.sha,
     ]);
-    admin = adminFolderOf(run, dir);
+    admin = await adminFolderOf(run, dir);
     haltIfStopped(run, commit);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
-      const { exitCode, signalCode, output } = await runWithOwnTools(
+      const { exitCode, signalCode, timedOut, output } = await runWithOwnTools(
         [process.execPath, ...step],
         dir,
         run.active,
+        { limitMilliseconds: limit },
       );
       haltIfStopped(run, commit);
+      if (timedOut)
+        throw new Error(
+          `FAIL check:commits: ${shown(step)} did not finish within ${limit / 1000} s while checking ${commit.short}, so it has no verdict. Repair: run ${shown(step)} by hand to see where it hangs, or raise ${stepLimitVariable}.`,
+        );
       if (signalCode !== null)
         throw new Error(
           `${shown(step)} was killed by ${signalCode} while checking ${commit.short}, so it has no verdict.`,
@@ -141,7 +190,7 @@ export async function check(run: Run, commit: Commit): Promise<Checked> {
     }
     return { ...commit, result: { status: "green" } };
   } finally {
-    release(run, dir, admin);
+    await release(run, dir, admin);
   }
 }
 
@@ -164,11 +213,17 @@ function report(
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
 }
 
-function commitsToCheck(run: Run, base: string, head: string): Commit[] {
+async function commitsToCheck(
+  run: Run,
+  base: string,
+  head: string,
+): Promise<Commit[]> {
   const { fixedPoint } = run;
-  const present = git(run, ["cat-file", "-e", `${fixedPoint}^{commit}`]).ok;
+  const present = (await git(run, ["cat-file", "-e", `${fixedPoint}^{commit}`]))
+    .ok;
   const behind =
-    present && git(run, ["merge-base", "--is-ancestor", fixedPoint, head]).ok;
+    present &&
+    (await git(run, ["merge-base", "--is-ancestor", fixedPoint, head])).ok;
   if (!present)
     print(
       `since ${fixedPoint} is not in this clone, so every commit in ${base}..${head} is checked.`,
@@ -177,7 +232,7 @@ function commitsToCheck(run: Run, base: string, head: string): Commit[] {
     print(
       `since ${fixedPoint} is not behind ${head}, so every commit in ${base}..${head} is checked.`,
     );
-  const listed = git(run, [
+  const listed = await git(run, [
     "rev-list",
     "--reverse",
     "--no-commit-header",
@@ -232,7 +287,7 @@ export async function main(argv: readonly string[], run: Run): Promise<number> {
     print("Refused: repair the doctor's FAIL lines, then rerun.");
     return 1;
   }
-  let commits = commitsToCheck(run, base, head);
+  let commits = await commitsToCheck(run, base, head);
   if (commits.length === 0) {
     print(
       `No commits in ${base}..${head} to check, so this gate checks nothing. Repair: name a base that ${head} is ahead of.`,
@@ -270,12 +325,6 @@ export async function main(argv: readonly string[], run: Run): Promise<number> {
 if (import.meta.main) {
   const root = join(import.meta.dir, "..");
   const active: Active = {};
-  const run: Run = {
-    root,
-    fixedPoint:
-      process.env.CHECK_COMMITS_SINCE || readRepository(root).checkCommitsSince,
-    active,
-  };
   for (const signal of signals)
     process.on(signal, () => {
       active.stoppedBy ??= signal;
@@ -283,6 +332,18 @@ if (import.meta.main) {
     });
 
   try {
+    const run: Run = {
+      root,
+      fixedPoint:
+        process.env.CHECK_COMMITS_SINCE ||
+        readRepository(root).checkCommitsSince,
+      active,
+      limitMilliseconds: stepLimitMilliseconds(
+        process.env,
+        stepLimitVariable,
+        defaultStepLimitSeconds,
+      ),
+    };
     process.exitCode = await main(process.argv.slice(2), run);
   } catch (error) {
     process.stderr.write(

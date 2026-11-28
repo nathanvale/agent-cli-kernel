@@ -30,11 +30,11 @@ const lockfileListingADroppedDependency = JSON.stringify({
 });
 
 describe("release", () => {
-  test("a registered worktree is removed with its administrative folder", () => {
+  test("a registered worktree is removed with its administrative folder", async () => {
     const { root, run } = repositoryAt();
     const { dir, admin } = worktreeAt(root, "plain");
 
-    release(run, dir, admin);
+    await release(run, dir, admin);
 
     expect(existsSync(dir)).toBe(false);
     expect(existsSync(admin)).toBe(false);

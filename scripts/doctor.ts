@@ -2,7 +2,14 @@ import { existsSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join, resolve } from "node:path";
 import { resolveToolchain } from "../src/toolchain-resolution.ts";
-import { withoutRepositoryLocation } from "./process-runner.ts";
+import {
+  startChild,
+  stepLimitMilliseconds,
+  withoutRepositoryLocation,
+} from "./process-runner.ts";
+
+const stepLimitVariable = "DOCTOR_STEP_SECONDS";
+const defaultFallowSeconds = 30;
 
 export type Finding = {
   status: "ok" | "FAIL" | "WARN";
@@ -115,7 +122,14 @@ export function fallowReport(output: string): FallowReport | undefined {
   return { status, checks: checks.filter((check) => check !== undefined) };
 }
 
-export function fallowReadiness(root: string): Finding {
+export async function fallowReadiness(
+  root: string,
+  limitMilliseconds = stepLimitMilliseconds(
+    process.env,
+    stepLimitVariable,
+    defaultFallowSeconds,
+  ),
+): Promise<Finding> {
   const fallow = join(root, "node_modules/.bin/fallow");
   if (!existsSync(fallow))
     return {
@@ -123,11 +137,17 @@ export function fallowReadiness(root: string): Finding {
       check: "fallow",
       detail: `node_modules/.bin/fallow is missing. Repair: ${install}.`,
     };
-  const result = Bun.spawnSync(
+  const result = await startChild(
     [fallow, "doctor", "--format", "json", "--quiet"],
-    { cwd: root, stdout: "pipe", stderr: "pipe" },
-  );
-  const report = fallowReport(result.stdout.toString());
+    { cwd: root, env: process.env, limitMilliseconds },
+  ).finished;
+  if (result.timedOut)
+    return {
+      status: "FAIL",
+      check: "fallow",
+      detail: `fallow doctor did not finish within ${limitMilliseconds / 1000} s. Repair: run node_modules/.bin/fallow doctor to see where it hangs, or raise ${stepLimitVariable}.`,
+    };
+  const report = fallowReport(result.stdout);
   if (report === undefined)
     return {
       status: "FAIL",
@@ -264,11 +284,18 @@ export function hooks(root: string): Finding {
 }
 
 export async function doctor(root: string): Promise<boolean> {
+  const fallowLimit = stepLimitMilliseconds(
+    process.env,
+    stepLimitVariable,
+    defaultFallowSeconds,
+  );
   const installed = toolchain(root);
   const findings = [
     await bunVersion(root),
     installed,
-    ...(installed.status === "ok" ? [fallowReadiness(root)] : []),
+    ...(installed.status === "ok"
+      ? [await fallowReadiness(root, fallowLimit)]
+      : []),
     hooks(root),
     hostLoad(),
   ];
@@ -279,5 +306,13 @@ export async function doctor(root: string): Promise<boolean> {
   return passed;
 }
 
-if (import.meta.main)
-  process.exitCode = (await doctor(join(import.meta.dir, ".."))) ? 0 : 1;
+if (import.meta.main) {
+  try {
+    process.exitCode = (await doctor(join(import.meta.dir, ".."))) ? 0 : 1;
+  } catch (error) {
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 2;
+  }
+}

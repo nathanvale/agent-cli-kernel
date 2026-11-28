@@ -152,40 +152,40 @@ describe("fallowReport", () => {
 });
 
 describe("fallowReadiness", () => {
-  test("a missing fallow binary fails with the install repair", () => {
-    expect(fallowReadiness(root(null))).toStrictEqual({
+  test("a missing fallow binary fails with the install repair", async () => {
+    expect(await fallowReadiness(root(null))).toStrictEqual({
       status: "FAIL",
       check: "fallow",
       detail: `node_modules/.bin/fallow is missing. Repair: ${install}.`,
     });
   });
 
-  test("a passing report is ok whatever its checks say", () => {
+  test("a passing report is ok whatever its checks say", async () => {
     const folder = reported({
       status: "pass",
       checks: [{ id: "cache", status: "fail", message: "Ignored." }],
     });
 
-    expect(fallowReadiness(folder)).toStrictEqual({
+    expect(await fallowReadiness(folder)).toStrictEqual({
       status: "ok",
       check: "fallow",
       detail: "fallow doctor passes.",
     });
   });
 
-  test("fallow runs doctor in the root with JSON output and no chatter, and stderr is ignored", () => {
+  test("fallow runs doctor in the root with JSON output and no chatter, and stderr is ignored", async () => {
     const folder = root(
       '#!/bin/sh\necho "noise" >&2\necho "{\\"status\\":\\"warn\\",\\"checks\\":[{\\"id\\":\\"run\\",\\"status\\":\\"warn\\",\\"message\\":\\"$* in $(pwd)\\"}]}"\n',
     );
 
-    expect(fallowReadiness(folder)).toStrictEqual({
+    expect(await fallowReadiness(folder)).toStrictEqual({
       status: "WARN",
       check: "fallow",
       detail: `run: doctor --format json --quiet in ${folder}. Repair: run node_modules/.bin/fallow doctor for the details.`,
     });
   });
 
-  test("a warning with a remediation is a WARN naming that command", () => {
+  test("a warning with a remediation is a WARN naming that command", async () => {
     const folder = reported({
       status: "warn",
       checks: [
@@ -199,7 +199,7 @@ describe("fallowReadiness", () => {
       ],
     });
 
-    expect(fallowReadiness(folder)).toStrictEqual({
+    expect(await fallowReadiness(folder)).toStrictEqual({
       status: "WARN",
       check: "fallow",
       detail:
@@ -207,18 +207,18 @@ describe("fallowReadiness", () => {
     });
   });
 
-  test("a message that already ends in a full stop gains no second one", () => {
+  test("a message that already ends in a full stop gains no second one", async () => {
     const folder = reported({
       status: "warn",
       checks: [{ id: "cache", status: "warn", message: "Cache is cold." }],
     });
 
-    expect(fallowReadiness(folder).detail).toBe(
+    expect((await fallowReadiness(folder)).detail).toBe(
       "cache: Cache is cold. Repair: run node_modules/.bin/fallow doctor for the details.",
     );
   });
 
-  test("a failing check is a FAIL and wins over an earlier warning", () => {
+  test("a failing check is a FAIL and wins over an earlier warning", async () => {
     const folder = reported(
       {
         status: "fail",
@@ -235,7 +235,7 @@ describe("fallowReadiness", () => {
       2,
     );
 
-    expect(fallowReadiness(folder)).toStrictEqual({
+    expect(await fallowReadiness(folder)).toStrictEqual({
       status: "FAIL",
       check: "fallow",
       detail:
@@ -243,7 +243,7 @@ describe("fallowReadiness", () => {
     });
   });
 
-  test("a failing check without a remediation points at fallow doctor", () => {
+  test("a failing check without a remediation points at fallow doctor", async () => {
     const folder = reported(
       {
         status: "fail",
@@ -252,18 +252,18 @@ describe("fallowReadiness", () => {
       2,
     );
 
-    expect(fallowReadiness(folder).detail).toBe(
+    expect((await fallowReadiness(folder)).detail).toBe(
       "config: Bad config. Repair: run node_modules/.bin/fallow doctor for the details.",
     );
   });
 
-  test("a warn report whose checks hold no failure or warning names the status", () => {
+  test("a warn report whose checks hold no failure or warning names the status", async () => {
     const folder = reported({
       status: "warn",
       checks: [{ id: "root", status: "pass", message: "Root is readable." }],
     });
 
-    expect(fallowReadiness(folder)).toStrictEqual({
+    expect(await fallowReadiness(folder)).toStrictEqual({
       status: "WARN",
       check: "fallow",
       detail:
@@ -271,10 +271,10 @@ describe("fallowReadiness", () => {
     });
   });
 
-  test("a fail report with no checks is a FAIL naming the status", () => {
+  test("a fail report with no checks is a FAIL naming the status", async () => {
     const folder = reported({ status: "fail", checks: [] }, 2);
 
-    expect(fallowReadiness(folder)).toStrictEqual({
+    expect(await fallowReadiness(folder)).toStrictEqual({
       status: "FAIL",
       check: "fallow",
       detail:
@@ -282,10 +282,10 @@ describe("fallowReadiness", () => {
     });
   });
 
-  test("a status other than pass or fail is only a WARN", () => {
+  test("a status other than pass or fail is only a WARN", async () => {
     const folder = reported({ status: "skipped", checks: [] });
 
-    expect(fallowReadiness(folder).status).toBe("WARN");
+    expect((await fallowReadiness(folder)).status).toBe("WARN");
   });
 
   test.each([
@@ -294,8 +294,8 @@ describe("fallowReadiness", () => {
     ["a report with a malformed check", '{"status":"pass","checks":[{}]}', 0],
   ])(
     "%s is not a readiness report and names the exit code",
-    (_kind, body, exitCode) => {
-      expect(fallowReadiness(root(stub(body, exitCode)))).toStrictEqual({
+    async (_kind, body, exitCode) => {
+      expect(await fallowReadiness(root(stub(body, exitCode)))).toStrictEqual({
         status: "FAIL",
         check: "fallow",
         detail: `fallow doctor exited ${exitCode} without a readiness report. Repair: ${install}, then run node_modules/.bin/fallow doctor to read its error.`,

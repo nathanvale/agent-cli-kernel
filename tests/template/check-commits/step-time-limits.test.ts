@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
+import { stepLimitMilliseconds } from "../../../scripts/process-runner.ts";
 import {
   checkCommitsFixture,
   markers,
@@ -274,8 +275,8 @@ exec '${realGit}' "$@"
       CHECK_COMMITS_STEP_SECONDS: String(maxStepLimitSeconds + 1),
     });
     expect(refused.exit).toBe(2);
-    expect(refused.stderr).toBe(
-      `CHECK_COMMITS_STEP_SECONDS is '${maxStepLimitSeconds + 1}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 300 s.\n`,
+    expect(refused.stderr.split("\n")).toContain(
+      `CHECK_COMMITS_STEP_SECONDS is '${maxStepLimitSeconds + 1}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 300 s.`,
     );
 
     const admitted = await checkCommits(root, [base.sha], {
@@ -324,5 +325,34 @@ exec '${realGit}' "$@"
     const shard = jobOf("ci.yml", "commits-shard");
 
     expect(shard["timeout-minutes"]).toBe(15);
+  });
+
+  test("TL.g stepLimitMilliseconds validates bounds, defaults, and rejects values above 2,147,483 s", () => {
+    expect(stepLimitMilliseconds({}, "STEP_SECONDS", 300)).toBe(300_000);
+    expect(
+      stepLimitMilliseconds({ STEP_SECONDS: "" }, "STEP_SECONDS", 30),
+    ).toBe(30_000);
+    expect(
+      stepLimitMilliseconds(
+        { STEP_SECONDS: String(maxStepLimitSeconds) },
+        "STEP_SECONDS",
+        300,
+      ),
+    ).toBe(maxStepLimitSeconds * 1000);
+
+    for (const bad of [
+      "0",
+      "-1",
+      "NaN",
+      "Infinity",
+      "abc",
+      "2147483.001",
+      "2147484",
+    ])
+      expect(() =>
+        stepLimitMilliseconds({ STEP_SECONDS: bad }, "STEP_SECONDS", 300),
+      ).toThrow(
+        `STEP_SECONDS is '${bad}'. Repair: set it to a positive number of seconds up to ${maxStepLimitSeconds}, or unset it for 300 s.`,
+      );
   });
 });
