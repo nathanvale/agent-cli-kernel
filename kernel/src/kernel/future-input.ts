@@ -4,9 +4,9 @@ import {
   parseDeadlineValue,
 } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import type { OptionSchema, ValueSchema } from "./input-types.ts";
 import type { Validation } from "./types.ts";
-import { parseValue, splitLongOption } from "./input.ts";
+import { parseDeclaredSlots, parseValue } from "./input.ts";
+import type { ValueSlotToken } from "./input.ts";
 import { safeRunValue, guidanceTargets, bindingNames } from "./guidance.ts";
 const inputTableKey = Symbol("kernel.inputRegistration");
 export type InputTable = { readonly [inputTableKey]: true };
@@ -23,9 +23,7 @@ function targetSlots(
   source: CommandDeclaration,
   command: CommandDeclaration,
   templates: readonly string[],
-): Validation<
-  readonly { readonly template: string; readonly value: ValueSchema }[]
-> {
+): Validation<readonly ValueSlotToken[]> {
   const deadline = splitDeadlineTokens(templates);
   if (!deadline.ok) return deadline;
   if (
@@ -42,7 +40,8 @@ function targetSlots(
     const parsed = parseDeadlineValue(value);
     if (!parsed.ok) return parsed;
   }
-  return { ok: true, value: domainTargetSlots(command, deadline.value.tokens) };
+  const parsed = parseDeclaredSlots(command.input, deadline.value.tokens);
+  return { ok: true, value: parsed.ok ? parsed.slots : [] };
 }
 function runtimeDeadlineBinding(
   command: CommandDeclaration,
@@ -55,64 +54,6 @@ function runtimeDeadlineBinding(
         value === `{binding.${name}}` &&
         !Object.hasOwn(command.futureBindings ?? {}, name),
     );
-}
-type TargetSlot = {
-  readonly template: string;
-  readonly value: ValueSchema;
-};
-type OptionSlotMatch = {
-  readonly slot: TargetSlot | undefined;
-  readonly advance: number;
-};
-function matchOptionSlot(
-  options: readonly OptionSchema[],
-  token: string,
-  nextToken: string | undefined,
-  literal: boolean,
-): OptionSlotMatch | undefined {
-  if (literal) return undefined;
-  const split = splitLongOption(token);
-  const option = options.find(
-    (entry) => entry.name === split.name || entry.aliases.includes(split.name),
-  );
-  if (!option) return undefined;
-  if (!option.value) return { slot: undefined, advance: 0 };
-  const template = split.value ?? nextToken;
-  return {
-    slot:
-      template === undefined ? undefined : { template, value: option.value },
-    advance: split.value === undefined ? 1 : 0,
-  };
-}
-function domainTargetSlots(
-  command: CommandDeclaration,
-  args: readonly string[],
-): readonly TargetSlot[] {
-  const result: TargetSlot[] = [];
-  let operand = 0;
-  let literal = false;
-  for (let index = 0; index < args.length; index++) {
-    const token = args[index];
-    if (token === undefined) continue;
-    if (!literal && token === "--") {
-      literal = true;
-      continue;
-    }
-    const matched = matchOptionSlot(
-      command.input.options,
-      token,
-      args[index + 1],
-      literal,
-    );
-    if (matched) {
-      index += matched.advance;
-      if (matched.slot) result.push(matched.slot);
-      continue;
-    }
-    const argument = command.input.arguments[operand++];
-    if (argument) result.push({ template: token, value: argument.value });
-  }
-  return result;
 }
 function deadlineArguments(
   command: CommandDeclaration,
