@@ -41,7 +41,9 @@ function targetSlots(
     if (!parsed.ok) return parsed;
   }
   const parsed = parseDeclaredSlots(command.input, deadline.value.tokens);
-  return { ok: true, value: parsed.ok ? parsed.slots : [] };
+  if (!parsed.ok)
+    return { ok: false, path: "input", reason: parsed.fault.kind };
+  return { ok: true, value: parsed.slots };
 }
 function runtimeDeadlineBinding(
   command: CommandDeclaration,
