@@ -8,6 +8,8 @@ export const limits = {
   recordBytes: 64_000,
   depth: 16,
   entries: 1_000,
+  // Interface: Maximum visited nodes per bounded() traversal (16,000 nodes).
+  traversalNodes: 16_000,
   redactionDepth: 17,
   redactionEntries: 1_000_000,
   shortenedReserveBytes: 2_048,

@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import type { LogRecord } from "@logtape/logtape";
 import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import type { DiagnosticsIo } from "../../../kernel/src/addons/diagnostics/io.ts";
-import { lineMaker } from "../../../kernel/src/addons/diagnostics/records.ts";
+import {
+  boundedValue,
+  lineMaker,
+} from "../../../kernel/src/addons/diagnostics/records.ts";
 import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
 import type { JsonValue } from "../../../kernel/src/kernel/index.ts";
 import { cleanTrees, get, lines, observe, tree } from "./harness.ts";
@@ -54,6 +57,7 @@ async function flushMicrotasks() {
 function heldWriteIo() {
   const writeEntered = deferred<void>();
   const releaseWrite = deferred<void>();
+  const writeSettled = deferred<void>();
   let writes = 0;
   let closes = 0;
   let sizeCalls = 0;
@@ -69,7 +73,9 @@ function heldWriteIo() {
         writeEntered.resolve();
         await releaseWrite.promise;
       }
-      return nodeIo.write(descriptor, bytes);
+      const accepted = await nodeIo.write(descriptor, bytes);
+      if (writes === 1) writeSettled.resolve();
+      return accepted;
     },
     close: (descriptor) => {
       closes += 1;
@@ -80,6 +86,7 @@ function heldWriteIo() {
     io,
     writeEntered: writeEntered.promise,
     releaseWrite: releaseWrite.resolve,
+    writeSettled: writeSettled.promise,
     counts: () => ({ writes, closes, sizeCalls }),
   };
 }
@@ -121,6 +128,7 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
       expect(get(frozen, "closed")).toBe(false);
       expect(held.counts().closes).toBe(0);
       held.releaseWrite();
+      await held.writeSettled;
       await flushMicrotasks();
       expect(held.counts()).toEqual({ writes: 1, closes: 1, sizeCalls: 0 });
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
@@ -150,6 +158,7 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
       attached.killNow();
       expect(held.counts().closes).toBe(0);
       held.releaseWrite();
+      await held.writeSettled;
       await flushMicrotasks();
       expect(held.counts()).toEqual({ writes: 1, closes: 1, sizeCalls: 0 });
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
@@ -285,6 +294,11 @@ describe("D18 diagnostics close on freeze/kill and traversal budget", () => {
         value: { kept: "yes" },
         enumerable: true,
       });
+      const bounded = boundedValue(payload);
+      if (typeof bounded !== "object" || bounded === null)
+        throw new Error("no bounded object");
+      expect(Object.getPrototypeOf(bounded)).toBeNull();
+      expect(Object.hasOwn(bounded, "__proto__")).toBe(true);
       attached.capability.record("proto", payload);
       const frozen = await attached.freeze(500);
       expect(get(frozen, "closed")).toBe(true);
