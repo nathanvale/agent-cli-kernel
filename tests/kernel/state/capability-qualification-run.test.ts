@@ -1958,8 +1958,11 @@ function linkedSharedFolder(): Checkout {
     ".gitignore": "*.local.ts\n",
     "docs/shared/keep.ts": "kept\n",
   });
-  symlinkSync("../../docs/shared", join(world.root, "kernel/src/shared"));
-  git(world.root, "add", "--", "kernel/src/shared");
+  symlinkSync(
+    "../../docs/shared",
+    join(world.root, "kernel/src/linked-shared"),
+  );
+  git(world.root, "add", "--", "kernel/src/linked-shared");
   git(world.root, "commit", "--quiet", "-m", "link the shared folder");
   return world;
 }
@@ -1983,7 +1986,7 @@ test(
     writeFileSync(join(world.root, "docs/shared/probe.local.ts"), "local\n");
     expect(
       readFileSync(
-        join(world.root, "kernel/src/shared/probe.local.ts"),
+        join(world.root, "kernel/src/linked-shared/probe.local.ts"),
         "utf8",
       ),
     ).toBe("local\n");
