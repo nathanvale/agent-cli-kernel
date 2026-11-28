@@ -1,19 +1,12 @@
 diff --git a/scripts/check-names.ts b/scripts/check-names.ts
-index 5da6043..16bd8a1 100644
 --- a/scripts/check-names.ts
 +++ b/scripts/check-names.ts
-@@ -64,7 +64,13 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
- function stagedProblems(root: string): string[] {
+@@ -87,7 +87,7 @@ async function stagedProblems(root: string): Promise<string[]> {
    const names = namesOnPaths(stagedNewPaths(root));
    return [
--    ...problemsGiven((path) => stagedText(root, path), names),
-+    ...problemsGiven(
-+      (path) =>
-+        path === "GLOSSARY.md"
-+          ? readFileSync(join(root, path), "utf8")
-+          : stagedText(root, path),
-+      names,
-+    ),
-     ...placementProblems(root, names),
-   ];
- }
+     ...problemsGiven(
+-      readStagedGlossary(root),
++      readRepositoryGlossary(root),
+       stagedText(root, recordedHitsFile),
+       names,
+     ),

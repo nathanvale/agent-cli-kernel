@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { withoutRepositoryLocation } from "../../scripts/process-runner.ts";
 import { write } from "./fixture-files.ts";
 
-const gitMilliseconds = 4_000;
+export const fixtureGitMilliseconds = 4_000;
 
 export const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
@@ -30,12 +30,12 @@ export function gitResult(root: string, ...args: string[]) {
     env: { ...inherited(), ...gitEnv },
     stdout: "pipe",
     stderr: "pipe",
-    timeout: gitMilliseconds,
+    timeout: fixtureGitMilliseconds,
     killSignal: "SIGKILL",
   });
   if (result.exitedDueToTimeout)
     throw new Error(
-      `git ${args.join(" ")} did not exit within ${gitMilliseconds} ms.`,
+      `git ${args.join(" ")} did not exit within ${fixtureGitMilliseconds} ms.`,
     );
   return result;
 }

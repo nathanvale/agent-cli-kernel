@@ -2,10 +2,14 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ownedFolders, write } from "../../support/fixture-files.ts";
-import { mapProblems } from "../../../scripts/glossary-map.ts";
+import {
+  mapProblems,
+  mappedGlossaryFiles,
+} from "../../../scripts/glossary-map.ts";
 import {
   readGlossary,
   readRecordedUnusedTerms,
+  readRepositoryGlossary,
   recordedUnusedTermsFile,
   termUseProblems,
   trackedTexts,
@@ -25,7 +29,7 @@ test("every path GLOSSARY-MAP.md points to exists", () => {
 test("every GLOSSARY.md term is used in a tracked file outside the glossary files, apart from its recorded unused terms", () => {
   expect(
     termUseProblems(
-      readGlossary(read("GLOSSARY.md")),
+      readRepositoryGlossary(root),
       trackedTexts(root),
       readRecordedUnusedTerms(read(recordedUnusedTermsFile)),
     ),
@@ -34,7 +38,8 @@ test("every GLOSSARY.md term is used in a tracked file outside the glossary file
 
 test("the glossary files and the recorded unused terms are not read as uses of a term", () => {
   const texts = trackedTexts(root);
-  expect(texts).not.toContain(read("GLOSSARY.md"));
+  for (const path of mappedGlossaryFiles(read("GLOSSARY-MAP.md")))
+    expect(texts).not.toContain(read(path));
   expect(texts).not.toContain(read("GLOSSARY-MAP.md"));
   expect(texts).not.toContain(read(recordedUnusedTermsFile));
   expect(texts).toContain(read("AGENTS.md"));

@@ -90,9 +90,13 @@ export function readOwnership(text: string): Ownership {
 export function ownershipProblems(
   glossary: string,
   ownership: Ownership,
+  contextGlossaries: readonly string[] = [],
 ): string[] {
   const at = glossary.indexOf(sharedHeading);
-  const own = new Set(entryNames(glossary.slice(0, at)));
+  const own = new Set([
+    ...entryNames(glossary.slice(0, at)),
+    ...contextGlossaries.flatMap((text) => entryNames(text)),
+  ]);
   const shared = new Set(entryNames(sharedSection(glossary)));
   return [
     ...ownership.kernelEntries

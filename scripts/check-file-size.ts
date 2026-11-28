@@ -58,7 +58,8 @@ function excluded(path: string): boolean {
     basename(path) === "bun.lock" ||
     generatedHooks.has(path) ||
     path.split("/").slice(0, -1).includes("vendor") ||
-    excludedFolders.some((folder) => path.startsWith(folder))
+    (basename(path) !== "GLOSSARY.md" &&
+      excludedFolders.some((folder) => path.startsWith(folder)))
   );
 }
 

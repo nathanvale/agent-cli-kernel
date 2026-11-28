@@ -1,5 +1,11 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import {
+  duplicateTermProblems,
+  mapFile,
+  mappedGlossaryFiles,
+} from "./glossary-map.ts";
+import { readOptionalUtf8 } from "./read-file.ts";
 
 export const recordedHitsFile = "tests/template/names-check/recorded-hits.json";
 export const recordedUnusedTermsFile =
@@ -17,6 +23,7 @@ export type Glossary = {
   readonly terms: readonly {
     readonly name: string;
     readonly avoid: readonly string[];
+    readonly source: string;
   }[];
   readonly qualify: readonly string[];
 };
@@ -56,12 +63,16 @@ function listAfter(label: string, line: string): string[] | undefined {
 const note = /\([^()]*\)/g;
 const noteMark = "\0";
 
-function enforcedAvoidWords(line: string, term: string): string[] {
+function enforcedAvoidWords(
+  line: string,
+  term: string,
+  source: string,
+): string[] {
   if (!line.startsWith(avoidLabel)) return [];
   const marked = line.slice(avoidLabel.length).replace(note, noteMark);
   if (/[()]/.test(marked))
     throw new Error(
-      `GLOSSARY.md: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Repair: close each note, and put no note inside another.`,
+      `${source}: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Repair: close each note, and put no note inside another.`,
     );
   return marked.split(";").flatMap((run) => {
     const words = run.split(",");
@@ -70,17 +81,65 @@ function enforcedAvoidWords(line: string, term: string): string[] {
   });
 }
 
-export function readGlossary(text: string): Glossary {
-  const terms: { name: string; avoid: string[] }[] = [];
+export function readGlossary(
+  text: string,
+  source: string = "GLOSSARY.md",
+): Glossary {
+  const terms: { name: string; avoid: string[]; source: string }[] = [];
   const qualify: string[] = [];
   for (const line of text.split("\n")) {
     const heading = /^\*\*(.+)\*\*:$/.exec(line)?.[1];
-    if (heading !== undefined) terms.push({ name: heading, avoid: [] });
+    if (heading !== undefined) terms.push({ name: heading, avoid: [], source });
     const term = terms.at(-1);
-    term?.avoid.push(...enforcedAvoidWords(line, term.name));
+    term?.avoid.push(...enforcedAvoidWords(line, term.name, source));
     qualify.push(...(listAfter("_Qualify_:", line) ?? []));
   }
   return { terms, qualify };
+}
+
+function glossaryFilesFor(
+  optionalTextOf: (path: string) => string | undefined,
+): string[] {
+  const map = optionalTextOf(mapFile);
+  if (map === undefined) return ["GLOSSARY.md"];
+  const files = mappedGlossaryFiles(map);
+  return files.length > 0 ? files : ["GLOSSARY.md"];
+}
+
+function readMappedGlossary(
+  textOf: (path: string) => string,
+  optionalTextOf: (path: string) => string | undefined,
+): Glossary {
+  const loaded = glossaryFilesFor(optionalTextOf).map((path) => ({
+    path,
+    text: textOf(path),
+  }));
+  const duplicates = duplicateTermProblems(loaded);
+  if (duplicates.length > 0) throw new Error(duplicates.join("\n"));
+  const glossaries = loaded.map(({ path, text }) => readGlossary(text, path));
+  return {
+    terms: glossaries.flatMap((glossary) => glossary.terms),
+    qualify: glossaries.flatMap((glossary) => glossary.qualify),
+  };
+}
+
+export function readRepositoryGlossary(root: string): Glossary {
+  const optional = (path: string) => readOptionalUtf8(join(root, path));
+  return readMappedGlossary((path) => {
+    const text = optional(path);
+    if (text === undefined)
+      throw new Error(
+        `${mapFile} points to ${path}, which does not exist. Repair: correct the link, or remove its row.`,
+      );
+    return text;
+  }, optional);
+}
+
+export function readStagedGlossary(root: string): Glossary {
+  return readMappedGlossary(
+    (path) => stagedText(root, path),
+    (path) => optionalStagedText(root, path),
+  );
 }
 
 export function recordedEntries(
@@ -188,7 +247,7 @@ export function hitsIn(
               path,
               word,
               rule: "Avoid" as const,
-              problem: `, which GLOSSARY.md lists under Avoid for "${term.name}". Repair: rename it with the glossary word.`,
+              problem: `, which ${term.source} lists under Avoid for "${term.name}". Repair: rename it with the glossary word.`,
             },
           ]
         : [],
@@ -250,7 +309,7 @@ export function nameProblems(
   return [...fresh, ...stale];
 }
 
-const gitMilliseconds = 10_000;
+export const glossaryGitMilliseconds = 10_000;
 
 // Platform: Bun starts a child with the environment the process started with
 // unless `env` is given, so a change to process.env reaches git only through it.
@@ -260,12 +319,12 @@ function git(root: string, command: readonly string[]) {
     env: process.env,
     stdout: "pipe",
     stderr: "pipe",
-    timeout: gitMilliseconds,
+    timeout: glossaryGitMilliseconds,
     killSignal: "SIGKILL",
   });
   if (result.exitedDueToTimeout)
     throw new Error(
-      `names check: git ${command.join(" ")} did not exit within ${gitMilliseconds} ms. Repair: find what holds git in ${root} (a stale index.lock, a hung hook or a stalled disk), then run the check again. Done when git ${command.join(" ")} exits 0 there.`,
+      `names check: git ${command.join(" ")} did not exit within ${glossaryGitMilliseconds} ms. Repair: find what holds git in ${root} (a stale index.lock, a hung hook or a stalled disk), then run the check again. Done when git ${command.join(" ")} exits 0 there.`,
     );
   return result;
 }
@@ -308,6 +367,13 @@ export function stagedText(root: string, path: string): string {
       `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Repair: stage it with git add ${path}, then run the names check again.`,
     );
   return shown.stdout.toString();
+}
+
+function optionalStagedText(root: string, path: string): string | undefined {
+  const listed = git(root, ["ls-files", "--stage", "-z", "--", path]);
+  if (listed.exitCode !== 0)
+    throw new Error(`git ls-files failed: ${listed.stderr.toString().trim()}`);
+  return listed.stdout.toString() === "" ? undefined : stagedText(root, path);
 }
 
 export function mergeBaseOf(root: string, revision: string): string {
@@ -380,8 +446,12 @@ export function trackedNames(root: string): string[] {
 }
 
 export function trackedTexts(root: string): string[] {
+  const excluded = new Set([
+    ...notReadAsUse,
+    ...glossaryFilesFor((path) => readOptionalUtf8(join(root, path))),
+  ]);
   return gitFiles(root).flatMap((path) =>
-    notReadAsUse.has(path) || !lstatSync(join(root, path)).isFile()
+    excluded.has(path) || !lstatSync(join(root, path)).isFile()
       ? []
       : [readFileSync(join(root, path), "utf8")],
   );
@@ -412,11 +482,11 @@ export function termUseProblems(
 ): string[] {
   const defined = glossary.terms.map(({ name }) => name);
   const awaited = new Set(recorded.map(({ term }) => term));
-  const unused = defined.flatMap((name) =>
+  const unused = glossary.terms.flatMap(({ name, source }) =>
     awaited.has(name) || isUsed(name, texts)
       ? []
       : [
-          `"${name}" appears in no tracked file outside the glossary files. Repair: use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
+          `"${name}" appears in no tracked file outside the glossary files. Repair: use it, remove it from ${source}, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
         ],
   );
   const stale = recorded.flatMap(({ term }) => {

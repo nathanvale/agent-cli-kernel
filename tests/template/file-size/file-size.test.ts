@@ -512,3 +512,39 @@ test(
   },
   processWatchdog(8),
 );
+
+test(
+  "FS.a a GLOSSARY.md under kernel/ is scanned in working-tree and staged modes while other kernel/ files stay excluded",
+  async () => {
+    const tree = await fixtureRepository();
+    const contextGlossary = "kernel/src/addons/state/GLOSSARY.md";
+    const kernelNote = "kernel/src/addons/state/notes.txt";
+    const refusal = `check:file-size: "${contextGlossary}": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.\n`;
+
+    await seed(tree, {
+      [glossary]: overLimit,
+      [integration]: overLimit,
+    });
+    await runFixtureGit(tree, "commit", "--quiet", "-m", "recorded hits");
+    await seed(tree, {
+      [contextGlossary]: overLimit,
+      [kernelNote]: overLimit,
+    });
+    expect(checkInProcess(tree)).toMatchObject({
+      code: 1,
+      stderr: refusal,
+    });
+    expect(checkInProcess(tree, ["--staged"])).toMatchObject({
+      code: 1,
+      stderr: refusal,
+    });
+
+    await seed(tree, { [contextGlossary]: atLimit });
+    expect(checkInProcess(tree)).toMatchObject({ code: 0, stderr: "" });
+    expect(checkInProcess(tree, ["--staged"])).toMatchObject({
+      code: 0,
+      stderr: "",
+    });
+  },
+  processWatchdog(9),
+);
