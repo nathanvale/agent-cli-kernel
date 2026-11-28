@@ -72,6 +72,10 @@ export type ResultPlan = {
   readonly runId: string;
   readonly invocation: Invocation;
 };
+function copyData(facts: Record<string, unknown>): Record<string, unknown> {
+  if (Object.hasOwn(facts, "data")) facts.data = structuredClone(facts.data);
+  return facts;
+}
 const results = new WeakMap<CommandResult, ResultPlan>();
 export function resultContext<
   const Identity extends string,
@@ -110,7 +114,7 @@ export function resultContext<
       });
       results.set(result, {
         selected: Object.freeze({ ...selected }),
-        facts: freeze({ ...facts, runId }),
+        facts: freeze(copyData({ ...facts, runId })),
         runId,
         invocation,
       });
