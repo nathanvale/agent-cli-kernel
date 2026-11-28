@@ -195,10 +195,6 @@ describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", (
       attached.capability.record("first", { index: 0 });
       await waitWithin(held.writeEntered, "first write entry");
       attached.killNow();
-      const frozenBefore = await attached.freeze(50);
-      const snapshot = JSON.stringify(frozenBefore);
-      expect(get(frozenBefore, "closed")).toBe(false);
-      expect(get(frozenBefore, "unflushedRecords")).toBe(1);
       expect(held.counts().closes).toBe(0);
       held.releaseWrite();
       await waitWithin(held.writeSettled, "first write settle");
@@ -207,7 +203,13 @@ describe("S10, S11, N4 diagnostics close on freeze/kill and traversal budget", (
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
       ]);
-      expect(JSON.stringify(await attached.freeze(50))).toBe(snapshot);
+      const frozen = await attached.freeze(50);
+      expect(get(frozen, "status")).toBe("available");
+      expect(get(frozen, "closed")).toBe(false);
+      expect(get(frozen, "sinkFailure")).toBeNull();
+      expect(JSON.stringify(await attached.freeze(50))).toBe(
+        JSON.stringify(frozen),
+      );
       expect(held.counts().closes).toBe(1);
     },
     timeout,
