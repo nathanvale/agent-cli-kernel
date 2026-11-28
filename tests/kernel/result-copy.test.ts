@@ -403,4 +403,39 @@ describe("result data copy", () => {
     expect(Object.isFrozen(payload)).toBe(false);
     expect(Object.isFrozen(dag)).toBe(false);
   });
+
+  test("RC05.c proxy that mutates an already-read field during traversal cannot launder it on a second read", async () => {
+    class Box {
+      readonly secret = 42;
+    }
+    const payload: Record<string, never> = {};
+    const proxy = new Proxy(
+      {},
+      {
+        ownKeys(target) {
+          Reflect.set(payload, "a", new Box());
+          Reflect.set(payload, "b", 1);
+          return Reflect.ownKeys(target);
+        },
+      },
+    );
+    Object.defineProperty(payload, "a", {
+      value: 1,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(payload, "b", {
+      value: proxy,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+
+    const outcome = envelopeOf(await invalidDataHost(payload)(["broken"]));
+    expect(outcome.exitCode).toBe(0);
+    expect(outcome.envelope.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(outcome.envelope.result.data).toEqual({ a: 1, b: {} });
+    expect(Object.isFrozen(payload)).toBe(false);
+  });
 });
