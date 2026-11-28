@@ -17,7 +17,7 @@ import { contractVersion } from "./validation/version.ts";
 
 const fallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
-export const fallbackLimits = {
+const fallbackLimits = {
   bytes: 16_384,
   level: fallbackLevelLimit,
 } as const;

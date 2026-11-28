@@ -7,7 +7,7 @@ export const capabilityMethods = {
   menu: ["show"],
 } as const satisfies Record<keyof CapabilitySelection, readonly string[]>;
 export type CapabilityAddonName = keyof typeof capabilityMethods;
-export function capabilityAddonName(key: string): key is CapabilityAddonName {
+function capabilityAddonName(key: string): key is CapabilityAddonName {
   return Object.hasOwn(capabilityMethods, key);
 }
 export const addonNames: readonly CapabilityAddonName[] = Object.freeze(

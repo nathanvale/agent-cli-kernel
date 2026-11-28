@@ -1,0 +1,7 @@
+{
+  "id": "6b4f7e36-declarations",
+  "patch": "tests/planted-faults/patches/6b4f7e36-declarations.patch",
+  "testFile": "tests/kernel/declaration-admission.test.ts",
+  "title": "a raw changing declaration with malformed input still throws Invalid input declaration\\.",
+  "source": "6b4f7e36 fix(kernel): gate look-only option check on inputSchema"
+}

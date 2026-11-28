@@ -1969,6 +1969,71 @@ describe("kernel behaviour changing.md states in words", () => {
     ).toThrow(new Error("Coordination refusal requires an unchanged handoff."));
   });
 
+  test("changing.md: Start-up throws lists the --check and --dry-run refusal and changing() throws it", () => {
+    const message =
+      "Changing commands take no --check or --dry-run option. Repair: declare a separate inspect route for the look-only work, such as `<thing> plan` beside `<thing> apply` (ADR 0002).";
+    const document = readFileSync(
+      join(skillFolder, "references/changing.md"),
+      "utf8",
+    );
+    const startUpThrows =
+      document.split("## Start-up throws")[1]?.split("\n## ")[0] ?? "";
+    expect(startUpThrows).toContain(message);
+    const state = stateIn();
+    expect(() =>
+      kernel.changing({
+        identity: "guide.change",
+        route: ["change"],
+        summary: "Change one thing.",
+        input: {
+          ...emptyInput,
+          options: [
+            {
+              name: "--dry-run",
+              aliases: [],
+              summary: "Preview.",
+              required: false,
+              repeatable: false,
+              value: null,
+            },
+          ],
+        },
+        capabilities: {},
+        effectClass: "repository-local",
+        effects: ["guide.write"],
+        ifNoResult: state.descriptor.ifNoResult,
+        heldLockCause: "DOMAIN_GUIDE_HELD",
+        unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+        stations: [succeeded, ...refusals],
+        run: () => Promise.reject(new Error("never runs")),
+      }),
+    ).toThrow(new Error(message));
+  });
+
+  test("ADR 0002: Confirmation names the built look-only option check, its test, and its fault record", () => {
+    const adr = readFileSync(
+      join(repository, "docs/adr/0002-look-only-work-is-an-inspect-route.md"),
+      "utf8",
+    );
+    const confirmation = adr.split("## Confirmation")[1] ?? "";
+    expect(confirmation).not.toContain("not built yet");
+    expect(confirmation).not.toContain("Planned evidence");
+    expect(confirmation).toContain("Built evidence:");
+    expect(confirmation).toContain("validateChangingShape");
+    expect(confirmation).toContain(
+      "tests/kernel/declaration-admission.test.ts",
+    );
+    expect(confirmation).toContain("c9997d49-declarations");
+    expect(
+      existsSync(
+        join(
+          repository,
+          "tests/planted-faults/fault-records/c9997d49-declarations.json",
+        ),
+      ),
+    ).toBe(true);
+  });
+
   test("changing.md: a read-back that returns false or throws leaves a case pending lists, and the next change to that scope is refused as unresolved", async () => {
     for (const readBack of [
       false,

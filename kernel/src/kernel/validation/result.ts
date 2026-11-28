@@ -328,7 +328,7 @@ function validRetry(value: WireResult): boolean {
     value.retryable === (value.next?.kind === "retry")
   );
 }
-export function resultCorrelations(value: WireResult): boolean {
+function resultCorrelations(value: WireResult): boolean {
   if (!effectState(value) || !validRetry(value)) return false;
   if (value.next?.kind === "done" && value.outcome !== "success") return false;
   if (value.superseded !== undefined && value.effectClass === "inspect")

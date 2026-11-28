@@ -1,7 +1,7 @@
 import type { DeclaredStation } from "./stations.ts";
 import type { Handoff, NextStep, WireResult } from "./types.ts";
 import { sameJson } from "./validation/json-equality.ts";
-export type GuidanceTemplateSlot = {
+type GuidanceTemplateSlot = {
   readonly text: string;
   readonly bindingAllowed: boolean;
   readonly runValue: "argument" | "resource" | false;
@@ -21,7 +21,7 @@ function stepSlots(step: NextStep): GuidanceTemplateSlot[] {
       return [];
   }
 }
-export function guidanceTemplateSlots(
+function guidanceTemplateSlots(
   station: DeclaredStation,
 ): readonly GuidanceTemplateSlot[] {
   const slots: GuidanceTemplateSlot[] =
@@ -90,7 +90,7 @@ export function safeRunValue(
     (!argument || !routeTokens.includes(value))
   );
 }
-export function substitute(text: string, result: WireResult): string {
+function substitute(text: string, result: WireResult): string {
   return text.replace(/\{([^{}]*)\}/g, (_whole, token: string) => {
     switch (token) {
       case "runId":

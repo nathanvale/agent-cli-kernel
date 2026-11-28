@@ -181,7 +181,7 @@ function laterWordsMatched(
   return command.route.filter((token, at) => at > index && words[at] === token)
     .length;
 }
-export function closestRoute(
+function closestRoute(
   commands: readonly CommandDeclaration[],
   words: readonly string[],
   index: number,
