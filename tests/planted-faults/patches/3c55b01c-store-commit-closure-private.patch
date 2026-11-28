@@ -1,11 +1,11 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -939,8 +939,6 @@ export function commitClosure(
+@@ -1016,8 +1016,6 @@ export function commitClosure(
    const directory = paths.operation(operationId);
    const target = join(directory, "closure");
    const link = () => {
--    if (!privateDirectory(directory))
+-    if (!privateRootedDirectory(paths.root, directory))
 -      throw new Error(`Case folder ${operationId} is not a private directory.`);
      const linked = linkStagedClosure(staged, target);
      if (linked) state.outcome = "published";

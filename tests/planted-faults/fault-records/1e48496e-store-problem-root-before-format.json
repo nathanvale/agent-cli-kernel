@@ -1,0 +1,7 @@
+{
+  "id": "1e48496e-store-problem-root-before-format",
+  "patch": "tests/planted-faults/patches/1e48496e-store-problem-root-before-format.patch",
+  "testFile": "tests/kernel/state/journal-ownership.test.ts",
+  "title": "storeProblem checks the journal root before opening format and answers corrupt for a linked or group-writable root",
+  "source": "1e48496e fix(state): verify rooted directory chain on every case path and check root before format"
+}

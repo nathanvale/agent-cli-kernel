@@ -1,11 +1,11 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -634,7 +634,6 @@ function statusOf(
- }
- 
- function readOperationIn(directory: string, id: string): Operation | "corrupt" {
--  if (!privateDirectory(directory)) return "corrupt";
-   const intent = readIntent(directory, id);
-   const events = intent && readEvents(directory, intent.intent.effects);
+@@ -691,7 +691,6 @@ function readOperationIn(
+   directory: string,
+   id: string,
+ ): Operation | "corrupt" {
+-  if (!privateRootedDirectory(root, directory)) return "corrupt";
+   const intent = readIntent(root, directory, id);
+   const events = intent && readEvents(root, directory, intent.intent.effects);
    if (!intent || !events) return "corrupt";

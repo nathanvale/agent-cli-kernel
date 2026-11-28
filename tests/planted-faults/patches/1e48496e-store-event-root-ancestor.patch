@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -167,8 +167,4 @@ function privateRootedDirectory(root: string, directory: string): boolean {
+ function eventRootOf(directory: string): string {
+-  const parent = dirname(directory);
+-  const name = basename(parent);
+-  return name === "operations" || name === "settled"
+-    ? dirname(parent)
+-    : directory;
++  return directory;
+ }

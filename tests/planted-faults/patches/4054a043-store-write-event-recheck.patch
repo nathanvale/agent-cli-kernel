@@ -1,13 +1,14 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -895,12 +895,6 @@ function writeEventRecord(
+@@ -934,13 +934,6 @@ function writeEventRecord(
      const opened = fstatSync(descriptor);
      if (!opened.isFile())
        throw new Error("The journal events file is not a regular file.");
 -    recheckOpenedJournalFile(
 -      opened,
 -      eventsPath,
+-      root,
 -      "The journal events file changed during write.",
 -      "Case folder changed to a non-private directory during write.",
 -    );

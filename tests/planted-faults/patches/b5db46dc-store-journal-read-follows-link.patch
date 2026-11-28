@@ -1,7 +1,7 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -91,17 +91,11 @@ function readJournalFile(path: string): Uint8Array {
+@@ -93,7 +93,7 @@ function readJournalFile(path: string, root: string): Uint8Array {
    const descriptor = openSync(
      path,
 -    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
@@ -9,14 +9,3 @@ diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
    );
    try {
      const opened = fstatSync(descriptor);
-     if (!opened.isFile())
-       throw new Error("The journal file is not a regular file.");
--    recheckOpenedJournalFile(
--      opened,
--      path,
--      "The journal file changed during read.",
--      "The journal folder is not a private directory.",
--    );
-     return readFileSync(descriptor);
-   } finally {
-     closeSync(descriptor);
