@@ -1,0 +1,7 @@
+{
+  "id": "54c9cffc-store",
+  "patch": "tests/planted-faults/patches/54c9cffc-store.patch",
+  "testFile": "tests/kernel/state/intent-boundary.test.ts",
+  "title": "^IB0[78]\\.",
+  "source": "54c9cffc fix(state): validate own __proto__ revision keys and stage parsed values"
+}

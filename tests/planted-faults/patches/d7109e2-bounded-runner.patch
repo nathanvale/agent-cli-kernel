@@ -1,0 +1,12 @@
+diff --git a/config/test-rules.mjs b/config/test-rules.mjs
+--- a/config/test-rules.mjs
++++ b/config/test-rules.mjs
+@@ -20,7 +20,7 @@ const boundedRunnerOwners = [
+   "/tests/kernel/kernel-repair/swarm-process.ts",
+   "/tests/kernel/lifecycle/harness.ts",
+ ];
+-const bunSpawns = new Set(["spawn", "spawnSync"]);
++const bunSpawns = new Set(["spawnSync"]);
+ const childProcessSpawns = new Set([
+   "spawn",
+   "spawnSync",

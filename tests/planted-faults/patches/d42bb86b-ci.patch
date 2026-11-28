@@ -1,0 +1,12 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -162,7 +162,7 @@ jobs:
+   fault-replay-shard:
+     if: github.event_name == 'pull_request'
+     runs-on: ubuntu-latest
+-    timeout-minutes: 15
++    timeout-minutes: 10
+     strategy:
+       fail-fast: false
+       matrix:

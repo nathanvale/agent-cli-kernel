@@ -1,0 +1,14 @@
+diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
+--- a/scripts/planted-fault-shards.ts
++++ b/scripts/planted-fault-shards.ts
+@@ -23,9 +23,7 @@ export function extractUpdateTimings(argv: readonly string[]): {
+   readonly args: string[];
+ } {
+   const matches = (arg: string): boolean =>
+-    arg === updateTimingsOption ||
+-    (arg.startsWith(updateTimingsPrefix) &&
+-      arg.length > updateTimingsPrefix.length);
++    arg === updateTimingsOption || arg.startsWith(updateTimingsPrefix);
+   const found = argv.find(matches);
+   const updateTimings = found !== undefined;
+   const timingsFolder =

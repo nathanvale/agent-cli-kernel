@@ -1,0 +1,7 @@
+{
+  "id": "d7109e2-bounded-runner",
+  "patch": "tests/planted-faults/patches/d7109e2-bounded-runner.patch",
+  "testFile": "tests/template/lint/lint-rules.test.ts",
+  "title": "^tests-use-bounded-runner refuses the 0ab74b8 shape in tests/template/doctor/doctor\\.test\\.ts and names the fix$",
+  "source": "d7109e2 feat(lint): enforce repository/tests-use-bounded-runner across template and kernel tests"
+}

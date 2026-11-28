@@ -1,0 +1,12 @@
+diff --git a/config/test-rules.mjs b/config/test-rules.mjs
+--- a/config/test-rules.mjs
++++ b/config/test-rules.mjs
+@@ -349,7 +349,7 @@ export const testRules = {
+           const target = staticString(context, args[0]);
+           if (
+             target === undefined ||
+-            !systemBinaryPath.test(posix.normalize(target))
++            systemBinaryPath.test(posix.normalize(target))
+           )
+             return;
+           context.report({

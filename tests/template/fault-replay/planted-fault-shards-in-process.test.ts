@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  extractUpdateTimings,
+  faultSeconds,
   faultsInShard,
   readTimings,
   shardIds,
@@ -8,6 +11,8 @@ import {
   type Shard,
   timingFile,
   timingsPath,
+  unlistedSeconds,
+  writeTiming,
 } from "../../../scripts/planted-fault-shards.ts";
 import { readRecords } from "../../../scripts/planted-faults.ts";
 import { ownedFolders, write } from "../../support/fixture-files.ts";
@@ -67,12 +72,138 @@ describe("shardIds", () => {
     expect(split(faults, timings, 3)).toEqual([["a"], ["b"], ["c", "d"]]);
   });
 
-  test("counts a fault the timings do not list as more than a third and less than half a second", () => {
+  test("counts a fault the timings do not list at the hosted default of 1.7 s", () => {
     const faults = faultsNamed("measured", "u1", "u2", "u3", "u4");
-    expect(split(faults, new Map([["measured", 1]]), 2)).toEqual([
+    expect(split(faults, new Map([["measured", 5]]), 2)).toEqual([
       ["measured", "u4"],
       ["u1", "u2", "u3"],
     ]);
+  });
+
+  test("uses the stated default for a fault with no recorded time", () => {
+    expect(unlistedSeconds).toBe(1.7);
+    expect(faultSeconds("missing", new Map())).toBe(1.7);
+    expect(faultSeconds("timed", new Map([["timed", 4.2]]))).toBe(4.2);
+  });
+
+  test("balances skewed timings within 25 percent instead of assigning in record order", () => {
+    for (const entries of [
+      [
+        ["a", 40],
+        ["b", 2],
+        ["c", 40],
+        ["d", 2],
+      ],
+      [
+        ["a", 40],
+        ["b", 40],
+        ["c", 2],
+        ["d", 2],
+      ],
+    ] as const) {
+      const faults = faultsNamed(...entries.map(([id]) => id));
+      const timings = new Map<string, number>(entries);
+      const loads = split(faults, timings, 2).map((ids) =>
+        ids.reduce((sum, id) => sum + faultSeconds(id, timings), 0),
+      );
+      expect(Math.max(...loads) / Math.min(...loads)).toBeLessThanOrEqual(1.25);
+    }
+  });
+
+  test("keeps the four parts within 25 percent of each other on the repository's current records", () => {
+    const records = readRecords(repository);
+    const timings = readTimings(repository);
+    const loads = split(records, timings, 4).map((ids) =>
+      ids.reduce((sum, id) => sum + faultSeconds(id, timings), 0),
+    );
+    expect(Math.max(...loads) / Math.min(...loads)).toBeLessThanOrEqual(1.25);
+  });
+});
+
+describe("writeTiming", () => {
+  test("writes a fault's rounded positive seconds to its timing file for readTimings", () => {
+    const root = folder("fault-shards-");
+    writeTiming(root, "abc1234-example", 3.46);
+    expect(Object.fromEntries(readTimings(root))).toEqual({
+      "abc1234-example": 3.5,
+    });
+  });
+
+  test("floors a replay faster than 0.1 s to 0.1 s so readTimings never meets 0", () => {
+    const root = folder("fault-shards-");
+    writeTiming(root, "fast-fault", 0.01);
+    writeTiming(root, "zero-fault", 0);
+    expect(Object.fromEntries(readTimings(root))).toEqual({
+      "fast-fault": 0.1,
+      "zero-fault": 0.1,
+    });
+  });
+
+  test("writes to a separate output folder when given one, leaving the timings folder untouched", () => {
+    const root = folder("fault-shards-");
+    const output = join(root, "shard-timings");
+    writeTiming(root, "abc1234-example", 2.34, output);
+    expect([...readTimings(root)]).toEqual([]);
+    expect(readdirSync(output)).toEqual(["abc1234-example.json"]);
+    expect(readFileSync(join(output, "abc1234-example.json"), "utf8")).toBe(
+      "2.3\n",
+    );
+  });
+
+  test("refuses a timing that is negative or not finite", () => {
+    const root = folder("fault-shards-");
+    for (const seconds of [-1, Number.NaN, Number.POSITIVE_INFINITY])
+      expect(() => writeTiming(root, "bad-fault", seconds)).toThrow(
+        `Timing for bad-fault is '${String(seconds)}'. Repair: pass a non-negative number of seconds.`,
+      );
+  });
+});
+
+describe("extractUpdateTimings", () => {
+  test("extracts --update-timings and an optional output folder from replay arguments", () => {
+    expect(extractUpdateTimings(["--shard", "1/4"])).toEqual({
+      updateTimings: false,
+      timingsFolder: undefined,
+      args: ["--shard", "1/4"],
+    });
+    expect(
+      extractUpdateTimings(["--shard", "1/4", "--update-timings"]),
+    ).toEqual({
+      updateTimings: true,
+      timingsFolder: undefined,
+      args: ["--shard", "1/4"],
+    });
+    expect(
+      extractUpdateTimings([
+        "--shard",
+        "1/4",
+        "--update-timings=shard-timings",
+      ]),
+    ).toEqual({
+      updateTimings: true,
+      timingsFolder: "shard-timings",
+      args: ["--shard", "1/4"],
+    });
+  });
+
+  test("refuses an empty --update-timings= folder so nothing is written at the repository root", () => {
+    const root = folder("fault-shards-");
+    const parsed = extractUpdateTimings([
+      "--shard",
+      "1/4",
+      "--update-timings=",
+    ]);
+    if (parsed.updateTimings)
+      writeTiming(root, "leaked", 1, parsed.timingsFolder);
+    expect(readdirSync(root)).toEqual([]);
+    expect(parsed).toEqual({
+      updateTimings: false,
+      timingsFolder: undefined,
+      args: ["--shard", "1/4", "--update-timings="],
+    });
+    expect(() => shardOf(parsed.args)).toThrow(
+      `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>] [--update-timings], with whole numbers 1 <= part <= parts. Got '--shard 1/4 --update-timings='. Repair: pass one part, such as --shard 2/4.`,
+    );
   });
 });
 
@@ -114,7 +245,7 @@ describe("shardOf", () => {
       ["--shard", "2/4", "--tooling-changed-since", "origin/main", "HEAD"],
     ])
       expect(() => shardOf(argv)).toThrow(
-        `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
+        `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>] [--update-timings], with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
       );
   });
 });
