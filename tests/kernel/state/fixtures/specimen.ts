@@ -1829,7 +1829,7 @@ const pending = command({
             causeCode: "SCHEMA_SX_STATE_UNREADABLE",
           },
           {
-            message: `The journal is ${report.reason}.`,
+            message: `The journal is ${report.reason}${report.detail ? ` (${report.detail})` : ""}.`,
             data: null,
             effects: empty,
           },

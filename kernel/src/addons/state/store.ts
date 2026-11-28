@@ -19,7 +19,7 @@ import {
   writeSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import type { StateIssuer } from "../../kernel/index.ts";
 import { errorCode } from "../../shared/error-code.ts";
 import {
@@ -73,8 +73,13 @@ function flushDirectory(path: string): void {
 }
 
 function readJournalFile(path: string): Uint8Array {
-  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const descriptor = openSync(
+    path,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
   try {
+    if (!fstatSync(descriptor).isFile())
+      throw new Error("The journal file is not a regular file.");
     return readFileSync(descriptor);
   } finally {
     closeSync(descriptor);
@@ -97,6 +102,15 @@ function writeDurable(path: string, bytes: Uint8Array, exclusive = true): void {
     fsyncSync(descriptor);
   } finally {
     closeSync(descriptor);
+  }
+}
+
+function lstatOptional(path: string): ReturnType<typeof lstatSync> | undefined {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return undefined;
+    throw error;
   }
 }
 
@@ -549,6 +563,7 @@ export type ReadResult =
   | {
       readonly ok: false;
       readonly reason: "missing" | "unreadable" | "corrupt";
+      readonly detail?: string;
     };
 
 function readOptional(path: string): Uint8Array | undefined {
@@ -619,6 +634,7 @@ function statusOf(
 }
 
 function readOperationIn(directory: string, id: string): Operation | "corrupt" {
+  if (!privateDirectory(directory)) return "corrupt";
   const intent = readIntent(directory, id);
   const events = intent && readEvents(directory, intent.intent.effects);
   if (!intent || !events) return "corrupt";
@@ -696,15 +712,34 @@ export function storeProblem(
   }
 }
 
+function strayEntryProblem(
+  entryPath: string,
+  name: string,
+): ReadResult | undefined {
+  const stats = lstatOptional(entryPath);
+  if (stats?.isDirectory())
+    return {
+      ok: false,
+      reason: "corrupt",
+      detail: `unexpected folder in journal: ${name}`,
+    };
+  return undefined;
+}
+
 export function readStore(paths: Layout): ReadResult {
   const problem = storeProblem(paths);
   if (problem) return { ok: false, reason: problem };
   try {
     const operations: Operation[] = [];
     for (const name of readdirSync(paths.operations).sort()) {
-      if (!operationPattern.test(name)) return { ok: false, reason: "corrupt" };
-      const read = readCaseIn(paths.operation(name), name);
-      if (!folderRemains(paths.operation(name))) continue;
+      const entryPath = paths.operation(name);
+      if (!operationPattern.test(name)) {
+        const stray = strayEntryProblem(entryPath, name);
+        if (stray) return stray;
+        continue;
+      }
+      const read = readCaseIn(entryPath, name);
+      if (!folderRemains(entryPath)) continue;
       if (read === "corrupt" || read === "unreadable")
         return { ok: false, reason: read };
       operations.push(read);
@@ -720,6 +755,11 @@ export function moveSettledCase(
   paths: Layout,
   id: string,
 ): "moved" | "occupied" {
+  const source = paths.operation(id);
+  if (!privateDirectory(source))
+    throw new Error(`Case folder ${id} is not a private directory.`);
+  if (!privateDirectory(paths.settled))
+    throw new Error("The settled folder is not a private directory.");
   try {
     lstatSync(paths.settledCase(id));
     return "occupied";
@@ -727,7 +767,7 @@ export function moveSettledCase(
     if (errorCode(error) !== "ENOENT") throw error;
   }
   return gate((done) => {
-    renameSync(paths.operation(id), paths.settledCase(id));
+    renameSync(source, paths.settledCase(id));
     return done("moved");
   });
 }
@@ -814,11 +854,18 @@ function writeEventRecord(
   kind: EventKind,
   payload: Readonly<Record<string, unknown>>,
 ): void {
+  if (!privateDirectory(dirname(eventsPath)))
+    throw new Error("Case folder is not a private directory.");
   const descriptor = openSync(
     eventsPath,
-    constants.O_RDWR | constants.O_APPEND | constants.O_NOFOLLOW,
+    constants.O_RDWR |
+      constants.O_APPEND |
+      constants.O_NOFOLLOW |
+      constants.O_NONBLOCK,
   );
   try {
+    if (!fstatSync(descriptor).isFile())
+      throw new Error("The journal events file is not a regular file.");
     if (!endsOnWholeRecord(descriptor))
       throw new Error(
         "The events file does not end on a whole record, so nothing more is appended to this case.",
@@ -891,8 +938,11 @@ export function commitClosure(
   commitLink?: (link: () => boolean) => void,
 ): "published" | "exists" {
   const state: { outcome: "published" | "exists" } = { outcome: "exists" };
-  const target = join(paths.operation(operationId), "closure");
+  const directory = paths.operation(operationId);
+  const target = join(directory, "closure");
   const link = () => {
+    if (!privateDirectory(directory))
+      throw new Error(`Case folder ${operationId} is not a private directory.`);
     const linked = linkStagedClosure(staged, target);
     if (linked) state.outcome = "published";
     return linked;
@@ -906,8 +956,7 @@ export function commitClosure(
   } finally {
     rmSync(staged, { force: true });
   }
-  if (state.outcome === "published")
-    flushDirectory(paths.operation(operationId));
+  if (state.outcome === "published") flushDirectory(directory);
   return state.outcome;
 }
 
@@ -923,6 +972,7 @@ export function readClosure(paths: Layout, id: string): ClosureRead {
 function closureIn(directory: string, id: string): ClosureRead {
   let bytes: Uint8Array | undefined;
   try {
+    if (!privateDirectory(directory)) return "unreadable";
     bytes = readOptional(join(directory, "closure"));
   } catch {
     return "unreadable";

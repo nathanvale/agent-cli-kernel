@@ -360,7 +360,7 @@ supportingTest(
       const admission = await world.run(apply("a"));
 
       expect(pending.result.outcome).toBe("success");
-      const data = readObject(readObject(pending.envelope.raw).data);
+      const data = readObject(readObject(pending.result.raw).data);
       const unfinished = Array.isArray(data.unfinished) ? data.unfinished : [];
       const ids = unfinished.map((entry) =>
         readString(readObject(entry), "operationId"),
