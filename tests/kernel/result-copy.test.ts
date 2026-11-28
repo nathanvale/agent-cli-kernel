@@ -299,4 +299,17 @@ describe("result data copy", () => {
       "INTERNAL_RESULT_UNCHANGED",
     );
   });
+
+  test("RC04.b class instance data ends in INTERNAL_RESULT_UNCHANGED fallback", async () => {
+    class Box {
+      readonly value = 1;
+    }
+    const instance = new Box();
+    const withClass = envelopeOf(await uncloneableHost(instance)(["broken"]));
+    expect(withClass.exitCode).toBe(1);
+    expect(withClass.envelope.result.causeCode).toBe(
+      "INTERNAL_RESULT_UNCHANGED",
+    );
+    expect(Object.isFrozen(instance)).toBe(false);
+  });
 });
