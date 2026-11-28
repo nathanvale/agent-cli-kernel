@@ -1,0 +1,142 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index fe470363..97ae8270 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1880,21 +1880,24 @@ export function install(options: StateOptions, seams: Seams) {
+     };
+   }
+ 
+-  async function openUnflagged(
+-    gate: WriteGate,
++  async function transactUnflagged<Effect extends string>(
+     issuer: StateIssuer,
+     runId: string,
+-    declared: readonly string[],
+-    declaration: Declaration,
+-    scope: CanonicalScope,
+-    admitted: Extract<Awaited<ReturnType<typeof coordinate>>, { ok: true }>,
+-  ): Promise<
+-    | { readonly ok: false; readonly refusal: Refusal }
+-    | {
+-        readonly ok: true;
+-        readonly opened: NonNullable<Awaited<ReturnType<typeof open>>>;
+-      }
+-  > {
++    declared: readonly Effect[],
++    work: (transaction: EffectTransaction<Effect>) => Promise<void>,
++    slot: Extract<Slot, { kind: "transaction" }>,
++    refuse: (refusal: Refusal) => TransactionProof<Effect>,
++  ): Promise<TransactionProof<Effect>> {
++    const gate = unflaggedWriteGate();
++    const declaration = slot.declaration;
++    if (declared.length === 0 || declaration.command.length === 0)
++      return refuse({ kind: "unavailable", reason: "declaration" });
++    const scope: CanonicalScope = canonicalise(declaration.scope);
++    const keys = scope.unknown ? undefined : scope.keys;
++    const admitted = await coordinate(gate, keys, keys ?? [], {
++      liveOnly: false,
++    });
++    if (!admitted.ok) return refuse(admitted.refusal);
+     const approval = await consumeApprovalUnflagged(
+       issuer,
+       runId,
+@@ -1902,8 +1905,10 @@ export function install(options: StateOptions, seams: Seams) {
+       scope,
+       admitted.isActive,
+     );
+-    if (approval !== null && approval.kind !== "preview")
+-      return { ok: false, refusal: approval };
++    if (approval !== null && approval.kind !== "preview") {
++      admitted.release();
++      return refuse(approval);
++    }
+     const opened = await open(
+       gate,
+       runId,
+@@ -1919,68 +1924,25 @@ export function install(options: StateOptions, seams: Seams) {
+       },
+       admitted,
+     );
+-    if (!opened)
+-      return {
+-        ok: false,
+-        refusal: { kind: "unavailable", reason: "store-publication" },
+-      };
+-    return { ok: true, opened };
+-  }
+-
+-  async function transactUnflagged<Effect extends string>(
+-    issuer: StateIssuer,
+-    runId: string,
+-    declared: readonly Effect[],
+-    work: (transaction: EffectTransaction<Effect>) => Promise<void>,
+-    slot: Extract<Slot, { kind: "transaction" }>,
+-    refuse: (refusal: Refusal) => TransactionProof<Effect>,
+-  ): Promise<TransactionProof<Effect>> {
+-    const gate = unflaggedWriteGate();
+-    const declaration = slot.declaration;
+-    if (declared.length === 0 || declaration.command.length === 0)
+-      return refuse({ kind: "unavailable", reason: "declaration" });
+-    const scope: CanonicalScope = canonicalise(declaration.scope);
+-    const keys = scope.unknown ? undefined : scope.keys;
+-    const admitted = await coordinate(gate, keys, keys ?? [], {
+-      liveOnly: false,
+-    });
+-    if (!admitted.ok) return refuse(admitted.refusal);
+-    let handedOff = false;
+-    try {
+-      const prepared = await openUnflagged(
+-        gate,
+-        issuer,
+-        runId,
+-        declared,
+-        declaration,
+-        scope,
+-        admitted,
+-      );
+-      if (!prepared.ok) return refuse(prepared.refusal);
+-      const { opened } = prepared;
+-      slot.operationId = opened.operationId;
+-      handedOff = true;
+-      const { observation, workFailed } = await runRecorded(
+-        gate,
+-        issuer,
+-        runId,
+-        declared,
+-        {
+-          events: opened.events,
+-          releaseKeyLocks: admitted.release,
+-          releaseLease: opened.releaseLease,
+-        },
+-        work,
+-      );
+-      slot.outcome = {
+-        kind: "ran",
+-        operationId: opened.operationId,
+-        workFailed,
+-      };
+-      return issuer.transactionProof(runId, observation);
+-    } finally {
+-      if (!handedOff) admitted.release();
++    if (!opened) {
++      admitted.release();
++      return refuse({ kind: "unavailable", reason: "store-publication" });
+     }
++    slot.operationId = opened.operationId;
++    const { observation, workFailed } = await runRecorded(
++      gate,
++      issuer,
++      runId,
++      declared,
++      {
++        events: opened.events,
++        releaseKeyLocks: admitted.release,
++        releaseLease: opened.releaseLease,
++      },
++      work,
++    );
++    slot.outcome = { kind: "ran", operationId: opened.operationId, workFailed };
++    return issuer.transactionProof(runId, observation);
+   }
+ 
+   async function admitAndOpenFlagged<Effect extends string>(
