@@ -1,0 +1,7 @@
+{
+  "id": "7cb3ae10-drive-post-open-recheck",
+  "patch": "tests/planted-faults/patches/7cb3ae10-drive-post-open-recheck.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "fileSeen refuses a parent or scratch folder swapped for a link between check and open",
+  "source": "7cb3ae10 fix(verify-cli): open canonical target and recheck opened file"
+}
