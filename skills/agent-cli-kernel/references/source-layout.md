@@ -39,6 +39,31 @@ and turn on the Fallow boundary gate in the same change.
   those). The folder name `shared` is reserved: name no subject `shared`, or
   its commands become importable by every subject.
 
+## Packages that export commands
+
+A package that exports commands for other CLIs to mount exposes factory
+functions and its host cause table:
+
+- Parameterize each command factory by the mounting CLI's `cli` name so its
+  command identities (`<cli>.<name>`) and command-step targets belong to the
+  mounting CLI.
+- Parameterize each changing command factory by the mounting CLI's `state`
+  add-on, and pass `state.descriptor.ifNoResult` to `changing({...})` and
+  `state.descriptor.ifNoResult.step` into handoff `inspect` steps.
+  `contractFor` throws if a changing command carries `ifNoResult` from a
+  different state add-on descriptor.
+- Export the package's host cause rows (`as const satisfies CauseTable`) so
+  the mounting CLI merges them into
+  `contractFor({ causes: { ...commonCauses, ...packageCauses, ...cliCauses } })`.
+  Prefix cause codes with the package or subject name: if two merged tables
+  define the same code with different rows, `contractFor` throws
+  `Station disagrees with the CLI cause owner.` at start-up.
+- Keep command factories in their subject folders (`src/<subject>/<verb>.ts`)
+  and re-export them from entry files (`src/commands.ts` or
+  `src/commands/**`). Place cross-subject or commandless library code that
+  imports shared edges in `src/shared/`, and pure logic with no `src/shared/`
+  or I/O imports in `src/<subject>/rules.ts`.
+
 ## Tests
 
 - Drive command tests through the command line or the contract built in

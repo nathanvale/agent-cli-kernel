@@ -108,3 +108,27 @@ test("a refusal exits with its cause's code and writes one line to stderr", () =
   A test then passes its own.
 - A result that is hard to reach is still `required`. See
   [reachability](stations.md#reachability).
+
+## Discovery snapshots
+
+To catch unintended contract drift in tests, snapshot the CLI's discovery
+data:
+
+- `--discover-all --json` returns `contractVersion`, `stationProseSource`,
+  `exitMeanings`, `signalExits`, `effectExclusions` and every command's
+  `{ command, semantics, ifNoResult, input, stations }`, with each station's
+  `trigger`, `guidance` and `repairAction` omitted.
+- `--discover-command <identity> --json` returns one command's
+  `{ command, semantics, ifNoResult, input, stations }`, including each
+  station's `trigger`, `guidance` and `repairAction` (and omitting
+  `independentObservable`, which discovery never prints).
+- Across runs, `envelope.result.runId` changes on every invocation, and
+  `envelope.diagnostics` (present when the diagnostics add-on is attached)
+  carries a run-specific log file path. `envelope.result.data` does not
+  change from run to run.
+- Snapshot `envelope.result.data` from `--discover-all --json` (or strip
+  `result.runId` and `diagnostics` if snapshotting the whole envelope) to
+  pin routes, inputs and cause codes.
+- Snapshot `envelope.result.data` from `--discover-command <identity> --json`
+  for any command whose `trigger`, `guidance` or `repairAction` is part of
+  the tested contract.
