@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
+--- a/kernel/src/kernel/input.ts
++++ b/kernel/src/kernel/input.ts
+@@ -166,11 +166,6 @@ async function checkString(
+ }
+ function checkStringSync(token: string, schema: StringValue): Checked<string> {
+   const basic = checkStringBasics(token, schema);
+-  if (!basic.ok || schema.pattern === null) return basic;
+-  return patternOutcome(
+-    token,
+-    schema.pattern,
+-    matchPatternSync(schema.pattern, token),
+-  );
++  return basic;
+ }
+ async function checkValue(
